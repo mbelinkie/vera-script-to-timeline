@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  createResearchClient, researchOrigin, resolveProjectName,
+  createResearchClient, researchOrigin, resolveProjectName, matchingResearchClipCues,
   type ResearchProject,
 } from "../src/research-clip-client.js";
+import { snapshotResearchCandidateV2 } from "../src/authoring-v2-research-snapshot.js";
 import { researchCandidate, researchId } from "./issue-367-fixture.js";
 
 const SECRET = "private-dev-credential-do-not-print";
@@ -177,5 +178,61 @@ describe("Research GET-only transport", () => {
     expect(messages.join(" | ")).not.toContain(SECRET);
     expect(messages[0]).toContain("Research is unavailable");
     expect(messages[1]).toContain("Research returned invalid JSON");
+  });
+});
+
+describe("published transcript cue read", () => {
+  const pin = snapshotResearchCandidateV2(researchCandidate());
+  function workspace() {
+    return {
+      schemaVersion: 1, catalogState: "active_verified", projectId: pin.researchProjectId,
+      catalogVideoId: pin.catalogVideoId, youtubeVideoId: pin.video.youtubeVideoId,
+      english: { track: { id: pin.loggedSelection.trackId, version: pin.loggedSelection.transcriptVersion,
+        videoId: pin.video.youtubeVideoId, kind: "english", language: "en", timingPrecision: "word" },
+        segments: [
+          { id: pin.loggedSelection.firstSegmentId, trackId: pin.loggedSelection.trackId,
+            startMs: 1000, endMs: 2000, text: "First" },
+          { id: pin.loggedSelection.lastSegmentId, trackId: pin.loggedSelection.trackId,
+            startMs: 2000, endMs: 4000, text: "Last" },
+          { id: researchId(710025), trackId: pin.loggedSelection.trackId,
+            startMs: 4000, endMs: 5000, text: "Not logged" },
+        ], tokens: [{ text: "not returned" }],
+      },
+    };
+  }
+  it("returns minimal caption intervals only, even from word-timed tracks", async () => {
+    const fake = fakeService(() => Response.json(workspace()));
+    expect(await client(fake.request).matchedClipCues(pin)).toEqual([
+      { startMs: 1000, endMs: 2000, text: "First" }, { startMs: 2000, endMs: 4000, text: "Last" },
+    ]);
+    expect(fake.calls[0]!.url.pathname).toBe(`/api/projects/${pin.researchProjectId}/videos/${pin.catalogVideoId}/transcript`);
+    expect(fake.calls[0]!.url.searchParams.get("preferredLanguage")).toBe("en");
+    expect(fake.calls[0]!.init?.method).toBe("GET");
+  });
+  it("falls back on each identity mismatch, offline/estimated tracks or malformed segments", () => {
+    for (const change of [
+      (w: ReturnType<typeof workspace>) => { w.projectId = researchId(1); },
+      (w: ReturnType<typeof workspace>) => { w.catalogVideoId = researchId(2); },
+      (w: ReturnType<typeof workspace>) => { w.youtubeVideoId = "different"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.id = researchId(3); },
+      (w: ReturnType<typeof workspace>) => { w.english.track.version++; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.videoId = "different"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.language = "es"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.kind = "translation"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.timingPrecision = "estimated"; },
+      (w: ReturnType<typeof workspace>) => { w.catalogState = "offline_cached"; },
+      (w: ReturnType<typeof workspace>) => { w.english.segments[0]!.trackId = researchId(4); },
+      (w: ReturnType<typeof workspace>) => { w.english.segments[0]!.endMs = 1000; },
+      (w: ReturnType<typeof workspace>) => { w.english.segments.shift(); },
+    ]) {
+      const changed = workspace();
+      change(changed);
+      expect(matchingResearchClipCues(changed, pin)).toBeNull();
+    }
+  });
+  it("bounds the response and refuses invalid JSON", async () => {
+    for (const body of ["not JSON", JSON.stringify({ large: "x".repeat(4 * 1024 * 1024) })]) {
+      expect(await client(fakeService(() => new Response(body)).request).matchedClipCues(pin)).toBeNull();
+    }
   });
 });

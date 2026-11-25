@@ -73,6 +73,9 @@ interface BrowserVisualTestApi {
   queueResearchStillInsert(request: { researchProjectId: string; itemId: string; itemVersion: number;
     placement: unknown }): Promise<boolean>;
   researchCatalogGet(researchProjectId?: string, clipId?: string): Promise<unknown>;
+  researchTrimBasis(): unknown;
+  queueResearchTrim(basis: unknown, command: unknown): Promise<boolean>;
+  openScript(projectId: string): Promise<void>;
   researchStillCatalogGet(researchProjectId: string, offset?: number): Promise<unknown>;
   projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }>; cards?: Array<{
     kind: string; startTokenIndex?: number; endTokenIndexExclusive?: number; slotId?: string;
@@ -91,7 +94,7 @@ declare global {
 async function exposeVisualTestApi(page: Page): Promise<void> {
   await page.route("**/app.js", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, projectedPrimaryRow, renderEditor, invalidateProjection };` });
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, researchTrimBasis, queueResearchTrim, openScript, projectedPrimaryRow, renderEditor, invalidateProjection };` });
   });
 }
 
@@ -1470,6 +1473,70 @@ describe("browser authoring over the local project service", () => {
       block.type === "visual_only" && block.researchClip?.clipId === loggedClip.id)).toBe(true);
     await page.close();
   });
+
+  it("#83 commits one verified occurrence trim/Undo and discards a response after a project switch", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const otherProject = await createProject(page, origin, "Other trim project");
+    const projectId = await createProject(page, origin, "Verified trim queue");
+    const model = editableDocumentFixture(projectId, "alpha beta").document;
+    const first = researchOccurrence(880300);
+    const sibling = researchOccurrence(880400);
+    model.activeDraft = { blocks: [first, sibling], supportingItems: [] };
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const before = await read();
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const command = { kind: "trim_research_clip", clipRowId: first.id, edge: "range", startFrame: 30, endFrame: 50 };
+    const trim = async () => page.evaluate(async (command) => {
+      const app = window.__veraVisualTest!;
+      return await app.queueResearchTrim(app.researchTrimBasis(), command);
+    }, command);
+    expect(await trim()).toBe(true);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const saved = await read();
+    expect(saved.revision).toBe(before.revision + 1);
+    expect(saved.document.activeDraft.blocks[0]).toMatchObject({
+      researchClip: first.researchClip, frameBinding: first.frameBinding,
+      visualOnlyTiming: { selectedSourceRange: { startFrame: 30, durationFrames: 20 } },
+    });
+    expect(saved.document.activeDraft.blocks[1]).toEqual(sibling);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Trim footage"]);
+    expect(await trim()).toBe(false);
+    expect(await read()).toEqual(saved);
+    await page.getByRole("button", { name: "Undo Trim footage" }).click();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const undone = await read();
+    expect(undone.revision).toBe(saved.revision + 1);
+    expect(undone.document).toEqual(before.document);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+
+    // Hold the real host result after it is calculated, then open a different
+    // project in this same page before the trim response reaches the queue.
+    let release!: () => void;
+    let received!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const reached = new Promise<void>((resolve) => { received = resolve; });
+    await page.route("**/authoring/research-trim", async (route) => {
+      const response = await route.fetch();
+      received();
+      await held;
+      await route.fulfill({ response });
+    });
+    const pending = trim();
+    await reached;
+    try {
+      await page.evaluate(async (id) => window.__veraVisualTest!.openScript(id), otherProject);
+      expect(new URL(page.url()).searchParams.get("project")).toBe(otherProject);
+    } finally { release(); }
+    expect(await pending).toBe(false);
+    expect(await read()).toEqual(undone);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await page.close();
+  }, 90_000);
 
   it("does not add Undo or save when Research membership is revoked or a choice is stale", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

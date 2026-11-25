@@ -1024,6 +1024,45 @@ export async function researchStillThumbnailGet(researchProjectId, itemId, itemV
   };
 }
 
+// Freeze the gesture's saved head rather than silently rebasing it to another
+// row, project, or pending edit. Only a committed gesture calls this function.
+function trimBasis() {
+  return prompterReady() ? {
+    projectId: activeProjectId, document: scriptDocument, revision: documentRevision, digest: documentDigest,
+  } : null;
+}
+
+function trimBasisCurrent(basis) {
+  return !opening && activeProjectId === basis.projectId && scriptDocument === basis.document &&
+    documentRevision === basis.revision && documentDigest === basis.digest &&
+    !conflicted && !editRefused && !documentSaving && !documentDirty && !pendingDocument && !pendingExtras;
+}
+
+function trimEnvelope(basis) {
+  return { timelineProjectId: basis.projectId, expectedRevision: basis.revision,
+    expectedDigest: basis.digest, expectedRowEditRevision: basis.document.rowEditRevision ?? 0 };
+}
+
+// Phase 3 captures this at gesture start and passes it back on commit.
+export function researchTrimBasis() { return trimBasis(); }
+
+export function queueResearchTrim(basis, command) {
+  if (!basis || !prompterReady() || !trimBasisCurrent(basis)) {
+    setSaveStatus("The saved script changed. Choose the footage again after saving.");
+    return Promise.resolve(false);
+  }
+  return queueCommand(structuredClone(command), "Trim footage", { structural: true, trim: basis });
+}
+
+export async function researchTrimTiming(clipRowId) {
+  const basis = trimBasis();
+  if (!basis) return null;
+  try {
+    const result = await authoringVisualPost("research-trim-timing", { ...trimEnvelope(basis), clipRowId });
+    return trimBasisCurrent(basis) && !commandsPending ? result.cues : null;
+  } catch { return null; }
+}
+
 /** Resolves placement only after earlier typing has produced actual current token IDs. */
 export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
   const projectId = activeProjectId;
@@ -1656,6 +1695,26 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.trim) {
+      const basis = options.trim;
+      if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Choose the footage again.");
+      const result = await authoringVisualPost("research-trim", { ...trimEnvelope(basis), command: resolved });
+      if (!trimBasisCurrent(basis) || result.document?.projectId !== basis.projectId ||
+          JSON.stringify(result.document) === JSON.stringify(basis.document)) {
+        throw new Error("The saved script changed or the trim did not change the footage.");
+      }
+      typingGroup = null;
+      undoStack.push({ document: basis.document, label });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      updateUndo();
+      documentDirty = true;
+      // saveDocument uses the same expectedRevision, never a refreshed head.
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      return true;
+    }
     if (options.research || options.researchStill) {
       typingGroup = null;
       const prior = scriptDocument;

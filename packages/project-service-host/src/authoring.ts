@@ -27,6 +27,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
   ["/research-still-panel.js", ["research-still-panel.js", "text/javascript; charset=utf-8"]],
   ["/footage-player.js", ["footage-player.js", "text/javascript; charset=utf-8"]],
+  ["/footage-trim-timing.js", ["footage-trim-timing.js", "text/javascript; charset=utf-8"]],
   ["/research-search.js", ["research-search.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
@@ -241,6 +242,25 @@ function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
   return value as RowEditCommandV2;
 }
 
+type TrimCommand = Extract<RowEditCommandV2, { kind: "trim_research_clip" }>;
+
+function trimCommand(value: unknown): value is TrimCommand {
+  if (!record(value) || value.kind !== "trim_research_clip" || !uuid(value.clipRowId)) return false;
+  const keys = ["kind", "clipRowId", "edge"];
+  return value.edge === "reset" ? exact(value, keys) :
+    value.edge === "range" && exact(value, [...keys, "startFrame", "endFrame"]) &&
+    Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&
+    Number.isSafeInteger(value.endFrame) && (value.endFrame as number) > (value.startFrame as number);
+}
+
+function occurrence(document: ScriptDocumentV2, clipRowId: string) {
+  for (const row of [...document.activeDraft.blocks, ...(document.stash ?? []).flatMap(b => b.rows)]) {
+    if (row.type === "visual_only" && row.id === clipRowId) return row;
+    if (row.type === "narration" && row.attachedFootage?.clip.id === clipRowId) return row.attachedFootage.clip;
+  }
+  return undefined;
+}
+
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
 }
@@ -248,7 +268,7 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
 /** No quote mutation, request transport or bearer crosses this browser-facing seam. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringReadOnlyResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
-  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail">>;
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "matchedClipCues">>;
 
 export interface AuthoringResearchAccess {
   catalog: AuthoringReadOnlyResearchCatalog;
@@ -306,6 +326,7 @@ export function createAuthoringHandler(
   authorization: string,
   projects: (request: Request) => Promise<Response>,
   research?: AuthoringResearchAccess,
+  authorizeTimelineProject = research?.authorizeTimelineProject.bind(research),
 ) {
   const launchProof = randomBytes(32);
   // Keep the enrolled browser working after host restart. Tie it to the
@@ -350,6 +371,8 @@ export function createAuthoringHandler(
     const isSortingTrial = !!sortingRoute && request.method === "POST";
     const isExtrasOperation = EXTRAS.test(path) && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
+    const isTrim = path === "/research-trim" && request.method === "POST";
+    const isTrimTiming = path === "/research-trim-timing" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
     const isVisualPreview = path === "/visual-preview" && request.method === "POST";
@@ -361,7 +384,7 @@ export function createAuthoringHandler(
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
+        !isTrim && !isTrimTiming && !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
         (stillRoute ? stillNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -385,6 +408,74 @@ export function createAuthoringHandler(
     }
     if (isExtrasOperation && request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
       return Response.json({ error: "invalid_request" }, { status: 400 });
+    }
+    if (isTrim || isTrimTiming) {
+      let body: unknown;
+      try { body = await request.json(); } catch { body = null; }
+      if (!record(body) || !exact(body, ["timelineProjectId", "expectedRevision", "expectedDigest",
+        "expectedRowEditRevision", isTrim ? "command" : "clipRowId"]) ||
+        !uuid(body.timelineProjectId) || !Number.isSafeInteger(body.expectedRevision) ||
+        (body.expectedRevision as number) < 0 || typeof body.expectedDigest !== "string" ||
+        !SAVED_DIGEST.test(body.expectedDigest) || !Number.isSafeInteger(body.expectedRowEditRevision) ||
+        (body.expectedRowEditRevision as number) < 0 ||
+        (isTrim ? !trimCommand(body.command) : !uuid(body.clipRowId))) {
+        return researchResponse(400, { error: "invalid_research_trim" });
+      }
+      if (!authorizeTimelineProject) return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      try {
+        const projectId = body.timelineProjectId;
+        await authorizeTimelineProject(projectId, isTrim ? "edit_document" : "view_document");
+        const saved = await projects(new Request(`${origin}/v1/projects/${projectId}/document`, {
+          headers: { authorization },
+        }));
+        if (!saved.ok) return researchResponse([401, 403, 404].includes(saved.status) ? saved.status : 503,
+          { error: "saved_script_unavailable" });
+        const head: unknown = await saved.json();
+        if (!record(head) || head.projectId !== projectId || !validateScriptDocumentV2(head.document).valid ||
+            (head.document as ScriptDocumentV2).projectId !== projectId) {
+          return researchResponse(503, { error: "saved_script_unavailable" });
+        }
+        const document = head.document as ScriptDocumentV2;
+        if (head.revision !== body.expectedRevision || head.digest !== body.expectedDigest ||
+            (document.rowEditRevision ?? 0) !== body.expectedRowEditRevision) {
+          return researchResponse(409, { error: "research_trim_stale" });
+        }
+        const command = body.command as TrimCommand;
+        const clip = occurrence(document, isTrim ? command.clipRowId : body.clipRowId as string);
+        if (!clip?.researchClip) return researchResponse(404, { error: "research_occurrence_unavailable" });
+        if (isTrim) {
+          const result = applyRowEditV2(document, body.expectedRowEditRevision, command);
+          if (result.ok) lastSplit = null;
+          // The caller saves with the same original revision via the normal
+          // authorized document PUT; a concurrent writer cannot be overwritten.
+          return researchResponse(200, result);
+        }
+        if (!research?.catalog.matchedClipCues) return researchResponse(200, { cues: null });
+        const pin = clip.researchClip;
+        const visible = await research.catalog.projects();
+        if (!visible.some(p => p.id === pin.researchProjectId)) return researchResponse(403, { error: "research_project_forbidden" });
+        const cues = await research.catalog.matchedClipCues(pin);
+        // A read can outlive the head or its membership. Do not publish timing
+        // for an occurrence the current principal can no longer inspect.
+        const latest = await projects(new Request(`${origin}/v1/projects/${projectId}/document`, {
+          headers: { authorization },
+        }));
+        if (!latest.ok) return researchResponse([401, 403, 404].includes(latest.status) ? latest.status : 503,
+          { error: "saved_script_unavailable" });
+        const current: unknown = await latest.json();
+        if (!record(current) || current.projectId !== projectId ||
+            current.revision !== head.revision || current.digest !== head.digest) {
+          return researchResponse(409, { error: "research_trim_stale" });
+        }
+        return researchResponse(200, { cues });
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        if (error instanceof ResearchReadError && [401, 403].includes(error.status)) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        return isTrimTiming ? researchResponse(200, { cues: null }) :
+          researchResponse(503, { error: "research_trim_unavailable" });
+      }
     }
     if (isSortingTrial) {
       let body: unknown;
@@ -624,7 +715,7 @@ export function createAuthoringHandler(
           if (result.ok) lastSplit = null;
           return Response.json(result);
         }
-        if (!record(command) || typeof command.kind !== "string" ||
+        if (!record(command) || typeof command.kind !== "string" || command.kind === "trim_research_clip" ||
             Object.hasOwn(body, "expectedSequenceVersion") || Object.hasOwn(body, "expectedRowEditRevision")) {
           return Response.json({ error: "invalid_command" }, { status: 400 });
         }

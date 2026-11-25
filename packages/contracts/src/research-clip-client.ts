@@ -4,6 +4,7 @@
  * included in errors or returned values.
  */
 import { createHash } from "node:crypto";
+import type { ResearchClipSnapshotV2 } from "./generated/contracts-v2.js";
 import {
   snapshotResearchCandidateV2,
   type ResearchLoggedCandidateInputV2,
@@ -167,8 +168,40 @@ export function createResearchClient(options: {
     return readResearchLibraryItem(await get(path), projectId, itemId, kind);
   }
 
+  // Active published workspace only; no acquisition, historical read, or
+  // guessed word timing. Keep the response bounded before parsing JSON.
+  async function matchedClipCues(pin: ResearchClipSnapshotV2): Promise<ResearchClipCue[] | null> {
+    if (!UUID.test(pin.researchProjectId) || !UUID.test(pin.catalogVideoId)) return null;
+    const response = await send(
+      `/api/projects/${pin.researchProjectId}/videos/${pin.catalogVideoId}/transcript?preferredLanguage=en`,
+      "application/json",
+    );
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        size += part.value.byteLength;
+        if (size > 4 * 1024 * 1024) {
+          await reader.cancel();
+          return null;
+        }
+        chunks.push(part.value);
+      }
+      return matchingResearchClipCues(JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown, pin);
+    } catch {
+      return null;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   return {
     item,
+    matchedClipCues,
 
     async source(projectId: string, sourceId: string) {
       return readResearchLibrarySource(
@@ -293,4 +326,49 @@ function libraryPath(projectId: string, kind: "items" | "sources" | "stills", re
     throw new Error("Research project and record IDs must be UUIDs.");
   }
   return `/api/projects/${projectId}/${kind}/${recordId}`;
+}
+
+
+export interface ResearchClipCue {
+  startMs: number;
+  endMs: number;
+  text: string;
+}
+
+function object(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** The local-agent workspace identifies the active catalog video and track.
+ * Return only the logged English clip's overlapping caption intervals.
+ * Never interpret token starts/derived ends as exact word evidence. */
+export function matchingResearchClipCues(value: unknown, pin: ResearchClipSnapshotV2): ResearchClipCue[] | null {
+  if (!object(value) || value.schemaVersion !== 1 || value.catalogState !== "active_verified" ||
+      value.projectId !== pin.researchProjectId || value.catalogVideoId !== pin.catalogVideoId ||
+      value.youtubeVideoId !== pin.video.youtubeVideoId || !object(value.english)) return null;
+  const { track, segments } = value.english;
+  const selection = pin.loggedSelection;
+  if (!object(track) || track.id !== selection.trackId || track.version !== selection.transcriptVersion ||
+      track.videoId !== pin.video.youtubeVideoId || track.kind !== "english" ||
+      typeof track.language !== "string" || !/^en(?:-|$)/i.test(track.language) ||
+      (track.timingPrecision !== "cue" && track.timingPrecision !== "word") ||
+      !Array.isArray(segments) || segments.length > 50_000) return null;
+  const cues: ResearchClipCue[] = [];
+  const ids = new Set<string>();
+  for (const segment of segments as unknown[]) {
+    if (!object(segment) || typeof segment.id !== "string" || !UUID.test(segment.id) ||
+        ids.has(segment.id) || segment.trackId !== track.id ||
+        !Number.isSafeInteger(segment.startMs) || !Number.isSafeInteger(segment.endMs) ||
+        (segment.startMs as number) < 0 || (segment.endMs as number) <= (segment.startMs as number) ||
+        typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 20_000) return null;
+    ids.add(segment.id);
+    const startMs = segment.startMs as number;
+    const endMs = segment.endMs as number;
+    if (startMs < selection.transcriptEndMs && endMs > selection.transcriptStartMs) {
+      cues.push({ startMs, endMs, text: segment.text });
+    }
+  }
+  if (!ids.has(selection.firstSegmentId) || !ids.has(selection.lastSegmentId) ||
+      !cues.length || cues.length > 1000) return null;
+  return cues.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
 }

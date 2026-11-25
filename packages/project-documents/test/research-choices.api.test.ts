@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { createResearchClipOccurrenceV2, snapshotResearchCandidateV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, createResearchClipOccurrenceV2, snapshotResearchCandidateV2 } from "@vera/contracts/authoring-v2";
 import type { PrincipalRef } from "@vera/contracts";
 import type { NarrationBlockV2 } from "@vera/contracts/v2";
 import type { SuiteIdentityPort } from "@vera/project-authorization";
@@ -655,5 +655,46 @@ describe("Research choices: explicit keep/update CAS", () => {
     }
     expect(h.calls).toHaveLength(0);
     expect((await h.service.getDocument(h.projectId, h.owner)).revision).toBe(0);
+  });
+});
+
+describe("verified occurrence trim save/Undo CAS", () => {
+  it("persists one trimmed use, leaves pin, sibling and frozen revision intact, and restores through one Undo save", async () => {
+    const h = await setup();
+    const before = await h.service.getDocument(h.projectId, h.owner);
+    const command = { kind: "trim_research_clip", clipRowId: h.first.id, edge: "range", startFrame: 30, endFrame: 50 } as const;
+    const result = applyRowEditV2(before.document, before.document.rowEditRevision ?? 0, command);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("trim refused");
+    const put = (subject: string, expectedRevision: number, document: typeof before.document) =>
+      h.api(new Request(base + `/${h.projectId}/document`, { method: "PUT",
+        headers: { "X-Test-Suite-Identity": subject, "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision, clientMutationId: randomUUID(), document }),
+      }));
+    expect((await put("viewer", before.revision, result.document)).status).toBe(403);
+    const receipt = await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: before.revision, clientMutationId: randomUUID(), document: result.document,
+    });
+    expect(receipt.revision).toBe(before.revision + 1);
+    const after = await h.service.getDocument(h.projectId, h.owner);
+    expect(after.document.activeDraft.blocks[0]).toMatchObject({
+      researchClip: h.first.researchClip, frameBinding: h.first.frameBinding,
+      visualOnlyTiming: { selectedSourceRange: { startFrame: 30, durationFrames: 20 } },
+    });
+    expect(after.document.activeDraft.blocks[1]).toEqual(h.second);
+    expect(after.document.stash).toEqual(before.document.stash);
+    expect(await h.service.getDocumentRevision(h.projectId, h.owner, before.revision))
+      .toMatchObject({ document: before.document, digest: before.digest });
+    expect(applyRowEditV2(after.document, before.document.rowEditRevision ?? 0, command).ok).toBe(false);
+    await expect(h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: before.revision, clientMutationId: randomUUID(), document: result.document,
+    })).rejects.toThrow();
+    await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: after.revision, clientMutationId: randomUUID(), document: before.document,
+    });
+    const undone = await h.service.getDocument(h.projectId, h.owner);
+    expect(undone.revision).toBe(after.revision + 1);
+    expect(undone.document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+    expect(h.calls).toEqual([]);
   });
 });

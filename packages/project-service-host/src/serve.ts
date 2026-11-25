@@ -150,16 +150,16 @@ export async function startQaServer(
       }
       return response;
     };
+    const authorizeTimelineProject = async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
+      const request = new Request(origin, { headers: { authorization: authorization! } });
+      const principal = await auth.authenticateRequest(request, identity);
+      await auth.authorizeRequest(projectId, principal, action);
+    };
     const research = authorization && infrastructure.researchCatalog ? {
-      catalog: infrastructure.researchCatalog,
-      authorizeTimelineProject: async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
-        const request = new Request(origin, { headers: { authorization } });
-        const principal = await auth.authenticateRequest(request, identity);
-        await auth.authorizeRequest(projectId, principal, action);
-      },
+      catalog: infrastructure.researchCatalog, authorizeTimelineProject,
     } : undefined;
     const authoring = authorization === undefined ? undefined :
-      createAuthoringHandler(origin, authorization, handleApi, research);
+      createAuthoringHandler(origin, authorization, handleApi, research, authorizeTimelineProject);
     server = await listenQaHttp(config.bindHost, config.port,
       async (request) => await authoring?.handle(request) ?? await handleApi(request),
       createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
