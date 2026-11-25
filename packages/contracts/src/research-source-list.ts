@@ -1,11 +1,12 @@
-import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import type { ResearchStillSnapshotV2, ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import type { ResearchLibraryItemKind } from "./research-library-records.js";
 import { indexResearchClipUsageV2 } from "./research-clip-usage-v2.js";
 import { formatMlaCitation, type MlaSource } from "./mla-citation.js";
 
 export interface ResearchLibraryItemReference {
   projectId: string;
   itemId: string;
-  kind: "quote" | "clip";
+  kind: ResearchLibraryItemKind;
 }
 
 /**
@@ -33,6 +34,7 @@ export function formatResearchSourceList(
  * Collect exact Research item identities from active script rows only.
  * Quote boxes carry their item ID; clip usage indexing supplies the stable
  * (Research project, clip) identity and knows how to collapse attached mirrors.
+ * Placed stills carry their own project and item identity in the visual payload.
  */
 export function usedResearchLibraryItems(
   document: ScriptDocumentV2,
@@ -66,6 +68,18 @@ export function usedResearchLibraryItems(
   for (const usage of indexResearchClipUsageV2(activeOnly)) {
     if (!usage.scriptUses.some((use) => use.kind !== "unattached")) continue;
     add({ projectId: usage.researchProjectId, itemId: usage.clipId, kind: "clip" });
+  }
+  // Keep the existing quote/clip ordering; append stills in active row,
+  // primary-slot, then overlay order. Waiting visuals are not placed content.
+  const addStill = (still: ResearchStillSnapshotV2 | undefined): void => {
+    if (still) add({ projectId: still.researchProjectId, itemId: still.itemId, kind: "still" });
+  };
+  for (const block of activeOnly.activeDraft.blocks) {
+    if (block.type !== "narration") continue;
+    for (const slot of block.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind === "content" && slot.payload.kind === "visual") addStill(slot.payload.researchStill);
+    }
+    for (const event of block.overlayEvents) addStill(event.payload.researchStill);
   }
   return items;
 }
