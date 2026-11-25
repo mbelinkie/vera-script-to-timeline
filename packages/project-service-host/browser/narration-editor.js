@@ -1216,7 +1216,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     if (editingBlocked) return;
     const before = localRow;
     const newRowId = newId();
-    const handoff = { target: null, offset: 0, failure: null, typingSession: newId(), inputs: [] };
+    const handoff = { original: before, originalOffset: offset, target: null, offset: 0,
+      failure: null, typingSession: newId(), inputs: [] };
     pendingSplit = handoff;
     const pending = dispatch(splitIntent(before, newRowId, offset), "Split row", before, {
       structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
@@ -1254,6 +1255,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     } else if (input.kind === "paragraph") {
       if (!offset) return null;
       text = "\n";
+    } else if (input.kind === "paste") {
+      text = pasteParagraphBlocks(text).join("\n\n");
     }
     const delimiter = directionDelimiterAt(before, start, end, before.text);
     if (delimiter !== null && text === "") {
@@ -1268,17 +1271,46 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const normalized = normalizedTextEdit(before, start, end, text);
     return { command: { kind: "edit_narration_text", rowId: before.id, startOffset: start, endOffset: end,
       insertedText: text, editId: newId() }, draft,
-      label: input.kind === "paragraph" ? "New paragraph" : draft.text === "" ? "Cleared narration" : "Edit narration",
+      label: input.kind === "paragraph" ? "New paragraph"
+        : before.text.slice(0, start) + text + before.text.slice(end) === "" ? "Cleared narration" : "Edit narration",
       offset: Math.min(normalized.startOffset + normalized.insertedText.length, draft.text.length) };
+  }
+
+  function showRefusedSplitDraft(handoff, edit) {
+    // Keep the rejected draft copyable, including typing already queued
+    // behind this failed edit, just as the ordinary optimistic editor does.
+    if (!mounted) return;
+    let draft = edit.draft, caret = edit.offset;
+    for (const later of handoff.inputs) {
+      if (later.kind === "split" || later.kind === "backspace" && caret === 0) break;
+      const next = splitTextEdit(draft, caret, later);
+      if (next) { draft = next.draft; caret = next.offset; }
+    }
+    pendingSplit = null;
+    editingBlocked = true;
+    localRow = draft;
+    knownText = draft.text;
+    renderEditor(editor, draft);
+    setCaret(editor, caret);
   }
 
   function queueSplitInput(input) {
     const handoff = pendingSplit;
     if (!handoff) return;
+    const boundary = typingBoundary;
     handoff.inputs.push(input);
     void command(null, "Continue after split", { structural: true, prepareSplitInput() {
-      handoff.inputs.shift();
-      if (handoff.failure) throw new Error(handoff.failure);
+      handoff.inputs.splice(handoff.inputs.indexOf(input), 1);
+      if (handoff.failure) {
+        // No destination was created. Never apply a queued key to the old
+        // row, but retain entered text for copy/discard if the split failed.
+        const before = handoff.target ?? handoff.original;
+        const offset = handoff.target ? handoff.offset : handoff.originalOffset;
+        const edit = ["text", "paste"].includes(input.kind) ? splitTextEdit(before, offset, input) : null;
+        if (!edit) throw new Error(handoff.failure);
+        return { command: () => { throw new Error(handoff.failure); }, label: edit.label,
+          options: { expectedRow: expectedRow(before), onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
+      }
       const before = handoff.target;
       if (!before) return null;
       const offset = handoff.offset;
@@ -1296,24 +1328,16 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       }
       const edit = splitTextEdit(before, offset, input);
       if (!edit) return null;
+      if (input.kind === "paste") {
+        return { command: { kind: "paste_plain_text", rowId: before.id, startOffset: offset, endOffset: offset,
+          blocks: pasteParagraphBlocks(input.text) }, label: "Paste text",
+          options: { ...options, paste: true, onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
+      }
       return { command: edit.command, label: edit.label, options: { ...options,
         focusAfter: { rowId: before.id, offset: edit.offset },
-        ...(edit.label === "Edit narration" ? { typingSession: handoff.typingSession, typingBoundary } : {}),
-        onSplitRefused() {
-          // Keep the rejected draft copyable, including typing already queued
-          // behind this failed edit, just as the ordinary optimistic editor does.
-          if (!mounted) return;
-          let draft = edit.draft, caret = edit.offset;
-          for (const later of handoff.inputs) {
-            if (later.kind === "split" || later.kind === "backspace" && caret === 0) break;
-            const next = splitTextEdit(draft, caret, later);
-            if (next) { draft = next.draft; caret = next.offset; }
-          }
-          localRow = draft;
-          knownText = draft.text;
-          renderEditor(editor, draft);
-          setCaret(editor, caret);
-        } } };
+        ...(edit.command.kind === "edit_narration_text" && input.kind !== "paragraph"
+          ? { typingSession: handoff.typingSession, typingBoundary: boundary } : {}),
+        onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
     } });
   }
 
@@ -1364,8 +1388,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       if (composing || event.isComposing) return;
       const type = event.inputType;
       if (type === "insertText" || type === "insertReplacementText") {
-        const text = event.data ?? event.dataTransfer?.getData?.("text/plain");
+        let text = event.data;
+        if (text == null && type === "insertReplacementText") {
+          try { text = event.dataTransfer?.getData?.("text/plain"); } catch { return; }
+        }
         if (typeof text === "string" && text) queueSplitInput({ kind: "text", text });
+      } else if (type === "insertFromPaste") {
+        const text = event.dataTransfer?.getData?.("text/plain");
+        if (typeof text === "string" && text) queueSplitInput({ kind: "paste", text });
       } else if (type === "deleteContentBackward") queueSplitInput({ kind: "backspace" });
       else if (type === "deleteContentForward") queueSplitInput({ kind: "delete" });
       else if (type === "insertParagraph" || type === "insertLineBreak") queueSplitInput({ kind: "paragraph" });
@@ -1443,7 +1473,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     event.preventDefault();
     if (reselect) return;
     const plain = event.clipboardData?.getData("text/plain");
-    if (typeof plain === "string") pastePlainText(plain);
+    if (typeof plain === "string") {
+      if (pendingSplit && plain && !composing) queueSplitInput({ kind: "paste", text: plain });
+      else pastePlainText(plain);
+    }
   }
 
   function performAction(action) {

@@ -2880,12 +2880,15 @@ describe("browser authoring over the local project service", () => {
   }, 90_000);
 
   it.each([
-    { key: "Backspace", expected: ["alpha beta gamma"], undoLabel: "Join rows" },
-    { key: "x", expected: ["alpha", "xbeta gamma"], undoLabel: "Edit narration" },
-  ])("hands $key to the new row while the Tab split command is held (#716)", async ({ key, expected, undoLabel }) => {
+    { keys: ["Backspace"], expected: ["alpha beta gamma"], undoLabel: "Join rows", requests: 2 },
+    { keys: ["x"], expected: ["alpha", "xbeta gamma"], undoLabel: "Edit narration", requests: 2 },
+    { keys: ["x", "y"], expected: ["alpha", "xybeta gamma"], undoLabel: "Edit narration", requests: 3 },
+    { keys: ["x", "Control+z"], expected: ["alpha", "beta gamma"], undoLabel: "Split row", requests: 2 },
+    { keys: ["paste"], expected: ["alpha", "pasted beta gamma"], undoLabel: "Paste text", requests: 2 },
+  ])("hands $keys to the new row while the Tab split command is held (#716)", async ({ keys, expected, undoLabel, requests }) => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
-    const projectId = await createProject(page, origin, `Pending split ${key}`);
+    const projectId = await createProject(page, origin, `Pending split ${keys.join(" ")}`);
     const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
     await saveDocumentFixture(page, projectId, seeded.document);
     await page.goto(`${origin}/?project=${projectId}`);
@@ -2904,24 +2907,76 @@ describe("browser authoring over the local project service", () => {
       await placeCaret(editor, 6);
       await page.keyboard.press("Tab");
       await firstStarted;
-      await page.keyboard.press(key);
+      for (const key of keys) {
+        if (key === "paste") {
+          await editor.evaluate((element) => {
+            const clipboardData = new DataTransfer();
+            clipboardData.setData("text/plain", "pasted ");
+            element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }));
+          });
+        } else await page.keyboard.press(key);
+      }
       expect(commands).toBe(1);
     } finally { release(); }
     try {
       await expect.poll(() => page.locator("#save-status").textContent()).toBe("Saved");
-      expect(commands).toBe(2);
+      expect(commands).toBe(requests);
       const rows = await narrationRowsFromApi(page, projectId);
       expect(rows.map((row) => row.text)).toEqual(expected);
       expect(await page.locator("#discard-edit").isHidden()).toBe(true);
       await expect.poll(() => page.locator("[data-narration-editor]").allTextContents()).toEqual(expected);
-      await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id")))
-        .toBe(rows.at(-1)?.id);
-      await page.getByRole("button", { name: `Undo ${undoLabel}` }).click();
-      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
-        .toEqual(["alpha", "beta gamma"]);
+      if (undoLabel !== "Split row") {
+        await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id")))
+          .toBe(rows.at(-1)?.id);
+        await page.getByRole("button", { name: `Undo ${undoLabel}` }).click();
+        await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+          .toEqual(["alpha", "beta gamma"]);
+      }
       await page.getByRole("button", { name: "Undo Split row" }).click();
       await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
         .toEqual(["alpha beta gamma"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  it("keeps queued text copyable when the held Tab split is refused (#716)", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Refused pending split");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let started!: () => void;
+    let release!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { started = resolve; });
+    const firstReleased = new Promise<void>((resolve) => { release = resolve; });
+    let commands = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      if (++commands !== 1) return await route.continue();
+      started(); await firstReleased;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: false, diagnostics: [{ message: "Deliberate split refusal" }] }) });
+    });
+    try {
+      await placeCaret(editor, 6);
+      await page.keyboard.press("Tab");
+      await firstStarted;
+      await page.keyboard.press("x");
+      await page.keyboard.press("y");
+    } finally { release(); }
+    try {
+      const discard = page.getByRole("button", { name: "Discard unsaved text" });
+      await discard.waitFor({ state: "visible" });
+      await expect.poll(() => discard.isEnabled()).toBe(true);
+      expect(await page.locator("#save-status").textContent()).toContain("Deliberate split refusal");
+      expect(await editorText(editor)).toBe("alpha xybeta gamma");
+      expect(commands).toBe(1);
+      expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["alpha beta gamma"]);
+      page.once("dialog", async (dialog) => await dialog.accept());
+      await discard.click();
+      await expect.poll(() => editorText(editor)).toBe("alpha beta gamma");
+      await expect.poll(() => page.locator("#save-status").textContent()).toBe("Saved");
     } finally { await page.close(); }
   }, 90_000);
 
