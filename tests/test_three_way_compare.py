@@ -142,6 +142,90 @@ def test_only_changed_event_semantics_mark_own_row() -> None:
     ]
 
 
+SECTION_ID = "00000000-0000-4000-8000-000000000099"
+
+
+def _section_marker(case: dict[str, Any], side: str) -> None:
+    document = case[f"{side}Document"]
+    document["activeDraft"]["blocks"].insert(
+        0, {"id": SECTION_ID, "type": "section", "title": "Opening"}
+    )
+    manifest = case[f"{side}Manifest"]
+    manifest["tracks"].append({"id": "markers"})
+    manifest["events"].append(
+        {
+            "eventId": "section-marker-1",
+            "kind": "script_marker",
+            "trackId": "markers",
+            "trackRole": "marker",
+            "recordRange": {"startFrame": 0, "endFrame": 1},
+            "provenance": {"documentId": document["id"], "blockId": SECTION_ID},
+            "marker": {"supportingItemId": SECTION_ID, "text": "Opening"},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("operation", "expected"),
+    [
+        ("identical", "unchanged"),
+        ("rename", "changed"),
+        ("move", "changed"),
+        ("remove", "removed"),
+        ("add", "added"),
+        ("omit", "removed"),
+    ],
+)
+def test_section_marker_comparison_is_independent_of_rows(
+    operation: str, expected: str
+) -> None:
+    case = _case()
+    if operation != "add":
+        _section_marker(case, "baseline")
+    if operation != "remove":
+        _section_marker(case, "current")
+    blocks = case["currentDocument"]["activeDraft"]["blocks"]
+    events = case["currentManifest"]["events"]
+    if operation == "rename":
+        blocks[0]["title"] = "New opening"
+        events[-1]["marker"]["text"] = "New opening"
+    elif operation == "move":
+        blocks.insert(1, blocks.pop(0))
+        events[-1]["recordRange"] = {"startFrame": 10, "endFrame": 11}
+    elif operation == "omit":
+        events.pop()
+    frozen = deepcopy(case)
+    script = _compare(case)
+    result = _three_way(case)
+    assert case == frozen
+    assert result["sectionMarkerChanges"] == script["sectionMarkerChanges"]
+    marker = result["sectionMarkerChanges"][SECTION_ID]
+    assert marker["scriptChange"] == expected
+    assert bool(marker["baselineEvents"]) == (operation != "add")
+    assert bool(marker["currentEvents"]) == (operation not in {"remove", "omit"})
+    if operation == "rename":
+        assert marker["currentEvents"][0]["marker"]["text"] == "New opening"
+    if operation == "move":
+        assert marker["currentEvents"][0]["recordRange"]["startFrame"] == 10
+    assert [row["state"] for row in result["rows"]] == ["unchanged"] * 3
+    assert result["rows"] == _three_way(_case())["rows"]
+    assert result["unownedCompiledEvents"] == {"baseline": (), "current": ()}
+
+
+@pytest.mark.parametrize("kind", ["script_marker", "primary_visual"])
+def test_unknown_section_marker_owner_or_nonmarker_section_event_is_refused(
+    kind: str,
+) -> None:
+    case = _case()
+    _section_marker(case, "current")
+    event = case["currentManifest"]["events"][-1]
+    event["kind"] = kind
+    if kind == "script_marker":
+        event["provenance"]["blockId"] = "unknown-block"
+    with pytest.raises(ValueError, match="unknown/ineligible row ID"):
+        _compare(case)
+
+
 def test_shifted_downstream_rows_are_not_false_positive_content_edits() -> None:
     case = _case()
     a, b, c = _rows(case)
