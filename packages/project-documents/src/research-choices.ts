@@ -137,6 +137,20 @@ export function updateResearchOccurrence(
       row.version++;
       changed++;
     }
+    for (const waiting of row.unattachedVisuals ?? []) {
+      if (waiting.payload.payloadId !== occurrenceId) continue;
+      if (!waiting.payload.researchClip) throw new ProjectDocumentError("version_conflict", 409);
+      waiting.payload.researchClip = structuredClone(latest);
+      delete waiting.payload.frameBinding;
+      delete waiting.payload.selectedSourceRange;
+      waiting.payload.pictureKind = "unresolved_visual";
+      waiting.payload.source = structuredClone(unresolved);
+      waiting.payload.sourceUsage = null;
+      waiting.version++;
+      if (row.primaryVisualSequence) row.primaryVisualSequence.version++;
+      row.version++;
+      changed++;
+    }
     for (const event of row.overlayEvents) {
       if (event.payload.payloadId !== occurrenceId) continue;
       if (!event.payload.researchClip) throw new ProjectDocumentError("version_conflict", 409);
@@ -211,6 +225,12 @@ function savedVisualOwners(document: ScriptDocumentV2): SavedVisualOwner[] {
         slot.relation.kind === "base" && slot.boundaryBefore.kind === "row_start";
       if (!mirrored) add(slot.payload.payloadId, slot.payload.researchClip, {
         kind: stashed ? "stash_primary" : "active_primary", rowId: row.id, slotId: slot.id, ...suffix,
+      });
+    }
+    // A waiting picture retains its primary slot identity when attached to words.
+    for (const waiting of row.unattachedVisuals ?? []) {
+      add(waiting.payload.payloadId, waiting.payload.researchClip, {
+        kind: stashed ? "stash_primary" : "active_primary", rowId: row.id, slotId: waiting.slotId, ...suffix,
       });
     }
     for (const event of row.overlayEvents) {
