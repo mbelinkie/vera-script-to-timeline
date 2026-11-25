@@ -3509,6 +3509,86 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("D192 clamps bracket gestures while Reselect still makes room for the full selection", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "D192 generated bracket neighbours");
+    const seeded = foldedLetterRangeFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const handle = (slotId: string, edge: string) =>
+      row.locator(`[data-range-slot="${slotId}"][data-range-edge="${edge}"]`);
+    const end = handle(seeded.firstSlotId, "end");
+    const secondStart = handle(seeded.secondSlotId, "start");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
+    await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("18");
+    const original = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!original?.primaryVisualSequence) throw new Error("missing D192 original sequence");
+    const sequence = original.primaryVisualSequence;
+
+    const checkAndUndo = async (firstEnd: number, secondBegin: number) => {
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+        ?.primaryVisualSequence?.version).toBe(sequence.version + 1);
+      await expect.poll(async () => await end.getAttribute("data-word-index")).toBe(String(firstEnd));
+      await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe(String(secondBegin));
+      const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.cameraSlotId)).toBe(false);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.firstSlotId)).toBe(true);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.secondSlotId)).toBe(true);
+      expect(saved?.unattachedVisuals ?? []).toEqual(original.unattachedVisuals ?? []);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Adjust visual range"]);
+      await page.getByRole("button", { name: "Undo Adjust visual range" }).click();
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence).toEqual(sequence);
+      await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
+      await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("18");
+    };
+
+    await end.press("End");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await end.press("ArrowRight");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await end.press("Enter");
+    await checkAndUndo(25, 25);
+
+    // A real pointer drag all the way to the end of the row must stop at 25.
+    const bounds = await end.boundingBox();
+    const last = await handle(seeded.secondSlotId, "end").boundingBox();
+    if (!bounds || !last) throw new Error("missing D192 pointer handles");
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, { steps: 12 });
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await page.mouse.up();
+    await checkAndUndo(25, 25);
+
+    await secondStart.press("Home");
+    await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("9");
+    await secondStart.press("Enter");
+    await checkAndUndo(9, 9);
+
+    // Explicit Reselect is still allowed to displace a visual and offers Undo.
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    const reselect = card.locator("[data-reselect-open='button']");
+    await card.focus();
+    await reselect.click();
+    await expect.poll(async () => await row.locator("[data-reselect-panel]").isVisible()).toBe(true);
+    await selectText(editor, original.tokens[0]!.startOffset, original.tokens.at(-1)!.endOffset);
+    await editor.press("Enter");
+    const set = row.locator("[data-reselect-set]");
+    await expect.poll(async () => await set.isVisible() && await set.isEnabled()).toBe(true);
+    await set.click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.unattachedVisuals?.map((visual) => visual.slotId)).toEqual([seeded.secondSlotId]);
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("26");
+    await page.getByRole("button", { name: "Undo Set visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence).toEqual(sequence);
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals ?? []).toEqual(original.unattachedVisuals ?? []);
+    await page.close();
+  }, 90_000);
+
   it("Reselects Amber Lantern with six native word steps, Enter review, and one Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
