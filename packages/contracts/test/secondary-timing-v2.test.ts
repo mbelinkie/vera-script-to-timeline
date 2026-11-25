@@ -357,8 +357,8 @@ function cutawayOverlayFixture(): { doc: ScriptDocumentV2; deps: CompilerDepende
   const map = deps.narrationTimingMaps[0]!;
   map.textHash = digest(row.text);
   deps.document.textHash = map.textHash;
-  map.tokens[0]!.endBasis = "next_word_derived";
-  delete map.tokens[0]!.audibleEnd;
+  map.tokens[0].endBasis = "next_word_derived";
+  delete map.tokens[0].audibleEnd;
   map.tokens.push(
     { tokenId: id(51), startOffset: 6, endOffset: 11, quotedText: "again", startTime: { numerator: 3, denominator: 2 }, endBasis: "next_word_derived" },
     { tokenId: id(52), startOffset: 12, endOffset: 15, quotedText: "now", startTime: { numerator: 5, denominator: 2 }, endBasis: "unknown" },
