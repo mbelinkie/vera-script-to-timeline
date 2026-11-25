@@ -7,7 +7,7 @@ import {
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { prepareSavedPrompter } from "./prompter-authoring.js";
-import { ResearchReadError, type createResearchClient } from "@vera/contracts/research-clip-client";
+import { publicResearchQuote, ResearchReadError, type createResearchClient } from "@vera/contracts/research-clip-client";
 import {
   insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
 } from "@vera/contracts/research-clip-browser-insert";
@@ -41,6 +41,7 @@ const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/docu
 const EXTRAS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/document\/extras-operations$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
+const RESEARCH_QUOTES = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quotes$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
 const SORTING_TRIAL = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/sorting-trial$/u;
@@ -80,7 +81,7 @@ function sortingMove(value: unknown): value is Extract<RowEditCommandV2, { kind:
     Object.values(value.destination).every((item) => item === null || uuid(item));
 }
 
-function stillReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
+function researchReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
   if (!thumbnail && params.size === 0) return 0;
   const raw = params.get(thumbnail ? "version" : "offset");
   if (params.size !== 1 || raw === null || !/^\d+$/u.test(raw)) return null;
@@ -248,7 +249,7 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
 /** No quote mutation, request transport or bearer crosses this browser-facing seam. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringReadOnlyResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
-  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail">>;
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote">>;
 
 export interface AuthoringResearchAccess {
   catalog: AuthoringReadOnlyResearchCatalog;
@@ -270,6 +271,17 @@ function researchStillError(error: unknown): Response {
     if (error.status === 404) return researchResponse(404, { error: "research_still_unavailable" });
     if (error.status === 409) return researchResponse(409, { error: "research_still_changed" });
     if (error.status === 422) return researchResponse(422, { error: "research_still_size_unsupported" });
+    if (error.status === 401 || error.status === 403) {
+      return researchResponse(403, { error: "research_project_forbidden" });
+    }
+  }
+  return researchResponse(503, { error: "research_unavailable" });
+}
+
+function researchQuoteError(error: unknown): Response {
+  if (error instanceof ResearchReadError) {
+    if (error.status === 404) return researchResponse(404, { error: "research_quote_unavailable" });
+    if (error.status === 409) return researchResponse(409, { error: "research_quote_changed" });
     if (error.status === 401 || error.status === 403) {
       return researchResponse(403, { error: "research_project_forbidden" });
     }
@@ -341,8 +353,11 @@ export function createAuthoringHandler(
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
     const stillRoute = RESEARCH_STILLS.exec(path);
-    const researchRoute = stillRoute ?? RESEARCH.exec(path);
-    const stillNumber = stillRoute ? stillReadNumber(url.searchParams, Boolean(stillRoute[3])) : null;
+    const quoteRoute = RESEARCH_QUOTES.exec(path);
+    const researchRoute = stillRoute ?? quoteRoute ?? RESEARCH.exec(path);
+    const researchNumber = stillRoute || quoteRoute
+      ? researchReadNumber(url.searchParams, Boolean(stillRoute?.[3]))
+      : null;
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const prompterRoute = PROMPTER_EXPORT.exec(path);
     const isPrompterExport = !!prompterRoute && request.method === "POST";
@@ -362,7 +377,7 @@ export function createAuthoringHandler(
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
         !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
-        (stillRoute ? stillNumber === null : url.search)) {
+        (stillRoute || quoteRoute ? researchNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
     }
@@ -508,15 +523,20 @@ export function createAuthoringHandler(
         if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
           return researchResponse(403, { error: "research_project_forbidden" });
         }
-        if (stillRoute && stillNumber !== null) {
+        if (quoteRoute && researchNumber !== null) {
+          if (!research.catalog.quotes) return researchResponse(503, { error: "research_unavailable" });
+          const { quotes, nextOffset } = await research.catalog.quotes(researchProjectId, researchNumber);
+          return researchResponse(200, { quotes: quotes.map(publicResearchQuote), nextOffset });
+        }
+        if (stillRoute && researchNumber !== null) {
           const stillId = stillRoute[3];
           if (stillId && research.catalog.stillThumbnail) {
-            const { bytes, mimeType } = await research.catalog.stillThumbnail(researchProjectId, stillId, stillNumber);
+            const { bytes, mimeType } = await research.catalog.stillThumbnail(researchProjectId, stillId, researchNumber);
             return new Response(Buffer.from(bytes), { headers: { ...RESEARCH_HEADERS, "Content-Type": mimeType,
               "Cross-Origin-Resource-Policy": "same-origin" } });
           }
           if (!stillId && research.catalog.stills) {
-            return researchResponse(200, await research.catalog.stills(researchProjectId, stillNumber));
+            return researchResponse(200, await research.catalog.stills(researchProjectId, researchNumber));
           }
           return researchResponse(503, { error: "research_unavailable" });
         }
@@ -529,6 +549,7 @@ export function createAuthoringHandler(
           .map(publicResearchClip) });
       } catch (error) {
         // Research's errors and headers can contain user data or credentials.
+        if (quoteRoute) return researchQuoteError(error);
         return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
       }
     }

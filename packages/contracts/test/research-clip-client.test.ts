@@ -27,6 +27,48 @@ const serviceError = (status: number) => new Response(JSON.stringify({
   error: { code: "upstream", message: SECRET },
 }), { status, headers: { "content-type": "application/json" } });
 
+describe("authorized Research quote records", () => {
+  const sourceId = researchId(730000);
+  const quoteId = researchId(730001);
+  const quote = { id: quoteId, projectId: PROJECT, sourceId, version: 3, kind: "quote",
+    createdBy: researchId(730002), topics: ["Engines"], content: {
+      text: "The whole original quotation.", latestDisplayText: "The shortened quotation.",
+      speaker: "Sam Writer", location: "11", hidden: "upstream-only",
+    } };
+  const source = { id: sourceId, projectId: PROJECT, kind: "offline",
+    bibliography: { title: { value: "The Reference Book" }, authors: { value: ["Jo Author"] } }, details: {} };
+
+  it("loads a bounded page, looks up a shared source once and preserves exact and display text", async () => {
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) {
+        expect([...url.searchParams]).toEqual([["kind", "quote"], ["limit", "21"], ["offset", "40"]]);
+        return Response.json(Array.from({ length: 21 }, (_, i) => ({ ...quote, id: researchId(740000 + i) })));
+      }
+      expect(url.pathname).toBe(`/api/projects/${PROJECT}/sources/${sourceId}`);
+      return Response.json(source);
+    });
+    const page = await client(fake.request).quotes(PROJECT, 40);
+    expect(page.nextOffset).toBe(60);
+    expect(page.quotes).toHaveLength(20);
+    expect(page.quotes[0]).toMatchObject({ researchProjectId: PROJECT, itemVersion: 3,
+      sourceTitle: "The Reference Book", speakerName: "Sam Writer", text: quote.content.text,
+      displayText: quote.content.latestDisplayText, topics: ["Engines"] });
+    expect(page.quotes[0]!.citationText).toContain("Author");
+    expect(JSON.stringify(page)).not.toContain("upstream-only");
+    expect(fake.calls).toHaveLength(2);
+  });
+
+  it("refuses a wrong item or source before using it to build a quotation", async () => {
+    const wrongId = client(fakeService(() => Response.json({ ...quote, id: sourceId })).request);
+    await expect(wrongId.quote(PROJECT, quoteId)).rejects.toThrow("different Library item");
+    const wrongSource = client(fakeService((url) =>
+      Response.json(url.pathname.includes("/items/") ? quote : { ...source, projectId: sourceId })).request);
+    await expect(wrongSource.quote(PROJECT, quoteId)).rejects.toThrow("different Library source");
+    const wrongProject = client(fakeService(() => Response.json([{ ...quote, projectId: sourceId }])).request);
+    await expect(wrongProject.quotes(PROJECT, 0)).rejects.toThrow("different Library item");
+  });
+});
+
 describe("Research GET-only transport", () => {
   it("accepts bare loopback origins and rejects remote, embedded credentials, paths and other schemes", () => {
     expect(researchOrigin()).toBe("http://127.0.0.1:43111");

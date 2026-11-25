@@ -9,7 +9,10 @@ import {
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
 import { readResearchLibraryItem, readResearchLibrarySource, type ResearchLibraryItemKind } from "./research-library-records.js";
+import { describeResearchQuote, readResearchQuote, type ResearchQuoteRecord } from "./research-quote-records.js";
 import { readKeptStillManifest, readStillItem, UnsupportedKeptStillError, type ResearchStillChoice } from "./research-still-records.js";
+
+export { publicResearchQuote, type ResearchQuoteChoice, type ResearchQuoteRecord } from "./research-quote-records.js";
 
 export interface ResearchProject {
   id: string;
@@ -20,6 +23,8 @@ const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
 const STILL_PAGE_SIZE = 12;
+const QUOTE_PAGE_SIZE = 20;
+const MAX_LIBRARY_OFFSET = 100_000;
 
 export class ResearchReadError extends Error {
   readonly status: number;
@@ -167,13 +172,35 @@ export function createResearchClient(options: {
     return readResearchLibraryItem(await get(path), projectId, itemId, kind);
   }
 
+  async function source(projectId: string, sourceId: string) {
+    return readResearchLibrarySource(
+      await get(libraryPath(projectId, "sources", sourceId)), projectId, sourceId,
+    );
+  }
+
   return {
     item,
+    source,
 
-    async source(projectId: string, sourceId: string) {
-      return readResearchLibrarySource(
-        await get(libraryPath(projectId, "sources", sourceId)), projectId, sourceId,
-      );
+    async quotes(projectId: string, offset: number): Promise<{ quotes: ResearchQuoteRecord[]; nextOffset: number | null }> {
+      if (!UUID.test(projectId) || !Number.isSafeInteger(offset) || offset < 0 || offset > MAX_LIBRARY_OFFSET) {
+        throw new Error("Invalid Research quote page.");
+      }
+      const params = new URLSearchParams({ kind: "quote", limit: String(QUOTE_PAGE_SIZE + 1), offset: String(offset) });
+      const page = await get(`/api/projects/${projectId}/items?${params}`);
+      if (!Array.isArray(page) || page.length > QUOTE_PAGE_SIZE + 1) throw new Error("Invalid Research quote page.");
+      const choices = page.slice(0, QUOTE_PAGE_SIZE).map((value: unknown) => readResearchQuote(value, projectId));
+      const sources = new Map([...new Set(choices.map(({ sourceId }) => sourceId))]
+        .map((sourceId) => [sourceId, source(projectId, sourceId)]));
+      const quotes = await Promise.all(choices.map(async (choice) =>
+        describeResearchQuote(choice, await sources.get(choice.sourceId)!)));
+      const more = offset + QUOTE_PAGE_SIZE;
+      return { quotes, nextOffset: page.length > QUOTE_PAGE_SIZE && more <= MAX_LIBRARY_OFFSET ? more : null };
+    },
+
+    async quote(projectId: string, quoteId: string): Promise<ResearchQuoteRecord> {
+      const quote = readResearchQuote(await get(libraryPath(projectId, "items", quoteId)), projectId, quoteId);
+      return describeResearchQuote(quote, await source(projectId, quote.sourceId));
     },
 
     async setQuoteCitation(projectId: string, quoteId: string, text: string | undefined) {
