@@ -79,6 +79,40 @@ describe("deterministic typed semantic comparison", () => {
     ]);
   });
 
+  it("reports only retained blocks whose relative order changes, in stable ID order", () => {
+    const baseline = documentFor(randomUUID());
+    const a = { ...narration("00000000-0000-4000-8000-000000000003"), orderKey: "a" };
+    const b = { ...narration("00000000-0000-4000-8000-000000000001"), orderKey: "b" };
+    const c = { ...narration("00000000-0000-4000-8000-000000000002"), orderKey: "c" };
+    const inserted = narration("00000000-0000-4000-8000-000000000004");
+    const snapshot = (blocks: NarrationBlockV2[]) => ({
+      ...baseline, activeDraft: { blocks, supportingItems: [] },
+    });
+    const before = snapshot([a, b, c]);
+    const swapped = snapshot([b, a, c]);
+    const expected = [b, a].map(({ id }) => ({
+      surface: "draft_block", entityId: id, kind: "reordered", fields: ["order"],
+    }));
+    expect(compareDocuments(before, swapped)).toEqual(expected);
+    expect(compareDocuments(swapped, before)).toEqual(expected);
+    expect(compareDocuments(before, snapshot([a, inserted, b, c]))).toEqual([
+      { surface: "draft_block", entityId: inserted.id, kind: "added", fields: [] },
+    ]);
+    expect(compareDocuments(before, snapshot([a, c]))).toEqual([
+      { surface: "draft_block", entityId: b.id, kind: "removed", fields: [] },
+    ]);
+    expect(compareDocuments(before, snapshot([b, inserted, a]))).toEqual([
+      expected[0],
+      { surface: "draft_block", entityId: c.id, kind: "removed", fields: [] },
+      expected[1],
+      { surface: "draft_block", entityId: inserted.id, kind: "added", fields: [] },
+    ]);
+    expect(compareDocuments(before, snapshot([b, { ...a, orderKey: "z", version: 2 }, c]))).toEqual([
+      expected[0],
+      { surface: "draft_block", entityId: a.id, kind: "modified", fields: ["order", "orderKey", "version"] },
+    ]);
+  });
+
   it("identifies a nested typed visual edit without emitting a generic JSON patch", () => {
     const baseline = documentFor(randomUUID());
     const row = narration();
