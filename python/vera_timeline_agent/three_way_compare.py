@@ -89,8 +89,13 @@ def _document_rows(document: Mapping[str, Any]) -> tuple[str, ...]:
 
 def _manifest(
     manifest: Mapping[str, Any], document: Mapping[str, Any]
-) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[int, int]], tuple[str, ...]]:
-    """Return row-local semantic events, absolute envelopes and unowned events.
+) -> tuple[
+    dict[str, tuple[str, ...]],
+    dict[str, tuple[int, int]],
+    tuple[str, ...],
+    dict[str, tuple[str, ...]],
+]:
+    """Return row-local events, envelopes, unowned events and section markers.
 
     Only `recordRange` is translated. Every other compiled event field (source
     hashes, track, treatment, audio, marker, provenance) participates in the
@@ -117,7 +122,13 @@ def _manifest(
         track_ids.add(track_id)
 
     eligible = set(_document_rows(document))
+    sections = {
+        block["id"]
+        for block in document["activeDraft"]["blocks"]
+        if block["type"] == "section"
+    }
     grouped: dict[str, list[Mapping[str, Any]]] = {}
+    section_markers: dict[str, list[str]] = {}
     unowned: list[str] = []
     seen_events: set[str] = set()
     for raw in _array(manifest.get("events"), "manifest events"):
@@ -133,9 +144,11 @@ def _manifest(
         if provenance.get("documentId") != document["id"]:
             raise ValueError(f"compiled event document differs: {event_id}")
         row_id = provenance.get("blockId")
+        section_marker = False
         if row_id is not None:
             _id(row_id, "compiled row ID")
-            if row_id not in eligible:
+            section_marker = event["kind"] == "script_marker" and row_id in sections
+            if row_id not in eligible and not section_marker:
                 raise ValueError(
                     f"compiled event has unknown/ineligible row ID: {row_id}"
                 )
@@ -146,6 +159,12 @@ def _manifest(
             raise ValueError(f"compiled event has empty record range: {event_id}")
         if row_id is None:
             unowned.append(json.dumps(event, sort_keys=True, separators=(",", ":")))
+        elif section_marker:
+            # Section markers are timeline evidence, not timed script rows.
+            # Keep their absolute frame so a moved marker is visible as a delta.
+            section_markers.setdefault(row_id, []).append(
+                json.dumps(event, sort_keys=True, separators=(",", ":"))
+            )
         else:
             grouped.setdefault(row_id, []).append(event)
 
@@ -178,7 +197,12 @@ def _manifest(
             )
         normalized[row_id] = tuple(sorted(serialized))
         envelopes[row_id] = origin, end
-    return normalized, envelopes, tuple(sorted(unowned))
+    return (
+        normalized,
+        envelopes,
+        tuple(sorted(unowned)),
+        {key: tuple(sorted(items)) for key, items in section_markers.items()},
+    )
 
 
 def _validate_baseline_map(
@@ -281,10 +305,10 @@ def compare_script_rows(
         raise ValueError("current script belongs to a different project")
     old_order = _document_rows(baseline_document)
     new_order = _document_rows(current_document)
-    old_events, old_envelopes, old_unowned = _manifest(
+    old_events, old_envelopes, old_unowned, old_markers = _manifest(
         baseline_manifest, baseline_document
     )
-    new_events, new_envelopes, new_unowned = _manifest(
+    new_events, new_envelopes, new_unowned, new_markers = _manifest(
         current_manifest, current_document
     )
     _validate_baseline_map(baseline_map, baseline_manifest)
@@ -339,6 +363,23 @@ def compare_script_rows(
         )
     binding = _object(baseline_manifest["document"], "baseline binding")
     current_binding = _object(current_manifest["document"], "current binding")
+    section_marker_changes: dict[str, Any] = {}
+    for section_id in sorted(old_markers.keys() | new_markers.keys()):
+        previous = old_markers.get(section_id, ())
+        current = new_markers.get(section_id, ())
+        if not previous:
+            marker_change = "added"
+        elif not current:
+            marker_change = "removed"
+        elif previous != current:
+            marker_change = "changed"
+        else:
+            marker_change = "unchanged"
+        section_marker_changes[section_id] = {
+            "scriptChange": marker_change,
+            "baselineEvents": [json.loads(event) for event in previous],
+            "currentEvents": [json.loads(event) for event in current],
+        }
     return {
         "baseline": {
             "buildId": baseline_manifest["buildId"],
@@ -352,6 +393,11 @@ def compare_script_rows(
             "documentContentHash": current_binding["contentHash"],
         },
         "rows": rows,
+        **(
+            {"sectionMarkerChanges": section_marker_changes}
+            if section_marker_changes
+            else {}
+        ),
         "unownedCompiledEvents": {"baseline": old_unowned, "current": new_unowned},
     }
 
@@ -552,7 +598,7 @@ def _dependency_facts(
     """
     order = _document_rows(document)
     positions = {row: index for index, row in enumerate(order)}
-    _, envelopes, _ = _manifest(manifest, document)
+    _, envelopes, _, _ = _manifest(manifest, document)
     facts: dict[tuple[str, str], dict[str, Any]] = {}
     for raw in _array(manifest.get("transitions", []), "compiled transitions"):
         transition = _object(raw, "compiled transition")
