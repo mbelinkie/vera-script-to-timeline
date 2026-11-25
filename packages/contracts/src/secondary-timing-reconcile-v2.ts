@@ -160,7 +160,8 @@ export function previewSecondaryTimingReconcileV2(
   }
   try {
     const comparison = compareSecondaryTimingV2(baseline, compiled.manifest);
-    if (comparison.boundaries.some((item) => item.deltaFrames !== 0 || item.durationDeltaFrames !== 0) ||
+    if (comparison.boundaries.some((item) => item.deltaFrames !== 0 ||
+        (item.durationDeltaFrames !== null && item.durationDeltaFrames !== 0)) ||
         comparison.visualEvents.some((item) => {
           if (item.eventId === affectedEventId) return false;
           if (item.startDeltaFrames === 0 && item.endDeltaFrames === 0 && item.durationDeltaFrames === 0) return false;

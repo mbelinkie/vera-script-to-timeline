@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { compareSecondaryTimingV2, previewSecondaryTimingReconcileV2, SecondaryTimingComparisonErrorV2 } from "../src/authoring-v2.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
+import * as secondaryTiming from "../src/secondary-timing-v2.js";
 import type {
   CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2,
   TimelineManifestV2, VisualOnlyBlockV2,
@@ -345,7 +346,102 @@ function overlayFixture(pictureKind: "image" | "clip", logicalFrames = 240): { d
   return { doc, deps };
 }
 
+function cutawayOverlayFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const { doc, deps } = overlayFixture("image");
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  row.text = "hello again now";
+  row.tokens.push(
+    { id: id(51), value: "again", startOffset: 6, endOffset: 11 },
+    { id: id(52), value: "now", startOffset: 12, endOffset: 15 },
+  );
+  const map = deps.narrationTimingMaps[0]!;
+  map.textHash = digest(row.text);
+  deps.document.textHash = map.textHash;
+  map.tokens[0].endBasis = "next_word_derived";
+  delete map.tokens[0].audibleEnd;
+  map.tokens.push(
+    { tokenId: id(51), startOffset: 6, endOffset: 11, quotedText: "again", startTime: { numerator: 3, denominator: 2 }, endBasis: "next_word_derived" },
+    { tokenId: id(52), startOffset: 12, endOffset: 15, quotedText: "now", startTime: { numerator: 5, denominator: 2 }, endBasis: "unknown" },
+  );
+  row.primaryVisualSequence!.slots.push({
+    id: id(53), kind: "content", relation: { kind: "cutaway", parentSlotId: id(16) },
+    boundaryBefore: { kind: "spoken_word", anchor: { blockId: row.id, tokenId: id(51), affinity: "before", quotedWord: "again", anchorVersion: row.version } },
+    payload: { kind: "on_camera", presenterChoiceId: null }, playoutPolicy: "match_structural_interval", version: 1,
+  }, {
+    id: id(55), kind: "return", parentSlotId: id(16),
+    inpoint: { blockId: row.id, tokenId: id(52), affinity: "before", quotedWord: "now", anchorVersion: row.version }, version: 1,
+  });
+  deps.tracks.find((track) => track.id === "overlay")!.index = 6;
+  deps.tracks.push({ id: "child", kind: "video", index: 5, name: "Child" });
+  deps.roles.childTrackIds = ["child"];
+  return { doc, deps };
+}
+
 describe("#391 fail-closed secondary timing reconciliation", () => {
+  it("#728 accepts a still overlay duration edit with an unchanged durationless return", () => {
+    const { doc, deps } = cutawayOverlayFixture();
+    const before = compiled(doc, deps);
+    const frozen = JSON.stringify([doc, deps, before]);
+    const overlay = before.events.find((item) => item.provenance.overlayEventId === id(40))!;
+    const result = previewSecondaryTimingReconcileV2(doc, deps, before, {
+      kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+      expectedRange: overlay.recordRange, durationMs: 1250,
+    });
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.comparison.boundaries.map((item) => [item.relation, item.deltaFrames, item.durationDeltaFrames]))
+      .toEqual([["root", 0, 0], ["child", 0, 0], ["return", 0, null]]);
+    expect(result.comparison.visualEvents.find((item) => item.eventId === overlay.eventId)).toMatchObject({
+      startDeltaFrames: 0, endDeltaFrames: 6, durationDeltaFrames: 6,
+    });
+    expect(result.comparison.visualEvents.filter((item) => item.eventId !== overlay.eventId)
+      .every((item) => item.startDeltaFrames === 0 && item.endDeltaFrames === 0 && item.durationDeltaFrames === 0)).toBe(true);
+    expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({ overlayEvents: [{ version: 2, timing: { durationMs: 1250 } }] });
+    expect(JSON.stringify([doc, deps, before])).toBe(frozen);
+  });
+
+
+  it.each(["return movement", "boundary duration", "other visual duration"] as const)(
+    "#728 still refuses %s after comparison",
+    (movement) => {
+      const { doc, deps } = cutawayOverlayFixture();
+      const before = compiled(doc, deps);
+      const overlay = before.events.find((item) => item.provenance.overlayEventId === id(40))!;
+      // Inject only the comparison delta after both real compilations, so the
+      // reconciliation guard itself (not an earlier compiler refusal) is exercised.
+      const compare = secondaryTiming.compareSecondaryTimingV2;
+      const spy = vi.spyOn(secondaryTiming, "compareSecondaryTimingV2").mockImplementation((a, b) => {
+        const diff = compare(a, b);
+        if (movement === "return movement") {
+          const boundary = diff.boundaries.find((item) => item.relation === "return")!;
+          boundary.afterFrame += 1;
+          boundary.deltaFrames = 1;
+        } else if (movement === "boundary duration") {
+          const boundary = diff.boundaries.find((item) => item.relation === "child")!;
+          boundary.afterRange!.endFrame += 1;
+          boundary.durationDeltaFrames = 1;
+        } else {
+          const event = diff.visualEvents.find((item) => item.eventId !== overlay.eventId)!;
+          event.afterRange.endFrame += 1;
+          event.endDeltaFrames = 1;
+          event.durationDeltaFrames = 1;
+        }
+        return diff;
+      });
+      try {
+        const result = previewSecondaryTimingReconcileV2(doc, deps, before, {
+          kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+          expectedRange: overlay.recordRange, durationMs: 1250,
+        });
+        expect(spy).toHaveBeenCalledOnce();
+        expect(result).toMatchObject({ ok: false, code: "RECONCILIATION_UNSAFE",
+          diagnostics: [{ code: "RECONCILIATION_UNSAFE", message: "A secondary edit would move a different visual owner or a structural anchor." }] });
+      } finally {
+        spy.mockRestore();
+      }
+    },
+  );
+
   it("previews a frame-exact +2 still duration change at 24000/1001 without touching signed inputs", () => {
     const { doc, deps } = twoVisualOnlyRows(1000);
     const before = compiled(doc, deps);
