@@ -367,6 +367,21 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
         fadeInFrames: geometry.fadeInFrames, fadeOutFrames: geometry.fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
     if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends early at timeline frame ${geometry.recordRange.endFrame}; ${geometry.requestedEndFrame - geometry.recordRange.endFrame} frames are uncovered.`, geometry.recordRange.endFrame);
   }
+  // Validate the emitted ranges, not the requested row spans: a short source
+  // can end before the next cue, and touching half-open intervals are valid.
+  const ordered = [...events].sort((a, b) => compareText(a.trackId, b.trackId) ||
+    a.recordRange.startFrame - b.recordRange.startFrame || compareText(a.eventId, b.eventId));
+  for (const [index, cue] of ordered.entries()) {
+    for (let next = index + 1; next < ordered.length; next++) {
+      const other = ordered[next]!;
+      if (other.trackId !== cue.trackId || other.recordRange.startFrame >= cue.recordRange.endFrame) break;
+      const firstId = cue.music!.spanId;
+      const secondId = other.music!.spanId;
+      diagnostics.push(diagnostic("MUSIC_SPAN_INVALID",
+        `Music cue ${secondId} overlaps music cue ${firstId} on track ${cue.trackId}. Move or trim one cue.`,
+        entity("block", secondId, `rowAudioSpans/${secondId}`)));
+    }
+  }
   return { sources, events, diagnostics, markers };
 }
 
