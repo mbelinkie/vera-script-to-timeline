@@ -4875,7 +4875,8 @@ describe("browser authoring over the local project service", () => {
     await add.press("Enter");
     const first = await waitRevision(before.revision + 1);
     const intent = first.document.rowTransitions?.[0];
-    expect(first.document.rowTransitions).toEqual([{ id: expect.any(String), fromRowId: seeded.rowIds[0],
+    expect(intent?.id).toEqual(expect.any(String));
+    expect(first.document.rowTransitions).toEqual([{ id: intent?.id, fromRowId: seeded.rowIds[0],
       toRowId: seeded.rowIds[1], effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" }]);
     expect(first.document.rowEditRevision).toBe((before.document.rowEditRevision ?? 0) + 1);
     expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
@@ -4885,7 +4886,8 @@ describe("browser authoring over the local project service", () => {
     await add.click();
     const again = await waitRevision(before.revision + 3);
     const savedIntent = again.document.rowTransitions?.[0];
-    expect(savedIntent).toMatchObject({ ...intent, id: expect.any(String) });
+    expect(savedIntent?.id).toEqual(expect.any(String));
+    expect(savedIntent).toMatchObject({ ...intent, id: savedIntent?.id });
     await page.reload();
     await remove.waitFor({ state: "visible" });
     expect(await chosen.locator("[data-row-transition-id]").textContent()).toContain("Cross Dissolve");
