@@ -1,5 +1,92 @@
-import { createBlankNarrationRow } from "./rows-editor.js";
+import { createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
 import { selectedSpokenWords } from "./visual-selection.js";
+
+const sameGap = (a, b) => !!a && !!b &&
+  a.sectionId === b.sectionId && a.afterRowId === b.afterRowId && a.beforeRowId === b.beforeRowId;
+const copyGap = ({ sectionId, afterRowId, beforeRowId }) =>
+  Object.freeze({ sectionId, afterRowId, beforeRowId });
+const draftBlocks = (model) => model?.activeDraft?.blocks ?? [];
+const sectionTitle = (blocks, sectionId, missing) => sectionId === null ? "Before first section" :
+  blocks.find((block) => block.type === "section" && block.id === sectionId)?.title ?? missing;
+const stashSnapshot = (model) =>
+  JSON.stringify([model.stash, model.stashOutline, model.stashSections, model.stashGroups]);
+const validRowIds = (ids) => Array.isArray(ids) && ids.length > 0 && ids.length <= 4096 &&
+  ids.every((id) => typeof id === "string") && new Set(ids).size === ids.length;
+
+/** Provenance is the original Draft gap, not the current Stash section. */
+export function originalDraftLocation(model, bundle) {
+  const gap = bundle?.originalGap;
+  if (!gap) return { label: "Original section not recorded", gap: null, available: false };
+  const blocks = draftBlocks(model);
+  return {
+    label: sectionTitle(blocks, gap.sectionId, "Original section unavailable"),
+    gap: copyGap(gap),
+    available: rowGaps(blocks).some((candidate) => sameGap(candidate, gap)),
+  };
+}
+
+export function draftGapChoices(model) {
+  const blocks = draftBlocks(model);
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+  return rowGaps(blocks).map((gap) => {
+    const after = byId.get(gap.afterRowId);
+    const before = byId.get(gap.beforeRowId);
+    const position = after && before ? `Between ${rowLabel(after)} and ${rowLabel(before)}` :
+      after ? `After ${rowLabel(after)}` : before ? `Before ${rowLabel(before)}` : "Empty section";
+    return { gap: copyGap(gap), label: `${sectionTitle(blocks, gap.sectionId, "Section unavailable")} — ${position}` };
+  });
+}
+
+/** Capture the displayed source and its context, including supporting items. */
+export function captureWholeRowStash(model, rowIds) {
+  if (!model || !validRowIds(rowIds)) return null;
+  const section = rowSections(draftBlocks(model)).find(({ rows }) => {
+    const index = rows.findIndex((row) => row.id === rowIds[0]);
+    return index >= 0 && rowIds.every((id, offset) => rows[index + offset]?.id === id);
+  });
+  if (!section) return null;
+  // Conservative: changes elsewhere in Draft or Stash can affect supporting
+  // edges or an existing return origin. Re-select rather than guessing.
+  return Object.freeze({
+    projectId: model.projectId, documentId: model.id, sectionId: section.sectionId,
+    rowIds: Object.freeze([...rowIds]), draftSnapshot: JSON.stringify(model.activeDraft),
+    stashSnapshot: stashSnapshot(model),
+  });
+}
+
+export function wholeRowStashCommand(model, intent, makeId = uuid) {
+  const fresh = captureWholeRowStash(model, intent?.rowIds);
+  if (!fresh || JSON.stringify(fresh) !== JSON.stringify(intent)) {
+    throw new Error("The rows or their section changed. Select them again.");
+  }
+  return { kind: "stash_rows", rowIds: [...intent.rowIds], bundleId: makeId() };
+}
+
+/** The chooser captures these snapshots before the writer chooses a gap. */
+export function captureSavedPlacement(model, kind, rowIds, destination, includeDescendants) {
+  if (!model || !["restore_stash_rows", "place_stash_rows", "duplicate_stash_rows"].includes(kind) ||
+      !validRowIds(rowIds) || (includeDescendants !== undefined &&
+        (kind !== "place_stash_rows" || typeof includeDescendants !== "boolean"))) return null;
+  const saved = new Set((model.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
+  if (!rowIds.every((id) => saved.has(id)) ||
+      !rowGaps(draftBlocks(model)).some((gap) => sameGap(gap, destination))) return null;
+  return Object.freeze({
+    projectId: model.projectId, documentId: model.id, kind,
+    rowIds: Object.freeze([...rowIds]), destination: copyGap(destination),
+    ...(includeDescendants === undefined ? {} : { includeDescendants }),
+    stashSnapshot: stashSnapshot(model), draftSnapshot: JSON.stringify(model.activeDraft),
+  });
+}
+
+export function savedPlacementCommand(model, intent) {
+  const fresh = intent && captureSavedPlacement(model, intent.kind, intent.rowIds,
+    intent.destination, intent.includeDescendants);
+  if (!fresh || JSON.stringify(fresh) !== JSON.stringify(intent)) {
+    throw new Error("The saved material or destination changed. Choose again.");
+  }
+  return { kind: intent.kind, rowIds: [...intent.rowIds], destination: { ...intent.destination },
+    ...(intent.includeDescendants === undefined ? {} : { includeDescendants: intent.includeDescendants }) };
+}
 
 /** Read the saved Stash without reshaping its entries or changing their identities. */
 export function projectStash(documentModel) {
@@ -11,7 +98,7 @@ export function projectStash(documentModel) {
   ];
   const bySection = new Map(sections.map((section) => [section.id, section]));
   const saved = new Map((documentModel?.stash ?? []).flatMap((bundle) =>
-    bundle.rows.map((row) => [row.id, row])));
+    bundle.rows.map((row) => [row.id, { row, bundle }])));
   // Older saved documents can lack the explicit outline. The model derives
   // the same unsectioned fallback; don't assign IDs or mutate the document.
   const legacySections = new Map((documentModel?.stashSections ?? []).flatMap((section) =>
@@ -20,8 +107,11 @@ export function projectStash(documentModel) {
     rowId, kind: "row", parentRowId: null, sectionId: legacySections.get(rowId) ?? null,
   }));
   for (const entry of outline) {
-    const row = saved.get(entry.rowId);
-    if (row) bySection.get(entry.sectionId)?.entries.push({ ...entry, row });
+    const item = saved.get(entry.rowId);
+    if (item) bySection.get(entry.sectionId)?.entries.push({
+      ...entry, row: item.row, bundleId: item.bundle.id,
+      originalDraft: originalDraftLocation(documentModel, item.bundle),
+    });
   }
   return sections;
 }

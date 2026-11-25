@@ -38,6 +38,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const EXTRAS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/document\/extras-operations$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
@@ -347,6 +348,7 @@ export function createAuthoringHandler(
     const isPrompterExport = !!prompterRoute && request.method === "POST";
     const sortingRoute = SORTING_TRIAL.exec(path);
     const isSortingTrial = !!sortingRoute && request.method === "POST";
+    const isExtrasOperation = EXTRAS.test(path) && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
@@ -359,7 +361,7 @@ export function createAuthoringHandler(
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial) ||
+        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
         (stillRoute ? stillNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -380,6 +382,9 @@ export function createAuthoringHandler(
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
         Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (isExtrasOperation && request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+      return Response.json({ error: "invalid_request" }, { status: 400 });
     }
     if (isSortingTrial) {
       let body: unknown;
