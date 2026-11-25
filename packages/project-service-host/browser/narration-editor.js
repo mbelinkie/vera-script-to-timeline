@@ -967,6 +967,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   let savedSelection = null;
   let selectionGuard = false;
   let editingBlocked = false;
+  let pendingSplit = null;
   let mounted = true;
   const typingSession = newId();
   let typingBoundary = 0;
@@ -1191,13 +1192,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editingBlocked = true;
   }
 
-  function splitAtCaret(offset) {
-    if (editingBlocked) return;
-    const before = localRow;
-    const newRowId = newId();
+  function splitIntent(before, newRowId, offset) {
     // Resolve token identity *after* queued typing has been accepted. The
     // optimistic tokenizer does not own IDs and must not invent them.
-    const intent = (currentDocument) => {
+    return (currentDocument) => {
       const blocks = currentDocument.activeDraft.blocks;
       const actual = blocks.find((block) => block.id === before.id);
       if (!actual || actual.type !== "narration") throw new Error("The row changed before the split.");
@@ -1212,9 +1210,111 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       }
       return { kind: "split_row", rowId: before.id, newRowId, at: { beforeTokenId: actual.tokens[boundary].id } };
     };
-    void dispatch(intent, "Split row", before, {
+  }
+
+  function splitAtCaret(offset) {
+    if (editingBlocked) return;
+    const before = localRow;
+    const newRowId = newId();
+    const handoff = { target: null, offset: 0, failure: null, typingSession: newId(), inputs: [] };
+    pendingSplit = handoff;
+    const pending = dispatch(splitIntent(before, newRowId, offset), "Split row", before, {
       structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+      onSplitApplied: (latest, focus) => acceptSplitFocus(handoff, latest, focus),
+      onSplitRefused: (error) => { handoff.failure = error.message || "Split row was refused."; },
     });
+    editingBlocked = true;
+    void pending.then((accepted) => {
+      if (!accepted && pendingSplit === handoff) {
+        pendingSplit = null;
+        editingBlocked = false;
+      }
+    });
+  }
+
+  function acceptSplitFocus(handoff, latest, focus) {
+    const target = latest.activeDraft.blocks.find((block) => block.id === focus?.rowId);
+    handoff.target = target?.type === "narration" ? target
+      : target?.type === "visual_only" && target.clearedNarration ? { ...target, type: "narration", text: "", tokens: [] } : null;
+    handoff.offset = Math.min(focus?.offset ?? 0, handoff.target?.text.length ?? 0);
+  }
+
+  // The old DOM remains mounted while the command queue is busy. Queue the
+  // input now, not in a later render callback (which could overtake Undo or
+  // another edit). Resolve its caret and row from the preceding model result.
+  function splitTextEdit(before, offset, input) {
+    let start = offset, end = offset;
+    let text = input.text ?? "";
+    if (input.kind === "backspace") {
+      if (!offset) return null;
+      start -= Array.from(before.text.slice(0, offset)).at(-1).length;
+    } else if (input.kind === "delete") {
+      if (offset === before.text.length) return null;
+      end += Array.from(before.text.slice(offset))[0].length;
+    } else if (input.kind === "paragraph") {
+      if (!offset) return null;
+      text = "\n";
+    }
+    const delimiter = directionDelimiterAt(before, start, end, before.text);
+    if (delimiter !== null && text === "") {
+      const run = directionRuns(before).find(({ openOffset, closeOffset }) => openOffset === delimiter || closeOffset === delimiter);
+      if (!run) return null;
+      return { command: { kind: "delete_direction_delimiter", blockId: before.id, offset: delimiter },
+        label: "Remove stage direction", draft: localSpokenEdit(before, run),
+        offset: start <= run.openOffset ? start : Math.max(0, start - 2) };
+    }
+    const draft = localTextEdit(before, start, end, text);
+    if (draft.text === before.text) return null;
+    const normalized = normalizedTextEdit(before, start, end, text);
+    return { command: { kind: "edit_narration_text", rowId: before.id, startOffset: start, endOffset: end,
+      insertedText: text, editId: newId() }, draft,
+      label: input.kind === "paragraph" ? "New paragraph" : draft.text === "" ? "Cleared narration" : "Edit narration",
+      offset: Math.min(normalized.startOffset + normalized.insertedText.length, draft.text.length) };
+  }
+
+  function queueSplitInput(input) {
+    const handoff = pendingSplit;
+    if (!handoff) return;
+    handoff.inputs.push(input);
+    void command(null, "Continue after split", { structural: true, prepareSplitInput() {
+      handoff.inputs.shift();
+      if (handoff.failure) throw new Error(handoff.failure);
+      const before = handoff.target;
+      if (!before) return null;
+      const offset = handoff.offset;
+      const options = { expectedRow: expectedRow(before),
+        onSplitApplied: (latest, focus) => acceptSplitFocus(handoff, latest, focus) };
+      if (input.kind === "backspace" && offset === 0) {
+        return { command: { kind: "join_rows", rowId: before.id, direction: "previous", words: null },
+          label: "Join rows", options: { ...options, structural: true, focusPrevious: true } };
+      }
+      if (input.kind === "split") {
+        const newRowId = newId();
+        return { command: splitIntent(before, newRowId, offset), label: "Split row",
+          options: { ...options, structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+            onSplitRefused: (error) => { handoff.failure = error.message || "Split row was refused."; } } };
+      }
+      const edit = splitTextEdit(before, offset, input);
+      if (!edit) return null;
+      return { command: edit.command, label: edit.label, options: { ...options,
+        focusAfter: { rowId: before.id, offset: edit.offset },
+        ...(edit.label === "Edit narration" ? { typingSession: handoff.typingSession, typingBoundary } : {}),
+        onSplitRefused() {
+          // Keep the rejected draft copyable, including typing already queued
+          // behind this failed edit, just as the ordinary optimistic editor does.
+          if (!mounted) return;
+          let draft = edit.draft, caret = edit.offset;
+          for (const later of handoff.inputs) {
+            if (later.kind === "split" || later.kind === "backspace" && caret === 0) break;
+            const next = splitTextEdit(draft, caret, later);
+            if (next) { draft = next.draft; caret = next.offset; }
+          }
+          localRow = draft;
+          knownText = draft.text;
+          renderEditor(editor, draft);
+          setCaret(editor, caret);
+        } } };
+    } });
   }
 
   function joinPrevious() {
@@ -1234,6 +1334,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
     if (event.key === "Escape") return leaveText(event);
+    if (pendingSplit && !composing && !event.isComposing && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      const kind = event.key === "Backspace" ? "backspace" : event.key === "Delete" ? "delete"
+        : event.key === "Enter" ? "paragraph" : event.key === "Tab" && !event.shiftKey ? "split" : null;
+      if (kind) { event.preventDefault(); queueSplitInput({ kind }); }
+      return;
+    }
     if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
     if (event.key === "Enter") {
       event.preventDefault();
@@ -1253,6 +1359,18 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onBeforeInput(event) {
     if (reselect) { event.preventDefault(); return; }
+    if (pendingSplit) {
+      event.preventDefault();
+      if (composing || event.isComposing) return;
+      const type = event.inputType;
+      if (type === "insertText" || type === "insertReplacementText") {
+        const text = event.data ?? event.dataTransfer?.getData?.("text/plain");
+        if (typeof text === "string" && text) queueSplitInput({ kind: "text", text });
+      } else if (type === "deleteContentBackward") queueSplitInput({ kind: "backspace" });
+      else if (type === "deleteContentForward") queueSplitInput({ kind: "delete" });
+      else if (type === "insertParagraph" || type === "insertLineBreak") queueSplitInput({ kind: "paragraph" });
+      return;
+    }
     if (editingBlocked) {
       event.preventDefault();
       return;

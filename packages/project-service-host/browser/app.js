@@ -1502,6 +1502,13 @@ function queueCommand(command, label, options = {}) {
   let commandError;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
+    // Input arriving during a Tab split occupies its normal place in this
+    // queue, but must be resolved against the accepted destination row.
+    if (options.prepareSplitInput) {
+      const next = options.prepareSplitInput(scriptDocument);
+      if (!next) return true;
+      ({ command, label, options } = next);
+    }
     if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
         scriptDocument?.projectId !== options.expectedProjectId)) {
       throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
@@ -1582,6 +1589,7 @@ function queueCommand(command, label, options = {}) {
       typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
       if (result.document === scriptDocument) {
+        options.onSplitApplied?.(scriptDocument, structuralFocus);
         scheduleRender(true);
         return true;
       }
@@ -1591,6 +1599,7 @@ function queueCommand(command, label, options = {}) {
       invalidateProjection(false);
       lastSplit = null;
       structuralFocus = result.focusAfter;
+      options.onSplitApplied?.(scriptDocument, structuralFocus);
       updateUndo();
       documentDirty = true;
       void saveDocument();
@@ -1640,14 +1649,16 @@ function queueCommand(command, label, options = {}) {
     else if (previous?.type === "narration") structuralFocus = replay
       ? { rowId: replay.originalRowId, offset: replay.caret }
       : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
+    options.onSplitApplied?.(scriptDocument, structuralFocus);
     if (options.cardFocus) cardFocus = options.cardFocus;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, options.structural, previousProjection);
+    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied), previousProjection);
     return true;
   }).catch((error) => {
     typingGroup = null;
+    options.onSplitRefused?.(error);
     if (options.expectedRow && (!options.structural || options.paste)) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;

@@ -2879,6 +2879,52 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([
+    { key: "Backspace", expected: ["alpha beta gamma"], undoLabel: "Join rows" },
+    { key: "x", expected: ["alpha", "xbeta gamma"], undoLabel: "Edit narration" },
+  ])("hands $key to the new row while the Tab split command is held (#716)", async ({ key, expected, undoLabel }) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, `Pending split ${key}`);
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let started!: () => void;
+    let release!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { started = resolve; });
+    const firstReleased = new Promise<void>((resolve) => { release = resolve; });
+    let commands = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      if (++commands === 1) { started(); await firstReleased; }
+      await route.continue();
+    });
+    try {
+      await placeCaret(editor, 6);
+      await page.keyboard.press("Tab");
+      await firstStarted;
+      await page.keyboard.press(key);
+      expect(commands).toBe(1);
+    } finally { release(); }
+    try {
+      await expect.poll(() => page.locator("#save-status").textContent()).toBe("Saved");
+      expect(commands).toBe(2);
+      const rows = await narrationRowsFromApi(page, projectId);
+      expect(rows.map((row) => row.text)).toEqual(expected);
+      expect(await page.locator("#discard-edit").isHidden()).toBe(true);
+      await expect.poll(() => page.locator("[data-narration-editor]").allTextContents()).toEqual(expected);
+      await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id")))
+        .toBe(rows.at(-1)?.id);
+      await page.getByRole("button", { name: `Undo ${undoLabel}` }).click();
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+        .toEqual(["alpha", "beta gamma"]);
+      await page.getByRole("button", { name: "Undo Split row" }).click();
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+        .toEqual(["alpha beta gamma"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
   it("Tab at the end makes a valid blank row, and Backspace cannot join across a section", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
