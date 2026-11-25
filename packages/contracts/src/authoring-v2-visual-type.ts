@@ -122,6 +122,8 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
         ...(kind !== "image" || previous?.framingPolicy !== undefined ? { framingPolicy } : {}),
         ...(kind === "image" && sourceKept && previous?.researchStill
           ? { researchStill: previous.researchStill } : {}),
+        ...(kind === "image" && sourceKept && previous?.researchQuotePicture
+          ? { researchQuotePicture: previous.researchQuotePicture } : {}),
       };
     }
   }

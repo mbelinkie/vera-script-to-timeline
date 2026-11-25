@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import {
   createResearchClient, researchOrigin, resolveProjectName,
   type ResearchProject,
@@ -66,6 +67,63 @@ describe("authorized Research quote records", () => {
     await expect(wrongSource.quote(PROJECT, quoteId)).rejects.toThrow("different Library source");
     const wrongProject = client(fakeService(() => Response.json([{ ...quote, projectId: sourceId }])).request);
     await expect(wrongProject.quotes(PROJECT, 0)).rejects.toThrow("different Library item");
+  });
+
+  it("reads only the exact article top revision from the quote's authorized source", async () => {
+    const captureId = researchId(730003);
+    const revisionId = researchId(730004);
+    const bytes = Buffer.from("kept synthetic bytes");
+    const original = { versionId: "kept-object-version",
+      sha256: createHash("sha256").update(bytes).digest("hex"), byteCount: bytes.length,
+      mimeType: "image/png", width: 8, height: 6 };
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/extension-captures")) {
+        expect(url.pathname).toContain(sourceId);
+        return Response.json([{ sourceId, captureId, assets: [
+          { role: "passage", revisionId: quoteId, ...original },
+          { role: "top", revisionId, ...original, provenance: { kind: "user_supplied", source: "browser_extension" } },
+        ] }]);
+      }
+      expect(url.pathname).toBe(`/api/projects/${PROJECT}/extension-captures/${captureId}/assets/top`);
+      expect(url.searchParams.get("revisionId")).toBe(revisionId);
+      return new Response(bytes, { headers: { "Content-Type": original.mimeType } });
+    });
+    const record = { researchProjectId: PROJECT, sourceId, itemId: quoteId, itemVersion: 3,
+      text: quote.content.text, displayText: quote.content.text, citationText: "", italicSpan: null, sourceKind: "web_page" as const };
+    const kept = await client(fake.request).readQuotePicture(PROJECT, record);
+    expect(kept?.picture).toEqual({ researchProjectId: PROJECT, ownerKind: "web_capture", ownerId: captureId, revisionId, original });
+    expect(kept?.bytes).toEqual(new Uint8Array(bytes));
+    expect(fake.calls).toHaveLength(2);
+  });
+
+  it("checks attached picture bytes and rechecks its revision before accepting the pin", async () => {
+    const bytes = Buffer.from("kept synthetic bytes");
+    const original = { versionId: "kept-object-version",
+      sha256: createHash("sha256").update(bytes).digest("hex"), byteCount: bytes.length,
+      mimeType: "image/png", width: 8, height: 6 };
+    const choice = { researchProjectId: PROJECT, sourceId, itemId: quoteId, itemVersion: 3,
+      text: quote.content.text, displayText: quote.content.text, citationText: "", italicSpan: null };
+    const revisionId = researchId(730004);
+    for (const issue of ["none", "changed-bytes", "changed-revision", "denied"] as const) {
+      let reads = 0;
+      const fake = fakeService((url) => {
+        if (!url.pathname.includes(`/source/${sourceId}`)) return serviceError(404);
+        if (url.pathname.endsWith("/original")) {
+          if (issue === "denied") return serviceError(403);
+          return new Response(issue === "changed-bytes" ? Buffer.alloc(bytes.length) : bytes,
+            { headers: { "Content-Type": original.mimeType } });
+        }
+        reads++;
+        return Response.json({ revisionId: issue === "changed-revision" && reads > 1 ? quoteId : revisionId,
+          assets: { original } });
+      });
+      const operation = client(fake.request).readQuotePicture(PROJECT, choice);
+      if (issue === "denied") await expect(operation).rejects.toThrow("refused");
+      else if (issue !== "none") expect(await operation).toBeNull();
+      else expect((await operation)?.picture).toEqual({
+        researchProjectId: PROJECT, ownerKind: "source", ownerId: sourceId, revisionId, original,
+      });
+    }
   });
 });
 

@@ -79,7 +79,9 @@ export function refreshResearchQuoteCitations(
   citations: ReadonlyMap<string, Citation>,
 ): ScriptDocumentV2 {
   return updateQuoteUses(document, (box) => {
-    const citation = citations.get(box.researchQuoteId.toLowerCase());
+    const id = box.researchQuoteId.toLowerCase();
+    const key = box.researchProjectId ? `${box.researchProjectId.toLowerCase()}\u0000${id}` : id;
+    const citation = citations.get(key) ?? citations.get(id);
     if (!citation || box.citationOverridden || (
       box.citationText === citation.citationText &&
       box.italicSpan?.start === citation.italicSpan?.start && box.italicSpan?.end === citation.italicSpan?.end

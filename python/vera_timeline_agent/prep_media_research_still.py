@@ -253,6 +253,57 @@ def materialize_research_still(
     verified = acquire_research_still(
         snapshot, reader=reader, research_origin=research_origin
     )
+    return _materialize_kept_image(verified, media_root, "Research Stills")
+
+
+def materialize_research_quote_picture(
+    picture: Mapping[str, Any], media_root: Path, *, home: Path | None = None
+) -> MaterializedResearchStill:
+    """Prepare only the bytes verified and retained at authorized quote placement."""
+    project_id = _canonical_uuid(
+        picture.get("researchProjectId"), "Research project ID"
+    )
+    revision_id = _canonical_uuid(
+        picture.get("revisionId"), "Research picture revision ID"
+    )
+    _canonical_uuid(picture.get("ownerId"), "Research picture owner ID")
+    if picture.get("ownerKind") not in ("web_capture", "source", "quote"):
+        raise ResearchStillError("Research picture owner kind is invalid")
+    original = picture.get("original")
+    if not isinstance(original, Mapping):
+        raise ResearchStillError("Research picture asset pin is invalid")
+    _validate_asset(original)
+    # The local-import descriptor uses the immutable picture revision as its ID.
+    snapshot = {
+        "researchProjectId": project_id,
+        "itemId": revision_id,
+        "itemVersion": 1,
+        "original": dict(original),
+    }
+    root = (home or Path.home()) / ".local/state/vera/research-quote-pictures"
+    path = root / project_id / revision_id / original["sha256"]
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        with os.fdopen(fd, "rb") as stream:
+            body = stream.read(original["byteCount"] + 1)
+    except OSError as error:
+        raise ResearchStillError(
+            "The pinned Research quote picture is unavailable on this Mac"
+        ) from error
+    digest = hashlib.sha256(body).hexdigest()
+    if len(body) != original["byteCount"] or digest != original["sha256"]:
+        raise ResearchStillError("Research quote picture bytes differ from their pin")
+    _verify_image(body, original)
+    return _materialize_kept_image(
+        VerifiedKeptStill(snapshot, body, original["mimeType"], f"sha256:{digest}"),
+        media_root,
+        "Research Quote Pictures",
+    )
+
+
+def _materialize_kept_image(
+    verified: VerifiedKeptStill, media_root: Path, folder_name: str
+) -> MaterializedResearchStill:
     root = _safe_root(media_root)
     digest = verified.original_hash.removeprefix("sha256:")
     suffix = {
@@ -262,7 +313,7 @@ def materialize_research_still(
     }[verified.mime_type]
     folder = _safe_path(
         root
-        / "Research Stills"
+        / folder_name
         / verified.snapshot["researchProjectId"]
         / verified.snapshot["itemId"]
     )

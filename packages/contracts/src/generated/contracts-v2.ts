@@ -82,6 +82,7 @@ export type NarratedVisualPayloadV2 = {
       };
   researchClip?: ResearchClipSnapshotV2;
   researchStill?: ResearchStillSnapshotV2;
+  researchQuotePicture?: ResearchQuotePictureV2;
   frameBinding?: ResearchFrameBindingV2;
   selectedSourceRange?: {
     startFrame: number;
@@ -817,6 +818,13 @@ export interface NarrationToken {
   spoken?: boolean;
   startOffset: number;
   endOffset: number;
+  researchQuoteProvenance?: ResearchQuoteProvenanceV2;
+}
+export interface ResearchQuoteProvenanceV2 {
+  researchProjectId: string;
+  researchQuoteId: string;
+  researchSourceId: string;
+  useId: string;
 }
 /**
  * Typed, exact-range pronunciation or performance metadata. It is never spoken narration or provider syntax.
@@ -1027,6 +1035,16 @@ export interface ResearchStillAssetV2 {
   width: number;
   height: number;
 }
+/**
+ * Immutable original image pin selected for a Research quote background.
+ */
+export interface ResearchQuotePictureV2 {
+  researchProjectId: string;
+  ownerKind: "web_capture" | "source" | "quote";
+  ownerId: string;
+  revisionId: string;
+  original: ResearchStillAssetV2;
+}
 export interface ResearchFrameBindingV2 {
   clipId: string;
   clipVersion: number;
@@ -1043,6 +1061,10 @@ export interface ReturnSlot {
 }
 export interface QuoteBoxV2 {
   researchQuoteId: string;
+  researchProjectId?: string;
+  researchSourceId?: string;
+  researchQuoteUseId?: string;
+  researchQuoteVersion?: number;
   displayText: string;
   speakerName: string;
   speakerTitle: string;

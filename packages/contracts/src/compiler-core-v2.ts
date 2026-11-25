@@ -434,7 +434,7 @@ function unresolvedResearchMedia(document: ScriptDocumentV2): CompileDiagnosticV
 }
 
 type AuthoredVisualPayloadV2 = NarratedVisualPayloadV2 | StandaloneVisualPayloadV2;
-const quoteBoxTemplateRevision = "sha256:b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08230b41bf640ff3754";
+export const EV24_QUOTE_BOX_TEMPLATE_REVISION = "sha256:b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08230b41bf640ff3754";
 
 function authoredVisualPayloads(document: ScriptDocumentV2): Map<string, AuthoredVisualPayloadV2> {
   const payloads = new Map<string, AuthoredVisualPayloadV2>();
@@ -471,11 +471,14 @@ function quoteBoxBackgroundProblem(
 ): BuildDiagnosticV2 | null {
   const target = entity("overlay_event", overlayId, "quoteBox/backgroundPayloadId");
   const background = payloads.get(quoteBox.backgroundPayloadId);
+  // Library placements let the writer remove their background card independently.
+  if (!background && quoteBox.researchQuoteUseId) return null;
   if (!background) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${quoteBox.backgroundPayloadId} is not an authored visual payload.`, target, undefined, ["repair_document"]);
-  if (background.source.kind === "unresolved_visual" || background.source.kind === "url") {
+  const quotePlaceholder = background.source.kind === "unresolved_visual" && !!quoteBox.researchQuoteUseId;
+  if ((background.source.kind === "unresolved_visual" && !quotePlaceholder) || background.source.kind === "url") {
     return diagnostic("VISUAL_UNDEFINED", "Quote box background has no resolved picture and cannot be built.", target, undefined, ["repair_document"]);
   }
-  if (background.source.kind !== "intentional_placeholder" && !descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
+  if (!quotePlaceholder && background.source.kind !== "intentional_placeholder" && !descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
   const backgroundEvents = events.filter((event) =>
     (event.kind === "primary_visual" || event.kind === "overlay_visual" || event.kind === "placeholder") &&
     event.provenance.payloadId === background.payloadId,
@@ -484,13 +487,16 @@ function quoteBoxBackgroundProblem(
   const coveringEvent = backgroundEvents.find((event) =>
     event.recordRange.startFrame <= range.startFrame && event.recordRange.endFrame >= range.endFrame,
   );
+  if (!coveringEvent && quoteBox.researchQuoteUseId) return null;
   if (!coveringEvent) return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} does not cover the requested quote-box range.`, target, undefined, ["repair_document"]);
   const backgroundTrack = tracks.find((track) => track.id === coveringEvent.trackId);
   if (!backgroundTrack || backgroundTrack.kind !== "video" || backgroundTrack.index >= graphicsTrack.index) {
     return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
   }
-  if (background.source.kind === "intentional_placeholder") {
-    return diagnostic("VISUAL_UNDEFINED", "Quote box background is an intentional Need to Find placeholder.", target, undefined, ["repair_document"], "warning");
+  if (quotePlaceholder || background.source.kind === "intentional_placeholder") {
+    const message = quotePlaceholder ? "Quote box background still needs a picture." :
+      "Quote box background is an intentional Need to Find placeholder.";
+    return diagnostic("VISUAL_UNDEFINED", message, target, undefined, ["repair_document"], "warning");
   }
   return null;
 }
@@ -503,10 +509,10 @@ function quoteBoxTemplateDiagnostics(document: ScriptDocumentV2, dependencies: C
   const diagnostics: BuildDiagnosticV2[] = [];
   if (dependencies.quoteBoxTemplateRevision === undefined || dependencies.quoteBoxTemplateRevision === null) {
     diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISSING", "The installed EV24 Quote Box .setting was not frozen for this build; install or verify the pinned template before compiling.", entity("build", dependencies.build.buildId, "quoteBoxTemplateRevision"), undefined, ["manual_review"]));
-  } else if (dependencies.quoteBoxTemplateRevision !== quoteBoxTemplateRevision) {
+  } else if (dependencies.quoteBoxTemplateRevision !== EV24_QUOTE_BOX_TEMPLATE_REVISION) {
     diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISMATCH", "The frozen EV24 Quote Box .setting hash does not match the pinned template revision.", entity("build", dependencies.build.buildId, "quoteBoxTemplateRevision"), undefined, ["manual_review"]));
   }
-  for (const { overlay, quoteBox } of quoteBoxes) if (quoteBox.templateRevision !== quoteBoxTemplateRevision) {
+  for (const { overlay, quoteBox } of quoteBoxes) if (quoteBox.templateRevision !== EV24_QUOTE_BOX_TEMPLATE_REVISION) {
     diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISMATCH", `Quote box ${overlay.id} requests template revision ${quoteBox.templateRevision}, not the pinned EV24 Quote Box revision.`, entity("overlay_event", overlay.id, "quoteBox/templateRevision"), undefined, ["repair_document"]));
   }
   return diagnostics;
@@ -1267,12 +1273,14 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         }
       } else if (payload.kind === "undefined" || payload.kind === "visual" && (payload.pictureKind === "intentional_placeholder" || payload.pictureKind === "unresolved_visual")) {
         const intentional = payload.kind === "visual" && payload.pictureKind === "intentional_placeholder";
+        const quotePlaceholder = payload.kind === "visual" && payload.pictureKind === "unresolved_visual" &&
+          block.overlayEvents.some(({ quoteBox }) => quoteBox?.researchQuoteUseId && quoteBox.backgroundPayloadId === payload.payloadId);
         const forced = dependencies.build.forcePreviewVisuals === true && dependencies.build.buildClass === "preview";
         const pictureTreatment = payload.kind === "undefined"
           ? { kind: "slate" as const, purpose: "undefined" as const, text: payload.description }
           : { kind: "slate" as const, purpose: intentional ? "intentional" as const : "unresolved" as const, text: payload.source.kind === "intentional_placeholder" ? payload.source.text : payload.source.kind === "unresolved_visual" ? payload.source.description : "Visual request unresolved" };
-        if (intentional || forced) emittedEvent = { eventId, kind: "placeholder", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: common, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null, pictureTreatment };
-        if (!intentional) diagnostics.push(diagnostic("VISUAL_UNDEFINED", "A requested visual remains undefined for this build.", entity("slot", slot.id, "payload"), undefined, ["repair_document"], "blocking"));
+        if (intentional || quotePlaceholder || forced) emittedEvent = { eventId, kind: "placeholder", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: common, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null, pictureTreatment };
+        if (!intentional && !quotePlaceholder) diagnostics.push(diagnostic("VISUAL_UNDEFINED", "A requested visual remains undefined for this build.", entity("slot", slot.id, "payload"), undefined, ["repair_document"], "blocking"));
       } else if (!descriptor || descriptor.owner.kind !== "primary_slot" || descriptor.owner.sequenceId !== sequence.id || descriptor.owner.slotId !== slot.id || payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId || payload.pictureKind === "clip" && payload.sourceUsage?.sourceInFrame !== descriptor.occurrenceSourceInFrame ||
         payload.kind === "visual" && payload.selectedSourceRange !== undefined && (
           payload.selectedSourceRange.startFrame !== descriptor.occurrenceSourceInFrame ||

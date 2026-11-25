@@ -13,6 +13,7 @@ from vera_timeline_agent.prep_media_research_still import (
     KeptStillResponse,
     ResearchStillError,
     acquire_research_still,
+    materialize_research_quote_picture,
     materialize_research_still,
 )
 
@@ -102,6 +103,32 @@ def test_kept_webp_materializes_without_following_dead_origin(tmp_path: Path) ->
     assert materialized.source_hash != materialized.original_hash
     assert Image.open(materialized.source_path).size == (8, 6)
     assert "gone.invalid" not in str(materialized.source_path)
+
+
+def test_quote_picture_uses_only_the_exact_retained_copy(tmp_path: Path) -> None:
+    snapshot, reader = _case()
+    pin = {
+        "researchProjectId": PROJECT_ID,
+        "ownerKind": "source",
+        "ownerId": SOURCE_ID,
+        "revisionId": ITEM_ID,
+        "original": snapshot["original"],
+    }
+    cache_root = tmp_path / ".local/state/vera/research-quote-pictures"
+    cache = cache_root / PROJECT_ID / ITEM_ID
+    cache.mkdir(parents=True)
+    retained = cache / pin["original"]["sha256"]
+    retained.write_bytes(reader.body)
+    materialized = materialize_research_quote_picture(
+        pin, tmp_path / "Media", home=tmp_path
+    )
+    assert materialized.original_path.read_bytes() == reader.body
+    assert materialized.snapshot["itemId"] == ITEM_ID
+    assert "Research Quote Pictures" in materialized.source_path.parts
+
+    retained.write_bytes(bytes(len(reader.body)))
+    with pytest.raises(ResearchStillError, match="differ from their pin"):
+        materialize_research_quote_picture(pin, tmp_path / "Media", home=tmp_path)
 
 
 def test_rotated_kept_webp_preserves_original_and_materializes_display_size(

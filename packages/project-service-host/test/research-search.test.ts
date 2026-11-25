@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterLoggedResearchClips } from "../browser/research-search.js";
+import { filterLoggedResearchClips, filterResearchLibraryItems, libraryFilterOptions } from "../browser/research-search.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const otherProject = "22222222-2222-4222-8222-222222222222";
@@ -12,6 +12,17 @@ const clips = [
     englishText: "green light", selection: { text: "signal" }, createdBy: "Dana", channel: "Channel name" },
   { id: "c", projectId: otherProject, createdAt: "2026-11-12T12:00:00Z", video: { title: "Secret" },
     englishText: "umbrella", selection: { text: "hidden" } },
+];
+const quotes = [
+  { itemId: "q1", researchProjectId: projectId, createdAt: "2026-11-13T12:00:00Z",
+    text: "The harbor light was green", displayText: "The harbor light was green",
+    speakerName: "Dana Lee", speakerTitle: "Engineer", sourceTitle: "Harbor Journal",
+    citationText: "Lee, Dana. Harbor Journal.", credit: "Harbor Archive", logger: "logger-a", topics: ["Transport"] },
+  { itemId: "q2", researchProjectId: projectId, createdAt: "2026-11-12T12:00:00Z",
+    text: "A silent signal", displayText: "A silent signal", speakerName: "A. Chen",
+    sourceTitle: "Signal Weekly", citationText: "Chen, A. Signal Weekly.", logger: "logger-b", topics: ["Science"] },
+  { itemId: "q3", researchProjectId: otherProject, createdAt: "2026-11-14T12:00:00Z",
+    text: "Secret text", sourceTitle: "Private source", citationText: "" },
 ];
 
 describe("authorized Research title and full transcript filtering", () => {
@@ -42,5 +53,37 @@ describe("authorized Research title and full transcript filtering", () => {
     expect(filterLoggedResearchClips(clips, [], { projectId, seed: "harbor umbrellas" }).map((c) => c.id))
       .toEqual(["a", "b"]);
     expect(clips[0]?.englishText).toContain("umbrellas");
+  });
+});
+
+describe("mixed authorized Library filtering", () => {
+  it("searches all quote text and attribution while keeping quote metadata and projects private", () => {
+    for (const query of ["green", "Dana Lee", "Engineer", "Harbor Journal", "Harbor Archive", "Lee, Dana"]) {
+      expect(filterResearchLibraryItems([], quotes, [], { projectId, query }).map((row) => row.item.itemId))
+        .toEqual(["q1"]);
+    }
+    for (const query of ["q1", "logger-a", "Transport", "2026", "Private source", "Secret text"]) {
+      expect(filterResearchLibraryItems([], quotes, [], { projectId, query })).toEqual([]);
+    }
+    expect(filterResearchLibraryItems(clips, quotes, [], { projectId: projectId.toUpperCase(), kind: "quotes" })
+      .map((row) => row.item.itemId)).toEqual(["q1", "q2"]);
+    expect(filterResearchLibraryItems(clips, quotes, [], { projectId, kind: "footage" })
+      .map((row) => row.kind)).toEqual(["footage", "footage"]);
+  });
+
+  it("applies use, logger, topic, sort and seed ranking consistently across kinds", () => {
+    const usage = [{ kind: "quote", researchProjectId: projectId, itemId: "q1", scriptCount: 2 }];
+    expect(filterResearchLibraryItems([], quotes, usage, { projectId }).map((row) => row.item.itemId))
+      .toEqual(["q2"]);
+    expect(filterResearchLibraryItems([], quotes, usage, { projectId, showUsed: true }).map((row) => row.item.itemId))
+      .toEqual(["q1", "q2"]);
+    expect(filterResearchLibraryItems([], quotes, [], { projectId, logger: "LOGGER-A", topic: "transport" })
+      .map((row) => row.item.itemId)).toEqual(["q1"]);
+    expect(filterResearchLibraryItems(clips, quotes, [], { projectId, sort: "oldest" })
+      .map((row) => row.item.itemId ?? row.item.id)).toEqual(["a", "b", "q2", "q1"]);
+    expect(libraryFilterOptions(clips, quotes)).toEqual({
+      loggers: [["dana", "Dana"], ["logger-a", "logger-a"], ["logger-b", "logger-b"]],
+      topics: ["Science", "Transport"],
+    });
   });
 });

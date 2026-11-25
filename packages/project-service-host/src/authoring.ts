@@ -2,12 +2,16 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
-  projectPrimarySequenceV2, validateScriptDocumentV2,
-  type RowEditCommandV2, type VisualSequenceEditCommandV2,
+  placeResearchQuoteV2, projectPrimarySequenceV2, spokenTokensV2, validateScriptDocumentV2,
+  type ResearchQuotePlacementV2, type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { ResearchQuotePictureV2, ScriptDocumentV2 } from "@vera/contracts/v2";
+import { EV24_QUOTE_BOX_TEMPLATE_REVISION } from "@vera/contracts/compiler-core-v2";
+import { editCitationText } from "@vera/contracts/research-quote-citations";
 import { prepareSavedPrompter } from "./prompter-authoring.js";
-import { publicResearchQuote, ResearchReadError, type createResearchClient } from "@vera/contracts/research-clip-client";
+import {
+  publicResearchQuote, ResearchReadError, type createResearchClient, type ResearchQuoteRecord,
+} from "@vera/contracts/research-clip-client";
 import {
   insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
 } from "@vera/contracts/research-clip-browser-insert";
@@ -41,7 +45,7 @@ const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/docu
 const EXTRAS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/document\/extras-operations$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
-const RESEARCH_QUOTES = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quotes$/iu;
+const RESEARCH_QUOTES = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quotes(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
 const SORTING_TRIAL = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/sorting-trial$/u;
@@ -69,6 +73,77 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+function revision(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function quoteText(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 20_000 && !/[\0\p{Surrogate}]/u.test(value);
+}
+
+function quotePlacementRequest(value: unknown) {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "quoteId", "quoteVersion",
+    "expectedDocumentRevision", "placement"]) || !uuid(value.timelineProjectId) || !uuid(value.researchProjectId) ||
+      !uuid(value.quoteId) || !revision(value.quoteVersion) || value.quoteVersion < 1 ||
+      !revision(value.expectedDocumentRevision) || !validateScriptDocumentV2(value.document).valid ||
+      !record(value.placement)) return null;
+  const document = value.document as ScriptDocumentV2;
+  if (document.projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase()) return null;
+  const p = value.placement;
+  const expectedDocumentRevision = value.expectedDocumentRevision;
+  let request: ResearchQuotePlacementV2;
+  if (p.kind === "gap") {
+    const gap = p.destination;
+    if (!exact(p, ["kind", "destination"]) || !record(gap) ||
+        !exact(gap, ["sectionId", "afterRowId", "beforeRowId"]) ||
+        ![gap.sectionId, gap.afterRowId, gap.beforeRowId].every((target) => target === null || uuid(target))) return null;
+    request = { expectedDocumentRevision, destination: { kind: "gap",
+      sectionId: gap.sectionId as string | null, afterRowId: gap.afterRowId as string | null,
+      beforeRowId: gap.beforeRowId as string | null,
+    } };
+  } else {
+    if (!uuid(p.rowId) || !revision(p.expectedRowVersion) || !revision(p.expectedSequenceVersion)) return null;
+    const row = { expectedDocumentRevision, rowId: p.rowId,
+      expectedRowVersion: p.expectedRowVersion, expectedSequenceVersion: p.expectedSequenceVersion };
+    const keys = ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"];
+    if (p.kind === "insert" && exact(p, [...keys, "beforeTokenId"]) &&
+        (p.beforeTokenId === null || uuid(p.beforeTokenId))) {
+      request = { ...row, destination: { kind: "insert", beforeTokenId: p.beforeTokenId } };
+    } else if (p.kind === "selected_words" && exact(p, [...keys, "startTokenId", "endTokenId"]) &&
+        uuid(p.startTokenId) && uuid(p.endTokenId)) {
+      request = { ...row, destination: { kind: "selected_words", startTokenId: p.startTokenId, endTokenId: p.endTokenId } };
+    } else return null;
+  }
+  return { request, document, timelineProjectId: value.timelineProjectId.toLowerCase(),
+    researchProjectId: value.researchProjectId.toLowerCase(), quoteId: value.quoteId.toLowerCase(),
+    quoteVersion: value.quoteVersion };
+}
+
+function editQuoteBoxRequest(value: unknown) {
+  if (!record(value) || !exact(value, ["document", "expectedDocumentRevision", "rowId", "expectedRowVersion",
+    "overlayId", "expectedOverlayVersion", "edit"]) || !revision(value.expectedDocumentRevision) ||
+      !uuid(value.rowId) || !uuid(value.overlayId) || !revision(value.expectedRowVersion) ||
+      !revision(value.expectedOverlayVersion) || !record(value.edit) ||
+      !validateScriptDocumentV2(value.document).valid) return null;
+  const { edit } = value;
+  let change: { displayText: string } | { citationText: string } | { delete: true } |
+    { range: { startTokenId: string; endTokenId: string } };
+  if (exact(edit, ["displayText"]) && quoteText(edit.displayText) && edit.displayText.trim()) {
+    change = { displayText: edit.displayText };
+  } else if (exact(edit, ["citationText"]) && quoteText(edit.citationText)) {
+    change = { citationText: edit.citationText };
+  } else if (exact(edit, ["delete"]) && edit.delete === true) {
+    change = { delete: true };
+  } else if (exact(edit, ["range"]) && record(edit.range) &&
+      exact(edit.range, ["startTokenId", "endTokenId"]) &&
+      uuid(edit.range.startTokenId) && uuid(edit.range.endTokenId)) {
+    change = { range: { startTokenId: edit.range.startTokenId, endTokenId: edit.range.endTokenId } };
+  } else return null;
+  return { document: value.document as ScriptDocumentV2, expectedDocumentRevision: value.expectedDocumentRevision,
+    rowId: value.rowId, expectedRowVersion: value.expectedRowVersion, overlayId: value.overlayId,
+    expectedOverlayVersion: value.expectedOverlayVersion, edit: change };
 }
 
 /** Only Draft row moves belong to this browser trial. */
@@ -246,13 +321,18 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
 }
 
-/** No quote mutation, request transport or bearer crosses this browser-facing seam. */
+/** Host-only Research authority. No request transport or bearer reaches the browser. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
-export type AuthoringReadOnlyResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
-  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote">>;
+export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText"> & {
+    quotePicture(projectId: string, quote: ResearchQuoteRecord): Promise<ResearchQuotePictureV2 | null>;
+    quoteThumbnail(projectId: string, quote: ResearchQuoteRecord): Promise<{
+      bytes: Uint8Array; mimeType: ResearchQuotePictureV2["original"]["mimeType"];
+    } | null>;
+  }>;
 
 export interface AuthoringResearchAccess {
-  catalog: AuthoringReadOnlyResearchCatalog;
+  catalog: AuthoringResearchCatalog;
   /** A Research read needs view permission; a script insertion needs edit permission. */
   authorizeTimelineProject(projectId: string, action?: "view_document" | "edit_document"): Promise<void>;
 }
@@ -290,7 +370,7 @@ function researchQuoteError(error: unknown): Response {
 }
 
 /** Project-scoped transcript DTO only: upstream extras never reach the browser. */
-function publicResearchClip(candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>) {
+function publicResearchClip(candidate: Awaited<ReturnType<AuthoringResearchCatalog["clip"]>>) {
   const { id, projectId, catalogVideoId, version, createdBy, createdAt, updatedAt,
     englishText, originalText } = candidate;
   const { youtubeVideoId, canonicalUrl, title, channel, sourceLanguage } = candidate.video;
@@ -343,7 +423,7 @@ export function createAuthoringHandler(
         "Content-Type": mime,
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; " +
           "connect-src 'self'; frame-src https://www.youtube-nocookie.com; " +
-          "img-src 'self' data: blob:; font-src 'self' data:; " +
+          "img-src 'self' data: blob: https://i.ytimg.com; font-src 'self' data:; " +
           "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         "Cross-Origin-Resource-Policy": "same-origin",
         "Referrer-Policy": "no-referrer",
@@ -356,7 +436,7 @@ export function createAuthoringHandler(
     const quoteRoute = RESEARCH_QUOTES.exec(path);
     const researchRoute = stillRoute ?? quoteRoute ?? RESEARCH.exec(path);
     const researchNumber = stillRoute || quoteRoute
-      ? researchReadNumber(url.searchParams, Boolean(stillRoute?.[3]))
+      ? researchReadNumber(url.searchParams, Boolean(stillRoute?.[3] || quoteRoute?.[3]))
       : null;
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const prompterRoute = PROMPTER_EXPORT.exec(path);
@@ -371,12 +451,16 @@ export function createAuthoringHandler(
     const isProjection = path === "/projection" && request.method === "POST";
     const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
     const isStillInsert = path === "/research-still-insert" && request.method === "POST";
+    const isQuoteInsert = path === "/research-quote-insert" && request.method === "POST";
+    const isQuoteBoxEdit = path === "/research-quote-box-edit" && request.method === "POST";
+    const isQuoteDisplayDefault = path === "/research-quote-display-default" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
+        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isQuoteInsert &&
+        !isQuoteBoxEdit && !isQuoteDisplayDefault && !isSortingTrial && !isExtrasOperation) ||
         (stillRoute || quoteRoute ? researchNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -524,6 +608,21 @@ export function createAuthoringHandler(
           return researchResponse(403, { error: "research_project_forbidden" });
         }
         if (quoteRoute && researchNumber !== null) {
+          const quoteId = quoteRoute[3]?.toLowerCase();
+          if (quoteId) {
+            if (!research.catalog.quote || !research.catalog.quoteThumbnail) {
+              return researchResponse(503, { error: "research_unavailable" });
+            }
+            const quote = await research.catalog.quote(researchProjectId, quoteId);
+            if (quote.itemId !== quoteId || quote.researchProjectId !== researchProjectId.toLowerCase()) {
+              return researchResponse(404, { error: "research_quote_unavailable" });
+            }
+            if (quote.itemVersion !== researchNumber) return researchResponse(409, { error: "research_quote_changed" });
+            const image = await research.catalog.quoteThumbnail(researchProjectId, quote);
+            if (!image) return researchResponse(404, { error: "research_quote_picture_unavailable" });
+            return new Response(Buffer.from(image.bytes), { headers: { ...RESEARCH_HEADERS,
+              "Content-Type": image.mimeType, "Cross-Origin-Resource-Policy": "same-origin" } });
+          }
           if (!research.catalog.quotes) return researchResponse(503, { error: "research_unavailable" });
           const { quotes, nextOffset } = await research.catalog.quotes(researchProjectId, researchNumber);
           return researchResponse(200, { quotes: quotes.map(publicResearchQuote), nextOffset });
@@ -551,6 +650,146 @@ export function createAuthoringHandler(
         // Research's errors and headers can contain user data or credentials.
         if (quoteRoute) return researchQuoteError(error);
         return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
+      }
+    }
+    if (isQuoteInsert) {
+      let body: ReturnType<typeof quotePlacementRequest>;
+      try { body = quotePlacementRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research?.catalog.quote) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        const { researchProjectId, quoteId, quoteVersion, document } = body;
+        const visible = await research.catalog.projects();
+        if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId)) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        const quote = await research.catalog.quote(researchProjectId, quoteId);
+        if (quote.researchProjectId !== researchProjectId || quote.itemId !== quoteId || !uuid(quote.sourceId)) {
+          return researchResponse(503, { error: "research_unavailable" });
+        }
+        if (quote.itemVersion !== quoteVersion) {
+          return researchResponse(409, { error: "research_quote_changed" });
+        }
+        let picture: ResearchQuotePictureV2 | null = null;
+        try {
+          picture = await research.catalog.quotePicture?.(researchProjectId, quote) ?? null;
+        } catch (error) {
+          if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+          // An unverifiable or unavailable asset cannot become a saved pin.
+        }
+        if (picture && (picture.researchProjectId !== researchProjectId ||
+            picture.ownerKind === "source" && picture.ownerId !== quote.sourceId ||
+            picture.ownerKind === "quote" && picture.ownerId !== quoteId)) picture = null;
+        const result = placeResearchQuoteV2(document, {
+          researchQuoteId: quoteId, researchProjectId, researchSourceId: quote.sourceId,
+          researchQuoteVersion: quoteVersion, spokenText: quote.displayText, displayText: quote.displayText,
+          speakerName: quote.speakerName ?? "", speakerTitle: quote.speakerTitle ?? "",
+          citationText: quote.citationText, italicSpan: quote.italicSpan,
+          templateRevision: EV24_QUOTE_BOX_TEMPLATE_REVISION,
+          ...(quote.citationOverridden ? { citationOverridden: true } : {}),
+        }, picture ? { kind: "still_image", picture, ...(quote.sourceTitle ? { displayName: quote.sourceTitle } : {}) } : null,
+        body.request);
+        if (result.ok) lastSplit = null;
+        return researchResponse(200, result);
+      } catch (error) {
+        return researchQuoteError(error);
+      }
+    }
+    if (isQuoteBoxEdit) {
+      let body: ReturnType<typeof editQuoteBoxRequest>;
+      try { body = editQuoteBoxRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_quote_box_edit" });
+      const { document, rowId, overlayId, edit } = body;
+      const row = document.activeDraft.blocks.find(({ id }) => id === rowId);
+      if (row?.type !== "narration" || row.state !== "active" || row.version !== body.expectedRowVersion) {
+        return researchResponse(409, { error: "quote_box_changed" });
+      }
+      const overlay = row.overlayEvents.find(({ id }) => id === overlayId);
+      if (!overlay?.quoteBox || overlay.version !== body.expectedOverlayVersion ||
+          overlay.version === Number.MAX_SAFE_INTEGER) return researchResponse(409, { error: "quote_box_changed" });
+      let timing = overlay.timing;
+      if ("range" in edit) {
+        const words = spokenTokensV2(row);
+        const start = words.findIndex(({ id }) => id === edit.range.startTokenId);
+        const end = words.findIndex(({ id }) => id === edit.range.endTokenId);
+        if (start < 0 || end < start) return researchResponse(409, { error: "quote_range_changed" });
+        const anchor = <Affinity extends "before" | "after">(index: number, affinity: Affinity) => ({
+          blockId: rowId, tokenId: words[index]!.id, quotedWord: words[index]!.value, affinity, anchorVersion: row.version,
+        });
+        timing = { kind: "timed", start: { kind: "word", anchor: anchor(start, "before") },
+          end: { kind: "audible_word_end", anchor: anchor(end, "after") } };
+      }
+      const overlayEvents = "delete" in edit ? row.overlayEvents.filter((event) => event !== overlay)
+        : row.overlayEvents.map((event) => {
+          if (event !== overlay || !event.quoteBox) return event;
+          const quoteBox = "displayText" in edit
+            ? { ...event.quoteBox, displayText: edit.displayText }
+            : "citationText" in edit
+              ? { ...event.quoteBox, ...editCitationText(event.quoteBox, edit.citationText), citationOverridden: true as const }
+              : event.quoteBox;
+          return { ...event, version: event.version + 1, quoteBox, timing };
+        });
+      const result = applyRowEditV2(document, body.expectedDocumentRevision, {
+        kind: "edit_row", rowId, row: { ...row, overlayEvents },
+      });
+      if (result.ok) lastSplit = null;
+      return researchResponse(200, result);
+    }
+    if (isQuoteDisplayDefault) {
+      let body: unknown;
+      try { body = await request.json(); } catch { body = null; }
+      if (!record(body) || !exact(body, ["timelineProjectId", "rowId", "overlayId", "expectedRevision", "expectedDigest"]) ||
+          !uuid(body.timelineProjectId) || !uuid(body.rowId) || !uuid(body.overlayId) ||
+          !revision(body.expectedRevision) || typeof body.expectedDigest !== "string" ||
+          !SAVED_DIGEST.test(body.expectedDigest)) return researchResponse(400, { error: "invalid_quote_box_edit" });
+      if (!research?.catalog.quote || !research.catalog.setQuoteDisplayText) {
+        return researchResponse(503, { error: "research_unavailable" });
+      }
+      const { timelineProjectId, rowId, overlayId, expectedRevision, expectedDigest } = body;
+      try {
+        await research.authorizeTimelineProject(timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        const saved = await projects(new Request(`${origin}/v1/projects/${timelineProjectId}/document`, {
+          method: "GET", headers: { authorization },
+        }));
+        if (!saved.ok) return researchResponse(503, { error: "saved_script_unavailable" });
+        const head: unknown = await saved.json();
+        if (!record(head) || head.projectId !== timelineProjectId || !validateScriptDocumentV2(head.document).valid) {
+          return researchResponse(503, { error: "saved_script_unavailable" });
+        }
+        if (head.revision !== expectedRevision || head.digest !== expectedDigest) {
+          return researchResponse(409, { error: "quote_box_changed" });
+        }
+        const row = (head.document as ScriptDocumentV2).activeDraft.blocks.find(({ id }) => id === rowId);
+        const box = row?.type === "narration" && row.state === "active"
+          ? row.overlayEvents.find(({ id }) => id === overlayId)?.quoteBox : undefined;
+        if (!box?.researchProjectId || !box.researchSourceId || !quoteText(box.displayText)) {
+          return researchResponse(404, { error: "research_quote_unavailable" });
+        }
+        const { researchProjectId, researchQuoteId } = box;
+        const visible = await research.catalog.projects();
+        if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId)) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        const current = await research.catalog.quote(researchProjectId, researchQuoteId);
+        if (current.researchProjectId !== researchProjectId || current.itemId !== researchQuoteId ||
+            current.sourceId !== box.researchSourceId) return researchResponse(409, { error: "research_quote_changed" });
+        if (current.displayText !== box.displayText) {
+          await research.catalog.setQuoteDisplayText(researchProjectId, researchQuoteId, current.itemVersion, box.displayText);
+        }
+        return new Response(null, { status: 204, headers: RESEARCH_HEADERS });
+      } catch (error) {
+        return researchQuoteError(error);
       }
     }
     if (isStillInsert) {
@@ -589,7 +828,7 @@ export function createAuthoringHandler(
         if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
         return researchResponse(503, { error: "timeline_authorization_unavailable" });
       }
-      let candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>;
+      let candidate: Awaited<ReturnType<AuthoringResearchCatalog["clip"]>>;
       try {
         // A previous GET/list is never sufficient authorization to mutate a script.
         const projects = await research.catalog.projects();

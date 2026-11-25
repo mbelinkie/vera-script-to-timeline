@@ -2912,6 +2912,45 @@ describe("Quote box compiler bindings", () => {
     expect(compiled.manifest.events.some((event) => event.provenance.overlayEventId === overlayId)).toBe(false);
   });
 
+  it("keeps the independently authored Library quote box after its background card is removed", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    Object.assign(row.overlayEvents[0]!.quoteBox!, {
+      researchQuoteUseId: id(95), researchProjectId: id(96), researchSourceId: id(97), researchQuoteVersion: 1,
+      backgroundPayloadId: id(99),
+    });
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box" &&
+      event.provenance.overlayEventId === overlayId)).toBe(true);
+  });
+
+  it("builds a missing Library quote picture as a slate behind the independent quote box", () => {
+    const { doc, deps, overlayId, backgroundPayloadId } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    Object.assign(row.overlayEvents[0]!.quoteBox!, {
+      researchQuoteUseId: id(95), researchProjectId: id(96), researchSourceId: id(97), researchQuoteVersion: 1,
+    });
+    const slot = row.primaryVisualSequence!.slots.find((item) =>
+      item.kind === "content" && item.payload.kind === "visual" && item.payload.payloadId === backgroundPayloadId);
+    if (slot?.kind !== "content") throw new Error("Missing quote background fixture.");
+    slot.payload = { kind: "visual", payloadId: backgroundPayloadId, pictureKind: "unresolved_visual",
+      source: { kind: "unresolved_visual", description: "Find a picture for this Research quote." },
+      sourceUsage: null, audioPolicy: "mute" };
+    deps.occurrenceResolutions = deps.occurrenceResolutions.filter((item) => item.payloadId !== backgroundPayloadId);
+    deps.preparedMedia = [];
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    expect(compiled.manifest.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "quote_box", provenance: expect.objectContaining({ overlayEventId: overlayId }) }),
+      expect.objectContaining({ kind: "placeholder", pictureTreatment: {
+        kind: "slate", purpose: "unresolved", text: "Find a picture for this Research quote.",
+      } }),
+    ]));
+  });
+
   it("reports a timing repair when two quote boxes overlap on V4", () => {
     const { doc, deps } = quoteBoxFixture();
     const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
