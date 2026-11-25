@@ -39,10 +39,9 @@ If blocked, name the missing capability and smallest action.
 
 1. **Start.** Matthew's go-ahead is approval. Read the issue and its
    `docs/Script-to-Timeline Product Spec - Fable Rev2.md` slice.
-2. **Branch.** One issue per worktree/branch (`<prefix>/<issue>-<slug>`:
-   `codex/` or `claude/` for direct sessions, `zodex/` from the VERA conductor
-   pipeline, `chat/` from interactive ChatGPT/Zodex chats) from freshly
-   fetched `origin/main`; bootstrap with
+2. **Branch.** One issue per worktree/branch (`<prefix>/<issue>-<slug>`;
+   prefix `codex`, `claude`, `zodex` (VERA conductor) or `chat` (ChatGPT
+   chats)) from freshly fetched `origin/main`; bootstrap with
    `npm ci` and `uv sync --frozen`. Never edit the main project folder (it
    stays on `main`). Claim with `npm run roadmap -- claim <issue> --branch
    <branch>` (marks it In progress). Push the first
