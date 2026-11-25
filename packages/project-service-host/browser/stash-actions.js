@@ -200,9 +200,14 @@ export function insertStashNoteCommand(documentModel, intent) {
 }
 
 /** All three mutations use the editor's existing queue -> authorized host -> CAS save -> Undo. */
-export function createStashActions(queueCommand, getDocument, makeId = uuid) {
+export function createStashActions(queueCommand, getDocument, makeId = uuid, queueExtras) {
   return {
     view: () => projectStash(getDocument()),
+    stashRow: (rowId) => {
+      const intent = captureWholeRowStash(getDocument(), [rowId]);
+      return intent && queueExtras ? queueExtras((current) => wholeRowStashCommand(current, intent, makeId),
+        "Stash row") : Promise.resolve(false);
+    },
     addNote: (text, location) => queueCommand(
       (current) => createStashNoteCommand(current, text, location, makeId), "Add Stash note", { structural: true }),
     stashWords: (rowId, selection) => {

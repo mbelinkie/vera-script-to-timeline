@@ -42,6 +42,9 @@ let documentDigest;
 let pendingDocument;
 let documentSaveFailure;
 let documentSaving = false;
+let pendingExtras;
+let extrasRunning = false;
+let extrasFailure;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
@@ -108,7 +111,7 @@ function prompterReady() {
   return Boolean(project && activeProjectId === project.projectId && scriptDocument &&
     Number.isSafeInteger(documentRevision) && savedDigestPattern.test(documentDigest ?? "") &&
     !opening && !saving && !pendingName && !pendingCreate && !conflicted && !editRefused &&
-    !documentSaving && !documentDirty && !pendingDocument && !commandsPending &&
+    !documentSaving && !documentDirty && !pendingDocument && !pendingExtras && !commandsPending &&
     !composingRows.size && !sortingTrial && projectTitle.value.trim() === project.title);
 }
 
@@ -428,6 +431,7 @@ function renderEditor() {
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
+    stashRow: (rowId) => stashActions.stashRow(rowId),
   });
   root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
     narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
@@ -852,7 +856,7 @@ function scheduleRender(force = false) {
   if (renderTimer) return;
   renderTimer = setTimeout(() => {
     renderTimer = undefined;
-    if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
+    if (!renderRequested || pendingExtras || editRefused || conflicted || commandsPending || composingRows.size) return;
     const root = element("script-rows");
     const selection = document.getSelection();
     // Programmatic word selections do not necessarily focus the textbox, and
@@ -878,7 +882,7 @@ document.addEventListener("selectionchange", () => {
 });
 
 async function saveDocument() {
-  if (!project || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+  if (!project || pendingExtras || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
   clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
@@ -1493,8 +1497,133 @@ element("open-sorting").addEventListener("click", () => {
 element("sorting-discard").addEventListener("click", () => finishSorting(false));
 element("sorting-accept").addEventListener("click", () => { void runSortingAction(acceptSortingTrial); });
 
+// Own the saved-head lane until an exact receipt and readback agree.
+function lockExtrasEditor(locked) {
+  for (const id of ["script-rows", "stash-panel", "footage-panel", "research-still-panel"]) {
+    element(id).inert = locked;
+  }
+  projectTitle.readOnly = locked;
+  for (const id of ["open-footage", "open-stash"]) element(id).disabled = locked;
+  updateUndo();
+}
+
+element("project-home").addEventListener("click", (event) => {
+  if (pendingExtras) event.preventDefault();
+});
+
+export function queueExtrasOperation(resolve, label) {
+  return startExtrasWrite(resolve, label, false);
+}
+
+function startExtrasWrite(resolve, label, isUndo) {
+  if (!prompterReady() || prompterDialog.open) {
+    setSaveStatus("Finish saving the script before using Stash.");
+    return Promise.resolve(false);
+  }
+  extrasFailure = undefined;
+  const prior = scriptDocument;
+  let operation;
+  try {
+    operation = resolve(prior);
+  } catch (error) {
+    setSaveStatus(error.message || "Choose the Stash material again.");
+    return Promise.resolve(false);
+  }
+  const body = Object.freeze({ expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(),
+    ...(isUndo ? { document: operation } : { operation }) });
+  pendingExtras = { projectId: activeProjectId, prior, body, digest: documentDigest,
+    label, isUndo, receipt: null, uncertain: false };
+  clearPreparedPrompter("Save your script before exporting.");
+  lockExtrasEditor(true);
+  setSaveStatus();
+  return retryExtrasWrite();
+}
+
+function retryExtrasWrite() {
+  if (!pendingExtras || extrasRunning) return Promise.resolve(false);
+  extrasRunning = true;
+  extrasFailure = undefined;
+  commandsPending += 1;
+  const pending = pendingExtras;
+  setSaveStatus();
+  commandQueue = commandQueue.then(async () => {
+    const { projectId, prior, body, digest, label, isUndo } = pending;
+    const path = `/${projectId}/document`;
+    const sameBasis = () => activeProjectId === projectId && scriptDocument === prior &&
+      documentRevision === body.expectedRevision && documentDigest === digest &&
+      !documentSaving && !documentDirty && !pendingDocument;
+    if (!sameBasis()) throw new Error("The open script changed. Reload the saved script.");
+    if (!pending.receipt) {
+      const receipt = await api(isUndo ? path : path + "/extras-operations", isUndo ? "PUT" : "POST", body);
+      if (receipt.projectId !== projectId || receipt.clientMutationId !== body.clientMutationId ||
+          receipt.revision !== body.expectedRevision + 1 || !savedDigestPattern.test(receipt.digest)) {
+        throw new Error("The saved Stash receipt could not be verified.");
+      }
+      pending.receipt = receipt;
+    }
+    const saved = await api(path);
+    if (!sameBasis() || saved.document?.projectId !== projectId || saved.document.id !== prior.id ||
+        saved.revision !== pending.receipt.revision || saved.digest !== pending.receipt.digest) {
+      conflicted = true;
+      undoStack.length = 0;
+      pendingExtras = undefined;
+      extrasFailure = { message: "The saved head changed. Open the saved script to continue.", action: "conflict" };
+      return false;
+    }
+    const previousProjection = visualProjection;
+    scriptDocument = saved.document;
+    documentRevision = saved.revision;
+    documentDigest = saved.digest;
+    // Older snapshots cannot cross the durable mutation boundary.
+    undoStack.length = 0;
+    if (!isUndo) undoStack.push({ document: prior, label,
+      durable: { revision: saved.revision, digest: saved.digest } });
+    typingGroup = null;
+    lastSplit = null;
+    structuralFocus = null;
+    activeAttach = null;
+    activeReselect = null;
+    visualFeedback = "";
+    pendingExtras = undefined;
+    invalidateProjection(false);
+    researchPanel?.update();
+    researchStillPanel?.update();
+    void refreshProjection(scriptDocument, true, previousProjection);
+    void refreshMusicWarnings();
+    scheduleRender(true);
+    return true;
+  }).catch((error) => {
+    if (!pending.receipt && !pending.uncertain && error instanceof ApiError &&
+        [400, 401, 403, 404, 409].includes(error.status)) {
+      pendingExtras = undefined;
+      if (error.status === 409) {
+        conflicted = true;
+        undoStack.length = 0;
+        extrasFailure = { message: "A newer script was saved elsewhere. Open the saved script to continue.", action: "conflict" };
+      } else {
+        extrasFailure = { message: "Stash change refused. The saved script was not changed." };
+      }
+    } else {
+      pending.uncertain = true;
+      extrasFailure = { message: pending.receipt ?
+        "Stash change was saved, but its saved script could not be read. Retry readback." :
+        "Stash delivery is unconfirmed. Retry the same change.", action: "retry" };
+    }
+    return false;
+  }).finally(() => {
+    extrasRunning = false;
+    commandsPending -= 1;
+    lockExtrasEditor(Boolean(pendingExtras));
+    if (!pendingExtras && !extrasFailure && !pending.isUndo) stashPanel.open();
+    setSaveStatus();
+    if (renderRequested) scheduleRender();
+  });
+  return commandQueue;
+}
+
 function queueCommand(command, label, options = {}) {
-  if (sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
+  if (pendingExtras || sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
+  if (extrasFailure && !extrasFailure.action) extrasFailure = undefined;
   const inputAt = performance.now();
   commandsPending += 1;
   clearPreparedPrompter("Save your script before exporting.");
@@ -1678,7 +1807,7 @@ function queueCommand(command, label, options = {}) {
 
 function updateUndo() {
   const button = element("undo");
-  button.disabled = undoStack.length === 0;
+  button.disabled = Boolean(pendingExtras) || undoStack.length === 0;
   button.textContent = undoStack.length ? `↶ Undo ${undoStack[undoStack.length - 1].label}` : "↶ Undo";
   button.setAttribute("aria-label", undoStack.length ? `Undo ${undoStack[undoStack.length - 1].label}` : "Undo");
   button.title = undoStack.length ? button.textContent : "Nothing to undo in this session";
@@ -1696,7 +1825,16 @@ function updateUndo() {
 }
 
 function undo() {
-  if (sortingTrial || prompterDialog.open || composingRows.size) return;
+  if (pendingExtras || sortingTrial || prompterDialog.open || composingRows.size) return;
+  const entry = undoStack.at(-1);
+  if (entry?.durable) {
+    if (entry.durable.revision !== documentRevision || entry.durable.digest !== documentDigest) {
+      setSaveStatus("This Stash Undo no longer matches the saved head.");
+      return;
+    }
+    void startExtrasWrite(() => entry.document, "Undo " + entry.label, true);
+    return;
+  }
   clearPreparedPrompter("Save your script before exporting.");
   activeAttach = null;
   typingGroup = null;
@@ -1706,7 +1844,7 @@ function undo() {
     // Earlier requests may have completed after Undo was queued, restoring
     // a typing group. Undo is a history boundary at *execution* as well.
     typingGroup = null;
-    if (conflicted || editRefused || !undoStack.length) return;
+    if (conflicted || editRefused || !undoStack.length || undoStack.at(-1)?.durable) return;
     const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
     researchPanel?.update();
@@ -1728,7 +1866,7 @@ function undo() {
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
   // A modal export must not dispatch (or swallow) editor shortcuts behind it.
-  if (prompterDialog.open) return;
+  if (prompterDialog.open || pendingExtras) return;
   if (sortingTrial) {
     if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
       event.preventDefault();
@@ -1781,7 +1919,7 @@ function showOpenError(error) {
 }
 
 async function openScript(projectId) {
-  if (opening) return;
+  if (opening || pendingExtras) return;
   opening = true;
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
@@ -1802,7 +1940,7 @@ function newScript(title) {
 
 newForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (opening) return;
+  if (opening || pendingExtras) return;
   const title = newTitle.value.trim();
   if (!title) {
     homeStatus.textContent = "Enter a name for the new script.";
@@ -1839,13 +1977,13 @@ openForm.addEventListener("submit", (event) => {
 function setSaveStatus(message = "Saved") {
   // A failure belongs to its outstanding mutation, not the last UI event.
   // A conflict prevents either retry; otherwise document Retry takes priority.
-  const failure = [documentSaveFailure, nameSaveFailure].find((item) => item?.action === "conflict") ??
-    documentSaveFailure ?? nameSaveFailure;
+  const failure = [extrasFailure, documentSaveFailure, nameSaveFailure].find((item) => item?.action === "conflict") ??
+    documentSaveFailure ?? nameSaveFailure ?? extrasFailure;
   let action;
   if (failure) ({ message, action } = failure);
   else if (editRefused) message = refusedMessage;
   else if (message === "Saved") {
-    if (documentSaving || saving || commandsPending) message = "Saving…";
+    if (pendingExtras || documentSaving || saving || commandsPending) message = "Saving…";
     else if (project && !projectTitle.value.trim()) message = "Project name is required. Your change is unsaved.";
     else if (pendingDocument || documentDirty || pendingName || composingRows.size ||
         (project && projectTitle.value.trim() !== project.title)) message = "Unsaved changes";
@@ -1870,7 +2008,7 @@ element("discard-edit").addEventListener("click", () => {
 
 async function saveName() {
   clearTimeout(saveTimer);
-  if (!project || saving || conflicted) return;
+  if (!project || pendingExtras || saving || conflicted) return;
   const title = projectTitle.value.trim();
   if (!pendingName) {
     if (!title) {
@@ -1927,12 +2065,13 @@ projectTitle.addEventListener("keydown", (event) => {
   }
 });
 retrySave.addEventListener("click", () => {
-  if (documentSaveFailure) void saveDocument();
+  if (pendingExtras) void retryExtrasWrite();
+  else if (documentSaveFailure) void saveDocument();
   else if (nameSaveFailure) void saveName();
 });
 
 function protectDraft(event) {
-  if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
+  if (pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
     event.preventDefault();
     event.returnValue = true;
   }
@@ -1965,10 +2104,10 @@ const stashActions = createStashActions((command, label, options) => {
     if (current.projectId !== projectId) throw new Error("The open script changed.");
     return command(current);
   }, label, options);
-}, () => scriptDocument);
+}, () => scriptDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial), onOpen: () => {
+  getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial || pendingExtras), onOpen: () => {
     if (!element("footage-panel").hidden) researchPanel.close();
     if (!element("research-still-panel").hidden) researchStillPanel.close();
   },

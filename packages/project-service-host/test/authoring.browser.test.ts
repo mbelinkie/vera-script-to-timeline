@@ -11,7 +11,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate, researchId, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -881,6 +881,229 @@ describe("browser authoring over the local project service", () => {
     expect(await readFile(await (await emptyDownload).path())).toEqual(Buffer.alloc(0));
     await page.close();
   });
+  it("#78 parks a cited Research row with one saved revision, reloads and undoes the exact pinned row", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras saved row");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const source = researchNestedNote(810000);
+    source.orderKey = "1";
+    const section = model.activeDraft.blocks[0]!;
+    const sibling = model.activeDraft.blocks[2]!;
+    model.activeDraft.blocks[1] = source;
+    const anchor = { kind: "word" as const, anchor: { blockId: source.id, tokenId: source.tokens[0]!.id,
+      affinity: "before" as const, quotedWord: source.tokens[0]!.value, anchorVersion: 1 } };
+    const citation = { id: randomUUID(), version: 1, orderKey: "citation", role: "citation" as const,
+      content: "Synthetic source evidence", placement: { kind: "point" as const, anchor }, displayAttachment: anchor };
+    model.activeDraft.supportingItems = [citation];
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const before = await read();
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${source.id}"]`);
+    const park = async () => {
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      await row.hover();
+      await row.locator("[data-row-action-trigger]").click();
+      await row.getByRole("menuitem", { name: "Stash row" }).click();
+      await expect.poll(() => row.count()).toBe(0);
+    };
+    await park();
+    const parked = await read();
+    expect(parked.revision).toBe(before.revision + 1);
+    expect(parked.document.activeDraft.blocks).toEqual([section, sibling]);
+    expect(parked.document.activeDraft.supportingItems).toEqual([]);
+    expect(parked.document.stash?.find((bundle) => bundle.rows.some((item) => item.id === source.id)))
+      .toMatchObject({ rows: [source], supportingItems: [citation],
+        originalGap: { sectionId: section.id, afterRowId: null, beforeRowId: sibling.id } });
+    expect(parked.document.extras).toEqual([]);
+    await page.getByRole("button", { name: "Undo Stash row", exact: true }).click();
+    await expect.poll(() => row.count()).toBe(1);
+    const undone = await read();
+    expect(undone.revision).toBe(parked.revision + 1);
+    expect(undone.document).toEqual(before.document);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await park();
+    const saved = await read();
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await row.count()).toBe(0);
+    expect(await read()).toEqual(saved);
+    await page.close();
+  }, 90_000);
+
+  it("#78 refuses during an ordinary PUT, retains exact lost-receipt retry and retries readback only", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras retries");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const source = model.activeDraft.blocks.find((block) => block.type === "narration")!;
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${source.id}"]`);
+    let releasePut: () => void = () => undefined;
+    const heldPut = new Promise<void>((resolve) => { releasePut = resolve; });
+    let puts = 0;
+    let failRead = false;
+    await page.route(`**${path}`, async (route) => {
+      if (route.request().method() === "PUT") {
+        puts++;
+        if (puts === 1) await heldPut;
+      } else if (failRead) {
+        failRead = false;
+        await route.fulfill({ status: 503, json: { error: "service_unavailable" } });
+        return;
+      }
+      await route.continue();
+    });
+    // Relay through a second enrolled Chromium page: route.fetch is a Node
+    // request and does not carry genuine browser Fetch Metadata.
+    const relay = await context.newPage();
+    await relay.goto(origin);
+    const bodies: Array<string | null> = [];
+    await page.route(`**${path}/extras-operations`, async (route) => {
+      bodies.push(route.request().postData());
+      const result = await appRequest(relay, path + "/extras-operations", "POST",
+        route.request().postDataJSON());
+      if (result.status !== 200) {
+        await route.fulfill({ status: result.status, json: result.body });
+        return;
+      }
+      if (bodies.length === 1) await route.abort();
+      else {
+        failRead = true;
+        await route.fulfill({ status: result.status, json: result.body });
+      }
+    });
+    const editor = row.locator("[data-narration-editor]");
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("x");
+    await expect.poll(() => puts).toBe(1);
+    const park = async () => {
+      await row.hover();
+      await row.locator("[data-row-action-trigger]").click();
+      await row.getByRole("menuitem", { name: "Stash row" }).click();
+    };
+    try {
+      await park();
+      expect(bodies).toHaveLength(0);
+      expect(await page.locator("#save-status").innerText()).toContain("Finish saving");
+    } finally {
+      releasePut();
+    }
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const before = await read();
+    await park();
+    await expect.poll(() => page.locator("#save-status").innerText()).toContain("delivery is unconfirmed");
+    expect(await row.count()).toBe(1);
+    expect(await page.locator("#script-rows").evaluate((element) => (element as HTMLElement).inert)).toBe(true);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await page.locator("#project-home").click();
+    expect(new URL(page.url()).searchParams.get("project")).toBe(projectId);
+    await page.keyboard.press("Control+z");
+    expect(puts).toBe(1);
+    await page.locator("#retry-save").click();
+    await expect.poll(() => page.locator("#save-status").innerText()).toContain("Retry readback");
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toBe(bodies[0]);
+    await page.locator("#retry-save").click();
+    await expect.poll(() => row.count()).toBe(0);
+    expect(bodies).toHaveLength(2);
+    expect(puts).toBe(1);
+    const after = await read();
+    expect(after.revision).toBe(before.revision + 1);
+    expect(after.document.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === source.id))
+      .toEqual(before.document.activeDraft.blocks.find((item) => item.id === source.id));
+    await relay.close();
+    await page.close();
+  }, 90_000);
+
+  it("#78 refuses a stale saved-head park without a PUT or Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras CAS refusal");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const source = model.activeDraft.blocks.find((block) => block.type === "narration")!;
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const before = (await appRequest(page, path)).body as SavedDocument;
+    const changed = structuredClone(before.document);
+    changed.title = "Concurrent saved script";
+    expect((await appRequest(page, path, "PUT", { expectedRevision: before.revision,
+      clientMutationId: randomUUID(), document: changed })).status).toBe(200);
+    const current = (await appRequest(page, path)).body as SavedDocument;
+    const row = page.locator(`[data-row-id="${source.id}"]`);
+    await row.hover();
+    await row.locator("[data-row-action-trigger]").click();
+    await row.getByRole("menuitem", { name: "Stash row" }).click();
+    await expect.poll(() => page.locator("#save-status").innerText()).toContain("newer script");
+    expect(await row.count()).toBe(1);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    expect((await appRequest(page, path)).body).toEqual(current);
+    await page.close();
+  }, 90_000);
+
+  it("#78 refuses to install a receipt when readback has advanced to a newer saved head", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const relay = await context.newPage();
+    await relay.goto(origin);
+    const projectId = await createProject(page, origin, "Extras newer head");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const source = model.activeDraft.blocks.find((block) => block.type === "narration")!;
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    let puts = 0;
+    await page.route(`**${path}`, async (route) => {
+      if (route.request().method() === "PUT") puts++;
+      await route.continue();
+    });
+    await page.route(`**${path}/extras-operations`, async (route) => {
+      const receipt = await appRequest(relay, path + "/extras-operations", "POST", route.request().postDataJSON());
+      if (receipt.status === 200) {
+        const parked = (await appRequest(relay, path)).body as SavedDocument;
+        const changed = structuredClone(parked.document);
+        changed.title = "Another writer advanced the head";
+        const update = await appRequest(relay, path, "PUT", { expectedRevision: parked.revision,
+          clientMutationId: randomUUID(), document: changed });
+        if (update.status !== 200) {
+          await route.fulfill({ status: update.status, json: update.body });
+          return;
+        }
+      }
+      await route.fulfill({ status: receipt.status, json: receipt.body });
+    });
+    const row = page.locator(`[data-row-id="${source.id}"]`);
+    await row.hover();
+    await row.locator("[data-row-action-trigger]").click();
+    await row.getByRole("menuitem", { name: "Stash row" }).click();
+    await expect.poll(() => page.locator("#save-status").innerText()).toContain("saved head changed");
+    expect(await row.count()).toBe(1);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    expect(puts).toBe(0);
+    const current = (await appRequest(relay, path)).body as SavedDocument;
+    expect(current.document.title).toBe("Another writer advanced the head");
+    expect(current.document.stash?.flatMap((bundle) => bundle.rows).some((item) => item.id === source.id)).toBe(true);
+    const opened = context.waitForEvent("page");
+    await page.locator("#conflict-open-saved").click();
+    const savedPage = await opened;
+    await savedPage.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await savedPage.locator(`[data-row-id="${source.id}"]`).count()).toBe(0);
+    expect(await row.count()).toBe(1);
+    expect((await appRequest(relay, path)).body).toEqual(current);
+    await savedPage.close();
+    await relay.close();
+    await page.close();
+  }, 90_000);
+
   it("#674 opens saved Stash, adds a sectioned note, stashes words, reloads, drops at an interior gap and undoes", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

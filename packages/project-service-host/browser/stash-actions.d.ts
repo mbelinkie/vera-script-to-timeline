@@ -83,8 +83,10 @@ export function captureStashNoteDrop(document: ScriptDocumentV2, noteRowId: stri
 export function insertStashNoteCommand(document: ScriptDocumentV2,
   intent: StashDropIntent): Extract<RowEditCommandV2, { kind: "insert_stash_note_words" }>;
 export function createStashActions(queue: StashEditorQueue, getDocument: () => ScriptDocumentV2,
-  makeId?: () => string): {
+  makeId?: () => string, queueExtras?: (command: (document: ScriptDocumentV2) =>
+    Extract<RowEditCommandV2, { kind: "stash_rows" }> | SavedPlacementCommand, label: string) => Promise<boolean>): {
     view: () => StashSectionView[];
+    stashRow: (rowId: string) => Promise<boolean>;
     addNote: (text: string, location?: StashLocation) => Promise<boolean>;
     stashWords: (rowId: string, selection: StashWordSelection) => Promise<boolean>;
     dropNote: (noteRowId: string, rowId: string, beforeTokenId: string) => Promise<boolean>;
