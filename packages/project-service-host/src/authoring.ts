@@ -1,11 +1,20 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
-  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2,
+  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
   projectPrimarySequenceV2, validateScriptDocumentV2,
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { prepareSavedPrompter } from "./prompter-authoring.js";
+import { ResearchReadError, type createResearchClient } from "@vera/contracts/research-clip-client";
+import {
+  insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
+} from "@vera/contracts/research-clip-browser-insert";
+import {
+  insertResearchStillBrowserV2, type ResearchStillBrowserInsertV2,
+} from "@vera/contracts/research-still-browser-insert";
+import { ProjectAuthError } from "@vera/project-authorization";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
 
@@ -13,6 +22,12 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/stash-actions.js", ["stash-actions.js", "text/javascript; charset=utf-8"]],
+  ["/stash-panel.js", ["stash-panel.js", "text/javascript; charset=utf-8"]],
+  ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
+  ["/research-still-panel.js", ["research-still-panel.js", "text/javascript; charset=utf-8"]],
+  ["/footage-player.js", ["footage-player.js", "text/javascript; charset=utf-8"]],
+  ["/research-search.js", ["research-search.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
@@ -20,10 +35,17 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/range-proposal.js", ["range-proposal.js", "text/javascript; charset=utf-8"]],
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
   ["/visual-selection.js", ["visual-selection.js", "text/javascript; charset=utf-8"]],
+  ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
+const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
+const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
+const SORTING_TRIAL = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/sorting-trial$/u;
+const SAVED_DIGEST = /^sha256:[0-9a-f]{64}$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
 // pictures. Other visual operations belong to separate browser stories.
 const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
@@ -42,15 +64,114 @@ function id(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 256;
 }
 
+function uuid(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+/** Only Draft row moves belong to this browser trial. */
+function sortingMove(value: unknown): value is Extract<RowEditCommandV2, { kind: "move_rows" }> {
+  return record(value) && exact(value, ["kind", "rowIds", "destination"]) &&
+    value.kind === "move_rows" && Array.isArray(value.rowIds) &&
+    value.rowIds.length > 0 && value.rowIds.every(uuid) &&
+    new Set(value.rowIds).size === value.rowIds.length &&
+    record(value.destination) && exact(value.destination, ["sectionId", "afterRowId", "beforeRowId"]) &&
+    Object.values(value.destination).every((item) => item === null || uuid(item));
+}
+
+function stillReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
+  if (!thumbnail && params.size === 0) return 0;
+  const raw = params.get(thumbnail ? "version" : "offset");
+  if (params.size !== 1 || raw === null || !/^\d+$/u.test(raw)) return null;
+  const number = Number(raw);
+  return Number.isSafeInteger(number) && (thumbnail ? number > 0 : number <= 100_000) ? number : null;
+}
+
+/** The exported script is confidential, including validation and denial responses. */
+function prompterReply(body: unknown, status: number): Response {
+  return Response.json(body, { status, headers: {
+    "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+  } });
+}
+
+/** Reject client-supplied Research records, frame bindings and arbitrary row commands. */
+function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & { timelineProjectId: string;
+  document: ScriptDocumentV2 }) | null {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "clipId",
+    "clipVersion", "expectedDocumentRevision", "placement"]) ||
+    !uuid(value.timelineProjectId) || !uuid(value.researchProjectId) || !uuid(value.clipId) ||
+    !Number.isSafeInteger(value.clipVersion) || (value.clipVersion as number) < 1 ||
+    !Number.isSafeInteger(value.expectedDocumentRevision) || (value.expectedDocumentRevision as number) < 0 ||
+    !validateScriptDocumentV2(value.document).valid ||
+    (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
+    !record(value.placement)) return null;
+  const placement = value.placement;
+  if (placement.kind === "gap") {
+    const destination = placement.destination;
+    if (!exact(placement, ["kind", "destination"]) || !record(destination) ||
+        !exact(destination, ["sectionId", "afterRowId", "beforeRowId"]) ||
+        !["sectionId", "afterRowId", "beforeRowId"].every((key) =>
+          destination[key] === null || uuid(destination[key]))) return null;
+  } else if (placement.kind === "unattached" || placement.kind === "selected_words") {
+    if (!exact(placement, placement.kind === "unattached"
+      ? ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"]
+      : ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
+      !uuid(placement.rowId) || !Number.isSafeInteger(placement.expectedRowVersion) ||
+      (placement.expectedRowVersion as number) < 0 ||
+      !Number.isSafeInteger(placement.expectedSequenceVersion) ||
+      (placement.expectedSequenceVersion as number) < 0 ||
+      (placement.kind === "selected_words" && (!uuid(placement.startTokenId) || !uuid(placement.endTokenId)))) return null;
+  } else return null;
+  return value as unknown as ResearchClipBrowserInsertV2 & {
+    timelineProjectId: string; document: ScriptDocumentV2;
+  };
+}
+
+function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
+  timelineProjectId: string; document: ScriptDocumentV2;
+}) | null {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "itemId",
+    "itemVersion", "expectedDocumentRevision", "placement"]) || !uuid(value.timelineProjectId) ||
+    !uuid(value.researchProjectId) || !uuid(value.itemId) || !Number.isSafeInteger(value.itemVersion) ||
+    (value.itemVersion as number) < 1 || !Number.isSafeInteger(value.expectedDocumentRevision) ||
+    (value.expectedDocumentRevision as number) < 0 || !validateScriptDocumentV2(value.document).valid ||
+    (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
+    !record(value.placement)) return null;
+  const p = value.placement;
+  if (!exact(p, ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
+      p.kind !== "selected_words" || !uuid(p.rowId) || !uuid(p.startTokenId) || !uuid(p.endTokenId) ||
+      !Number.isSafeInteger(p.expectedRowVersion) || (p.expectedRowVersion as number) < 0 ||
+      !Number.isSafeInteger(p.expectedSequenceVersion) || (p.expectedSequenceVersion as number) < 0) return null;
+  return value as unknown as NonNullable<ReturnType<typeof stillInsertRequest>>;
+}
+
 const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing",
+  "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
+]);
+const WORDLESS_ROW_KINDS = new Set([
+  "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
 ]);
 
 /** Only the commands this browser editor can issue, with exact JSON shapes. */
 function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
   if (!record(value) || !VISUAL_KINDS.has(String(value.kind)) || !id(value.blockId) || !id(value.slotId)) return null;
   switch (value.kind) {
+    case "move_visual_to_row": {
+      const keys = ["kind", "blockId", "slotId", "destinationBlockId"];
+      if (Object.hasOwn(value, "expectedDestinationRowVersion")) keys.push("expectedDestinationRowVersion");
+      if (!exact(value, keys) || !uuid(value.blockId) || !uuid(value.slotId) ||
+          !uuid(value.destinationBlockId) ||
+          (Object.hasOwn(value, "expectedDestinationRowVersion") &&
+            (!Number.isSafeInteger(value.expectedDestinationRowVersion) ||
+              (value.expectedDestinationRowVersion as number) < 0))) return null;
+      break;
+    }
+    case "attach_visual_to_words":
+      if (!exact(value, ["kind", "blockId", "slotId", "startTokenId", "endTokenId"]) ||
+          !uuid(value.blockId) || !uuid(value.slotId) ||
+          !uuid(value.startTokenId) || !uuid(value.endTokenId)) return null;
+      break;
     case "add_visual_on_selection":
       if (!exact(value, ["kind", "blockId", "slotId", "payloadId", "startTokenId", "endTokenId", "visualType"]) ||
           !id(value.payloadId) || !id(value.startTokenId) || !id(value.endTokenId) ||
@@ -83,8 +204,99 @@ function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
   return value as VisualSequenceEditCommandV2;
 }
 
+/** Strictly bounded Draft wordless operations; the model still owns all state changes/refusals. */
+function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
+  if (!record(value) || !WORDLESS_ROW_KINDS.has(String(value.kind))) return null;
+  switch (value.kind) {
+    case "add_visual_to_wordless_row":
+      if (!exact(value, ["kind", "rowId", "payloadId", "slotId", "visualType"]) ||
+          !uuid(value.rowId) || !uuid(value.payloadId) || !uuid(value.slotId) ||
+          (value.visualType !== "onscreen_placeholder" && value.visualType !== "need_to_find")) return null;
+      break;
+    case "move_wordless_visual": {
+      const keys = ["kind", "sourceRowId", "payloadId", "destinationRowId"];
+      for (const optional of ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"]) {
+        if (Object.hasOwn(value, optional)) keys.push(optional);
+      }
+      if (!exact(value, keys) || !uuid(value.sourceRowId) || !uuid(value.payloadId) ||
+          !uuid(value.destinationRowId) ||
+          (Object.hasOwn(value, "destinationSlotId") && !uuid(value.destinationSlotId)) ||
+          (Object.hasOwn(value, "replacementPayloadId") && !uuid(value.replacementPayloadId)) ||
+          (Object.hasOwn(value, "expectedDestinationSequenceVersion") &&
+            (!Number.isSafeInteger(value.expectedDestinationSequenceVersion) ||
+              (value.expectedDestinationSequenceVersion as number) < 0))) return null;
+      break;
+    }
+    case "reorder_visual_only":
+      if (!exact(value, ["kind", "rowId", "payloadIds"]) || !uuid(value.rowId) ||
+          !Array.isArray(value.payloadIds) || !value.payloadIds.every(uuid)) return null;
+      break;
+    case "set_visual_only_hold":
+      if (!exact(value, ["kind", "rowId", "payloadId", "holdSeconds"]) ||
+          !uuid(value.rowId) || !uuid(value.payloadId) ||
+          typeof value.holdSeconds !== "number" || !Number.isFinite(value.holdSeconds)) return null;
+      break;
+  }
+  return value as RowEditCommandV2;
+}
+
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
+}
+
+/** No quote mutation, request transport or bearer crosses this browser-facing seam. */
+type ResearchClient = ReturnType<typeof createResearchClient>;
+export type AuthoringReadOnlyResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail">>;
+
+export interface AuthoringResearchAccess {
+  catalog: AuthoringReadOnlyResearchCatalog;
+  /** A Research read needs view permission; a script insertion needs edit permission. */
+  authorizeTimelineProject(projectId: string, action?: "view_document" | "edit_document"): Promise<void>;
+}
+
+const RESEARCH_HEADERS = {
+  "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8",
+  "X-Content-Type-Options": "nosniff",
+};
+
+function researchResponse(status: number, body: unknown): Response {
+  return Response.json(body, { status, headers: RESEARCH_HEADERS });
+}
+
+function researchStillError(error: unknown): Response {
+  if (error instanceof ResearchReadError) {
+    if (error.status === 404) return researchResponse(404, { error: "research_still_unavailable" });
+    if (error.status === 409) return researchResponse(409, { error: "research_still_changed" });
+    if (error.status === 422) return researchResponse(422, { error: "research_still_size_unsupported" });
+    if (error.status === 401 || error.status === 403) {
+      return researchResponse(403, { error: "research_project_forbidden" });
+    }
+  }
+  return researchResponse(503, { error: "research_unavailable" });
+}
+
+/** Project-scoped transcript DTO only: upstream extras never reach the browser. */
+function publicResearchClip(candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>) {
+  const { id, projectId, catalogVideoId, version, createdBy, createdAt, updatedAt,
+    englishText, originalText } = candidate;
+  const { youtubeVideoId, canonicalUrl, title, channel, sourceLanguage } = candidate.video;
+  const { trackId, transcriptVersion, firstSegmentId, lastSegmentId, firstTokenId, lastTokenId,
+    transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision } = candidate.selection;
+  return {
+    id, projectId, catalogVideoId, version,
+    ...(createdBy === undefined ? {} : { createdBy }),
+    ...(createdAt === undefined ? {} : { createdAt }),
+    ...(updatedAt === undefined ? {} : { updatedAt }),
+    video: { youtubeVideoId, canonicalUrl, title,
+      ...(channel === undefined ? {} : { channel }),
+      ...(sourceLanguage === undefined ? {} : { sourceLanguage }) },
+    selection: { trackId, transcriptVersion, firstSegmentId, lastSegmentId,
+      ...(firstTokenId === undefined ? {} : { firstTokenId }),
+      ...(lastTokenId === undefined ? {} : { lastTokenId }),
+      transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision },
+    englishText, ...(originalText === undefined ? {} : { originalText }),
+  };
 }
 
 /** Same-origin access to only the single-writer project/document routes. */
@@ -92,6 +304,7 @@ export function createAuthoringHandler(
   origin: string,
   authorization: string,
   projects: (request: Request) => Promise<Response>,
+  research?: AuthoringResearchAccess,
 ) {
   const launchProof = randomBytes(32);
   // Keep the enrolled browser working after host restart. Tie it to the
@@ -116,7 +329,8 @@ export function createAuthoringHandler(
       return new Response(contents, { headers: {
         "Content-Type": mime,
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; " +
-          "connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; " +
+          "connect-src 'self'; frame-src https://www.youtube-nocookie.com; " +
+          "img-src 'self' data: blob:; font-src 'self' data:; " +
           "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         "Cross-Origin-Resource-Policy": "same-origin",
         "Referrer-Policy": "no-referrer",
@@ -125,17 +339,30 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const stillRoute = RESEARCH_STILLS.exec(path);
+    const researchRoute = stillRoute ?? RESEARCH.exec(path);
+    const stillNumber = stillRoute ? stillReadNumber(url.searchParams, Boolean(stillRoute[3])) : null;
     const musicWarnings = MUSIC_WARNINGS.test(path);
+    const prompterRoute = PROMPTER_EXPORT.exec(path);
+    const isPrompterExport = !!prompterRoute && request.method === "POST";
+    const sortingRoute = SORTING_TRIAL.exec(path);
+    const isSortingTrial = !!sortingRoute && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
     const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
+    const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
+    const isStillInsert = path === "/research-still-insert" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
-      (musicWarnings && request.method === "GET");
-    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
-      return Response.json({ error: "not_found" }, { status: 404 });
+      (musicWarnings && request.method === "GET") ||
+      (researchRoute && request.method === "GET" && request.body === null);
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
+        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial) ||
+        (stillRoute ? stillNumber === null : url.search)) {
+      return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
+        Response.json({ error: "not_found" }, { status: 404 });
     }
 
     // Cross-origin browser code cannot set this header without a successful
@@ -144,13 +371,212 @@ export function createAuthoringHandler(
     if (request.headers.get("sec-fetch-site") !== "same-origin" ||
         request.headers.get("x-vera-authoring") !== "1" ||
         (suppliedOrigin !== null && suppliedOrigin !== origin)) {
-      return Response.json({ error: "same_origin_required" }, { status: 403 });
+      return isPrompterExport ? prompterReply({ error: "same_origin_required" }, 403) :
+        Response.json({ error: "same_origin_required" }, { status: 403 });
     }
     if (startsSession && matchesProof(request.headers.get("x-vera-launch"), launchProof)) {
       return Response.json({ sessionProof: browserProof.toString("hex") });
     }
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
-      return Response.json({ error: "authoring_browser_required" }, { status: 401 });
+      return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
+        Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (isSortingTrial) {
+      let body: unknown;
+      try { body = await request.json(); } catch { body = null; }
+      if (!record(body) || !exact(body, ["expectedRevision", "expectedDigest", "moves", "action"]) ||
+          !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
+          typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest) ||
+          (body.action !== "preview" && body.action !== "accept") ||
+          !Array.isArray(body.moves) || body.moves.length > 1000 || !body.moves.every(sortingMove)) {
+        return researchResponse(400, { error: "invalid_sorting_trial" });
+      }
+      try {
+        // Rebuild from the exact authorized saved head every time; browser
+        // commands cannot replace content and trial requests never write.
+        const projectId = sortingRoute[1]!;
+        const saved = await projects(new Request(`${origin}/v1/projects/${projectId}/document`, {
+          method: "GET", headers: { authorization },
+        }));
+        if (!saved.ok) {
+          return researchResponse([401, 403, 404].includes(saved.status) ? saved.status : 503,
+            { error: "saved_script_unavailable" });
+        }
+        const head: unknown = await saved.json();
+        if (!record(head) || head.projectId !== projectId ||
+            !validateScriptDocumentV2(head.document).valid ||
+            (head.document as ScriptDocumentV2).projectId !== projectId) {
+          return researchResponse(503, { error: "saved_script_unavailable" });
+        }
+        if (head.revision !== body.expectedRevision || head.digest !== body.expectedDigest) {
+          return researchResponse(409, { ok: false, diagnostics: [{
+            code: "SORTING_BASELINE_CHANGED", jsonPath: "/activeDraft",
+            message: "The saved script changed. Discard this trial and reload before sorting again.",
+          }] });
+        }
+        const baseline = head.document as ScriptDocumentV2;
+        const trial = createSortingTrialV2(baseline);
+        for (const move of body.moves) {
+          const result = trial.apply(move);
+          if (!result.ok) return researchResponse(200, result);
+        }
+        if (body.action === "preview") {
+          return researchResponse(200, { ok: true, document: trial.document, movedRowIds: trial.movedRowIds });
+        }
+        // The normal authorized document PUT still uses the original revision.
+        return researchResponse(200, trial.accept(baseline, "sorting_only"));
+      } catch {
+        return researchResponse(503, { error: "sorting_trial_unavailable" });
+      }
+    }
+    if (isPrompterExport) {
+      // Never accept a client-supplied document. The project API owns current
+      // saved-head reads, pending-collaboration flush and view_document permission.
+      let body: unknown;
+      try {
+        if (!/^application\/json(?:\s*;|\s*$)/iu.test(request.headers.get("content-type") ?? "")) {
+          return prompterReply({ error: "invalid_prompter_export" }, 400);
+        }
+        body = await request.json();
+      } catch {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      if (!record(body) ||
+          !exact(body, Object.hasOwn(body, "settings") ?
+            ["expectedRevision", "expectedDigest", "settings"] : ["expectedRevision", "expectedDigest"]) ||
+          !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
+          typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest)) {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      const requestedSettings = body.settings;
+      if (requestedSettings !== undefined &&
+          (!record(requestedSettings) ||
+            !exact(requestedSettings, ["includeSectionNavigation", "includeBeatNumbers"]) ||
+            typeof requestedSettings.includeSectionNavigation !== "boolean" ||
+            typeof requestedSettings.includeBeatNumbers !== "boolean")) {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      const settings = requestedSettings === undefined ?
+        { includeSectionNavigation: false, includeBeatNumbers: false } :
+        requestedSettings as { includeSectionNavigation: boolean; includeBeatNumbers: boolean };
+      try {
+        const saved = await projects(new Request(`${origin}/v1/projects/${prompterRoute[1]}/document`, {
+          method: "GET", headers: { authorization },
+        }));
+        if (!saved.ok) {
+          // Preserve the permission/not-found status without reflecting a
+          // possibly sensitive project API error body to the browser.
+          const status = [401, 403, 404].includes(saved.status) ? saved.status : 503;
+          return prompterReply({ error: "saved_script_unavailable" }, status);
+        }
+        const result = prepareSavedPrompter(await saved.json() as unknown, {
+          projectId: prompterRoute[1]!, revision: body.expectedRevision as number,
+          digest: body.expectedDigest,
+        }, settings);
+        return prompterReply(result.body, result.status);
+      } catch {
+        return prompterReply({ error: "saved_script_unavailable" }, 503);
+      }
+    }
+    if (researchRoute) {
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      const timelineProjectId = researchRoute[1]!;
+      const researchProjectId = researchRoute[2];
+      const clipId = researchRoute[3];
+      // The browser session proves only that this is the local editor. It never
+      // substitutes for a fresh Timeline membership/permission check.
+      try {
+        await research.authorizeTimelineProject(timelineProjectId);
+      } catch (error) {
+        if (error instanceof ProjectAuthError) {
+          return researchResponse(error.status, { error: error.code });
+        }
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        // Independently recheck Research visibility on EVERY catalog/clip read;
+        // neither a UUID supplied by the browser nor a previous list is proof.
+        const visible = await research.catalog.projects();
+        if (!researchProjectId) {
+          return researchResponse(200, { projects: visible.map(({ id, name }) => ({ id, name })) });
+        }
+        if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        if (stillRoute && stillNumber !== null) {
+          const stillId = stillRoute[3];
+          if (stillId && research.catalog.stillThumbnail) {
+            const { bytes, mimeType } = await research.catalog.stillThumbnail(researchProjectId, stillId, stillNumber);
+            return new Response(Buffer.from(bytes), { headers: { ...RESEARCH_HEADERS, "Content-Type": mimeType,
+              "Cross-Origin-Resource-Policy": "same-origin" } });
+          }
+          if (!stillId && research.catalog.stills) {
+            return researchResponse(200, await research.catalog.stills(researchProjectId, stillNumber));
+          }
+          return researchResponse(503, { error: "research_unavailable" });
+        }
+        if (clipId) {
+          return researchResponse(200, { clip: publicResearchClip(
+            await research.catalog.clip(researchProjectId, clipId),
+          ) });
+        }
+        return researchResponse(200, { clips: (await research.catalog.clips(researchProjectId))
+          .map(publicResearchClip) });
+      } catch (error) {
+        // Research's errors and headers can contain user data or credentials.
+        return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
+      }
+    }
+    if (isStillInsert) {
+      let body: ReturnType<typeof stillInsertRequest>;
+      try { body = stillInsertRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research?.catalog.still) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        const projects = await research.catalog.projects();
+        const { document, researchProjectId, itemId, itemVersion } = body;
+        if (!projects.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        const snapshot = await research.catalog.still(researchProjectId, itemId, itemVersion);
+        const result = insertResearchStillBrowserV2(document, snapshot, body);
+        if (result.ok) lastSplit = null;
+        return researchResponse(200, result);
+      } catch (error) {
+        return researchStillError(error);
+      }
+    }
+    if (isResearchInsert) {
+      let body: ReturnType<typeof researchInsertRequest>;
+      try { body = researchInsertRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      let candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>;
+      try {
+        // A previous GET/list is never sufficient authorization to mutate a script.
+        const projects = await research.catalog.projects();
+        if (!projects.some(({ id }) => id.toLowerCase() === body.researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        candidate = await research.catalog.clip(body.researchProjectId, body.clipId);
+      } catch {
+        return researchResponse(503, { error: "research_unavailable" });
+      }
+      const result = insertResearchClipBrowserV2(body.document, candidate, body);
+      if (result.ok) lastSplit = null;
+      return researchResponse(200, result);
     }
     if (isProjection) {
       try {
@@ -167,7 +593,8 @@ export function createAuthoringHandler(
     }
     if (isCommand) {
       try {
-        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2; splitProof?: string; expectedSequenceVersion?: unknown };
+        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2;
+          splitProof?: string; expectedSequenceVersion?: unknown; expectedRowEditRevision?: unknown };
         const { command, document, splitProof } = body;
         if (record(command) && VISUAL_KINDS.has(String(command.kind))) {
           const visual = visualCommand(command);
@@ -181,8 +608,19 @@ export function createAuthoringHandler(
           if (result.ok) lastSplit = null; // Any successful visual edit breaks immediate split restoration.
           return Response.json(result);
         }
+        if (record(command) && WORDLESS_ROW_KINDS.has(String(command.kind))) {
+          const rowCommand = wordlessRowCommand(command);
+          if (!rowCommand || !record(body) || !exact(body, ["document", "command", "expectedRowEditRevision"]) ||
+              !Number.isSafeInteger(body.expectedRowEditRevision) || (body.expectedRowEditRevision as number) < 0 ||
+              !validateScriptDocumentV2(document).valid) {
+            return Response.json({ error: "invalid_command" }, { status: 400 });
+          }
+          const result = applyRowEditV2(document, body.expectedRowEditRevision as number, rowCommand);
+          if (result.ok) lastSplit = null;
+          return Response.json(result);
+        }
         if (!record(command) || typeof command.kind !== "string" ||
-            Object.hasOwn(body, "expectedSequenceVersion")) {
+            Object.hasOwn(body, "expectedSequenceVersion") || Object.hasOwn(body, "expectedRowEditRevision")) {
           return Response.json({ error: "invalid_command" }, { status: 400 });
         }
         if (splitProof !== undefined) {

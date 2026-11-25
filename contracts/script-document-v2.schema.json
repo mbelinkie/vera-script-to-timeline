@@ -861,6 +861,10 @@
         "researchClip": {
           "$ref": "#/$defs/ResearchClipSnapshotV2"
         },
+        "researchStill": {
+          "$ref": "#/$defs/ResearchStillSnapshotV2",
+          "description": "Immutable Research kept-still identity and original asset pin for this image occurrence. Display and thumbnail assets are acquired later and are never persisted here."
+        },
         "frameBinding": {
           "$ref": "#/$defs/ResearchFrameBindingV2"
         },
@@ -1098,6 +1102,40 @@
                 "const": "mute"
               }
             }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "researchStill": {}
+            },
+            "required": [
+              "researchStill"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "image"
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "media_reference"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            },
+            "required": [
+              "pictureKind",
+              "source"
+            ]
           }
         },
         {
@@ -3275,6 +3313,171 @@
         "anchor": {
           "type": "object",
           "additionalProperties": true
+        }
+      }
+    },
+    "ResearchStillSnapshotV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchProjectId",
+        "itemId",
+        "itemVersion",
+        "sourceId",
+        "title",
+        "provenance",
+        "original"
+      ],
+      "properties": {
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "itemId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "itemVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "sourceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "credit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "licence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "usageNote": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "provenance": {
+          "$ref": "#/$defs/ResearchStillProvenanceV2"
+        },
+        "original": {
+          "$ref": "#/$defs/ResearchStillAssetV2"
+        }
+      }
+    },
+    "ResearchStillAssetV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versionId",
+        "sha256",
+        "byteCount",
+        "mimeType",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "versionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "byteCount": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "mimeType": {
+          "type": "string",
+          "enum": [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+          ]
+        },
+        "width": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "height": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "ResearchStillProvenanceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "inputSha256"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "url",
+            "file",
+            "page_picture",
+            "still_crop"
+          ]
+        },
+        "sourceUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "resolvedUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pageUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "altText": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "parentItemId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "crop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "inputSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },

@@ -218,11 +218,16 @@ all work for every kind. ⌘⇧F quick search covers every kind. "+ Add file" as
 in §3.3.
 
 ### 8.2 The quote box is a transparent Graphic (no new layering design)
-The quote box uses the existing transparent Graphic rules (#123): a fine
-dashed card outline and its own range marks; cards are ordered by first word;
-the range can overlap the picture beneath; and the base stays continuous, so
-it is never a cutaway and never triggers "On Camera resumes". Two boxes in
-turn over one long background are simply two transparent Graphics.
+The quote box follows the transparent Graphic rules (#123). Any transparent
+visual that leaves the base picture visible keeps its own range marks and
+overlaps the base without changing its coverage. A continuous On Camera
+passage keeps one card and one framing. Its overlay cards follow the On Camera
+card in start-word order, even when an overlay ends before that passage ends.
+A full-frame cutaway can produce “OC resumes” when the same shot actually
+returns. Transparent overlay starts and ends leave the active shot unchanged.
+
+Transparent Graphic cards use the fine dashed outline. Two quote boxes over
+one article picture have separate ranges over one continuous base picture.
 
 ### 8.3 Placing a quote
 **Drag a quote into the script (default)** does three things in one Undo:
@@ -233,7 +238,14 @@ turn over one long background are simply two transparent Graphics.
    those words;
 3. adds a **quote box** overlay on the same words.
 
-- The narration is ordinary text afterwards; editing it never touches the box.
+- Inserted narration is wrapped in quotation marks. Use a single outer pair
+  and preserve the quote's wording and punctuation. The narration is ordinary
+  text afterwards; editing it never touches the box.
+- When the quote is dragged over an eligible boundary between rows, highlight
+  the boundary and label it **Insert quote as new row**. Dropping there creates
+  a narration row containing the quoted text, background and quote box. One
+  Undo removes the new row and both visuals. This and the quotation marks
+  reflect the Producer's November 21 feedback on #642.
 - Both visuals keep their own range brackets: drag the background's start
   earlier so the article shows first, then the box comes in.
 - Placing right after another quote from the same article extends the

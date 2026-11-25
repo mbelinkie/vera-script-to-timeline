@@ -282,6 +282,46 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     expect(refused.document).toBe(parentChecked.document);
   });
 
+  it.each([
+    { hideCompleted: false, parentCompleted: true },
+    { hideCompleted: true, parentCompleted: true },
+    { hideCompleted: true, parentCompleted: false },
+  ])("visits every Stash sibling and nested descendant (hide=$hideCompleted, parent checked=$parentCompleted)", ({ hideCompleted, parentCompleted }) => {
+    const { doc, source, child, other } = fixture();
+    const nested = note(400, "checked ancestor");
+    const grandchild = note(500, "unfinished grandchild");
+    const checkedClip = clip(600);
+    const checkedNote = note(800, "checked leaf");
+    checkedNote.attachedFootage = { clip: clip(900) };
+    source.stashChecklist = { completed: parentCompleted, manualRevision: 1 };
+    for (const row of [nested, checkedClip, checkedNote]) {
+      row.stashChecklist = { completed: true, manualRevision: 1 };
+    }
+    [nested, grandchild, checkedClip, checkedNote].forEach((row, i) => {
+      doc.stash!.push({ id: id(703 + i), rows: [row], supportingItems: [] });
+    });
+    doc.stashOutline = [
+      { rowId: source.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: child.id, kind: "note", parentRowId: source.id, sectionId: null },
+      { rowId: other.id, kind: "clip", parentRowId: source.id, sectionId: null },
+      { rowId: nested.id, kind: "note", parentRowId: source.id, sectionId: null },
+      { rowId: grandchild.id, kind: "note", parentRowId: nested.id, sectionId: null },
+      { rowId: checkedClip.id, kind: "clip", parentRowId: nested.id, sectionId: null },
+      { rowId: checkedNote.id, kind: "note", parentRowId: source.id, sectionId: null },
+    ];
+    const validation = validateScriptDocumentV2(doc);
+    expect(validation.valid, JSON.stringify(validation.diagnostics)).toBe(true);
+    const unfinishedAndAncestors = [source.id, child.id, other.id, nested.id, grandchild.id];
+    expect(projectStashChecklistV2(doc, hideCompleted)).toEqual({
+      visibleRowIds: hideCompleted ? unfinishedAndAncestors : [...unfinishedAndAncestors, checkedClip.id, checkedNote.id],
+      hiddenRowIds: hideCompleted ? [checkedClip.id, checkedNote.id] : [],
+      hiddenNotes: hideCompleted ? 1 : 0,
+      hiddenClips: hideCompleted ? 1 : 0,
+      hiddenSavedRows: 0,
+      hiddenAttachedFootage: hideCompleted ? 1 : 0,
+    });
+  });
+
   it("refuses invalid destinations without completion side effects and restores exact copy/checkbox by Undo", () => {
     const { doc, source } = fixture();
     const session = createRowEditSessionV2(doc);

@@ -9,6 +9,43 @@ It does not replace the assigned issue, product specification, accepted design
 artifacts, or Producer authority. If they conflict, stop and resolve the
 conflict before asking Claude to edit anything.
 
+## Shipped product verification
+
+Follow the lifecycle and keep the single register in [#692](https://github.com/mbelinkie/vera-script-to-timeline/issues/692).
+This applies to Timeline and Research, including closed stories and non-visual
+contracts that carry adopted product requirements.
+
+1. File a design story with `type:design` and `design:prod-pending`. For
+   mixed or legacy work that creates or materially revises a design, apply
+   pending explicitly and preserve the existing issue types, routing and
+   dependencies. Add the story to #692 with the correct alpha, later, or
+   shipped-surface entry.
+2. At Claude Design handoff, record the exact Producer-accepted revision and
+   retained requirements on the original story. Link its implementation owner
+   and reconcile the register. Keep pending through design acceptance and
+   closure. If verification has already been recorded and the design materially
+   changes, deliberately add pending again to invalidate it. A genuine reopen
+   also invalidates earlier verification. Keep closed stories closed solely for
+   shipping follow-through.
+3. Check the accepted requirements in the deployed browser first for browser
+   flows, or in the supported shipped desktop/native release for local flows.
+   Use both register viewports where applicable and exercise actual interactions,
+   persistence, roles and failure states. Record the deployed commit/build or
+   installed release and link the implementation and exact accepted artifact.
+4. Post a dated `PROD DESIGN VERIFICATION — PASS / PARTIAL / BLOCKED` evidence
+   comment on each original issue, even if closed. Include the shipped surface,
+   criteria and states checked, evidence links, exceptions, follow-up owners
+   and Producer judgment where required. Add `design:prod-verified` and remove
+   pending only after recording evidence for every retained requirement. Keep
+   the entire story pending while any retained requirement is deferred, unshipped
+   or unverified. Record any explicit exemption or retirement, including the
+   existing #692 exclusions, on the original issue, apply `design:prod-excluded`
+   for a fully exempt or cancelled story, and reconcile its labels and register entry.
+5. At design closure and release acceptance, audit open and closed stories across
+   both repositories against the register and link each original evidence
+   comment. Follow #692 for its alpha-only acceptance and carry later requirements
+   to named implementation or verification owners.
+
 ## The operating model
 
 ### Sol is the product owner and design lead
@@ -454,3 +491,4 @@ smaller experiments, and a Producer gate before expansion.
 - [ ] Capability evidence still covers every promised action; unsupported behavior is explicitly deferred or removed by the Producer.
 - [ ] The Producer accepted the exact artifact or identified the first unacceptable state.
 - [ ] Remaining technical or design work is recorded without expanding this story.
+- [ ] The original story and #692 show the accepted revision, implementation owner, and pending shipped verification.

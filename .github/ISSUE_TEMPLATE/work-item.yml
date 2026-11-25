@@ -1,8 +1,15 @@
 name: Bounded work item
-description: Create implementation, investigation, review, or acceptance work.
+description: Create implementation, defect, design, investigation, review, or acceptance work.
 title: ""
 labels: ["model:terra", "effort:medium", "type:implementation"]
 body:
+  - type: dropdown
+    id: origin
+    attributes:
+      label: Issue origin
+      description: Choose audit for remediation of a confirmed audit finding.
+      options: [Other, audit]
+      default: 0
   - type: textarea
     id: outcome
     attributes:
@@ -31,6 +38,7 @@ body:
     id: context
     attributes:
       label: Current evidence and context
+      description: For a confirmed bug, record expected and observed behavior, severity and priority rationale, release impact, and one focused regression check. For audit remediation, link the original report or issue and independently verified finding IDs.
     validations:
       required: true
   - type: textarea
@@ -69,4 +77,4 @@ body:
       required: true
   - type: markdown
     attributes:
-      value: "Before Ready, leave exactly one `model:*` and one `effort:*` routing label, then use `npm run roadmap -- ready <issue>`. This command verifies acceptance and requires every dependency to be closed and Done."
+      value: "For a new product design, apply `type:design` and `design:prod-pending`. For a confirmed defect, apply `type:bug`, one severity and one priority, and `source:audit` for audit remediation. Before Ready, keep a single model and effort label and use `npm run roadmap -- ready <issue>`."

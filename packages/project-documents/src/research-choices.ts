@@ -2,7 +2,7 @@
 import type { PrincipalRef } from "@vera/contracts";
 import { snapshotResearchCandidateV2 } from "@vera/contracts/authoring-v2";
 import type {
-  NarrationBlockV2, ResearchClipSnapshotV2, ScriptDocumentV2, VisualOnlyBlockV2,
+  NarrationBlockV2, ResearchClipSnapshotV2, ScriptDocumentV2, VisualOnlyAdditionalV2, VisualOnlyBlockV2,
 } from "@vera/contracts/v2";
 import {
   assessResearchRevision,
@@ -85,16 +85,19 @@ export function updateResearchOccurrence(
   let changed = 0;
   const unresolved = { kind: "unresolved_visual" as const,
     description: "Research clip lacks verified Timeline media/frame binding" };
-  const updateClip = (clip: VisualOnlyBlockV2): void => {
-    if (clip.id !== occurrenceId) return;
+  const replaceClip = (clip: VisualOnlyAdditionalV2): void => {
     if (!clip.researchClip) throw new ProjectDocumentError("version_conflict", 409);
     clip.researchClip = structuredClone(latest);
     delete clip.frameBinding;
     clip.payload.pictureKind = "unresolved_visual";
     clip.payload.source = structuredClone(unresolved);
     delete clip.visualOnlyTiming.selectedSourceRange;
-    clip.version += 1;
     changed++;
+  };
+  const updateClip = (clip: VisualOnlyBlockV2): void => {
+    if (clip.id !== occurrenceId) return;
+    replaceClip(clip);
+    clip.version += 1;
   };
   const updateNarration = (row: NarrationBlockV2, stashed: boolean): void => {
     const clip = row.attachedFootage?.clip;
@@ -149,8 +152,15 @@ export function updateResearchOccurrence(
     }
   };
   const visit = (row: ScriptDocumentV2["activeDraft"]["blocks"][number], stashed: boolean): void => {
-    if (row.type === "visual_only") updateClip(row);
-    else if (row.type === "narration") updateNarration(row, stashed);
+    if (row.type === "visual_only") {
+      updateClip(row);
+      for (const child of row.additionalVisuals ?? []) {
+        if (child.payload.payloadId !== occurrenceId) continue;
+        replaceClip(child);
+        // Additional placements have no independent version; the row owns it.
+        row.version++;
+      }
+    } else if (row.type === "narration") updateNarration(row, stashed);
   };
   for (const row of copy.activeDraft.blocks) visit(row, false);
   for (const bundle of copy.stash ?? []) for (const row of bundle.rows) visit(row, true);
@@ -173,11 +183,16 @@ function savedVisualOwners(document: ScriptDocumentV2): SavedVisualOwner[] {
     owners.push({ occurrenceId: id, ...(pinned ? { pinned: structuredClone(pinned) } : {}), location });
   };
 
-  const visual = (row: VisualOnlyBlockV2, stashed: boolean, bundleId?: string): void =>
-    add(row.id, row.researchClip, {
+  const visual = (row: VisualOnlyBlockV2, stashed: boolean, bundleId?: string): void => {
+    const location: ResearchOccurrenceLocation = {
       kind: stashed ? "stash_visual" : "active_visual", rowId: row.id,
       ...(bundleId ? { stashBundleId: bundleId } : {}),
-    });
+    };
+    add(row.id, row.researchClip, location);
+    for (const child of row.additionalVisuals ?? []) {
+      add(child.payload.payloadId, child.researchClip, location);
+    }
+  };
   const narration = (row: NarrationBlockV2, stashed: boolean, bundleId?: string): void => {
     const suffix = bundleId ? { stashBundleId: bundleId } : {};
     if (row.attachedFootage) {
@@ -240,7 +255,10 @@ export function assertFrozenResearchPinsOnPut(previous: ScriptDocumentV2, next: 
     return JSON.stringify([location.kind, location.rowId,
       "slotId" in location ? location.slotId : null,
       "eventId" in location ? location.eventId : null,
-      location.stashBundleId ?? null]);
+      location.stashBundleId ?? null,
+      // Each additional visual is its own saved placement, not the row root.
+      (location.kind === "active_visual" || location.kind === "stash_visual") &&
+        owner.occurrenceId !== location.rowId ? owner.occurrenceId : null]);
   };
   const byLocation = new Map(after.map((owner) => [locationKey(owner), owner] as const));
   for (const owner of prior) {

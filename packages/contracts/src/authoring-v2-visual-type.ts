@@ -120,6 +120,8 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
         kind: "visual", payloadId: old.payloadId, pictureKind: kind, source: to.source,
         sourceUsage: null, audioPolicy: "mute",
         ...(kind !== "image" || previous?.framingPolicy !== undefined ? { framingPolicy } : {}),
+        ...(kind === "image" && sourceKept && previous?.researchStill
+          ? { researchStill: previous.researchStill } : {}),
       };
     }
   }

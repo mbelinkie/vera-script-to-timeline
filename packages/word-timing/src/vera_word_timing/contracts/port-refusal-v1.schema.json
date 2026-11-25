@@ -10,7 +10,7 @@
     "schemaVersion": { "const": "port-refusal/v1" },
     "port": { "enum": ["recognizer", "aligner", "audio-prep"] },
     "code": {
-      "enum": ["capability-missing", "runtime-missing", "consent-missing", "input-invalid", "provider-failed", "timeout", "cancelled"]
+      "enum": ["capability-missing", "runtime-missing", "consent-missing", "input-invalid", "provider-failed", "timeout", "cancelled", "shutdown-unconfirmed"]
     },
     "message": { "type": "string", "minLength": 1, "description": "Human-readable; never contains credentials or private paths." },
     "retryable": { "type": "boolean" }

@@ -6,7 +6,7 @@ Every command reads and writes the Producer-approved #168 contract JSON:
         [--language en] [--captions X.json3] [--consent-policy ID] [--keyterms a,b]
   vera-word-timing reconcile --recognition R.json --script S.txt --dictionary D.dict
   vera-word-timing align --recognition R.json --audio X.wav [--reconciliation C.json]
-        [--extra-dictionary G.dict]
+        [--extra-dictionary G.dict] [--cancel-file PATH]
   vera-word-timing agree --recognition R.json --alignment A.json --audio X.wav
         [--reconciliation C.json]
   vera-word-timing resolve --alignment A.json --audio X.wav [--recognition R.json]
@@ -127,15 +127,23 @@ def _reconcile(a: argparse.Namespace) -> Any:
 
 
 def _align(a: argparse.Namespace) -> Any:
-    from vera_word_timing.adapters.local_engines import EngineConfig, MfaAligner
+    from vera_word_timing.adapters.local_engines import (
+        EngineConfig,
+        MfaAligner,
+        check_cancelled,
+    )
 
+    check_cancelled(a.cancel_file)
     aligner = MfaAligner(EngineConfig.from_env(), extra_dictionary=a.extra_dictionary)
-    return aligner.align(
+    result = aligner.align(
         _audio(a.audio),
         _read(a.recognition),
         policy=ProjectPolicy(),
         reconciliation=_read(a.reconciliation) if a.reconciliation else None,
+        cancel_file=a.cancel_file,
     )
+    check_cancelled(a.cancel_file)
+    return result
 
 
 def _agree(a: argparse.Namespace) -> Any:
@@ -202,6 +210,11 @@ def parser() -> argparse.ArgumentParser:
     al.add_argument("--audio", type=Path, required=True)
     al.add_argument("--reconciliation", type=Path)
     al.add_argument("--extra-dictionary", type=Path)
+    al.add_argument(
+        "--cancel-file",
+        type=Path,
+        help="stop and wait for engine shutdown when this job's marker file appears",
+    )
     ag = command("agree", _agree)
     for name in ("--recognition", "--alignment", "--audio"):
         ag.add_argument(name, type=Path, required=True)

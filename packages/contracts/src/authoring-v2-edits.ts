@@ -27,8 +27,10 @@ import {
   changeVisualTypeV2,
   deleteVisualV2,
   moveVisualToRowV2,
+  liftVisualV2,
   type VisualLifecycleResultV2,
 } from "./authoring-v2-visual-lifecycle.js";
+import { appendWordlessV2, toWordlessPlacementV2 } from "./authoring-v2-wordless.js";
 import type {
   AuthoringDiagnosticV2,
   DroppedVisualDetailV2,
@@ -174,10 +176,32 @@ function applyCommand(
       return coverageEdit(document, command.blockId, command.slotId, (row) => setOnCameraFramingV2(row, command.slotId, command.framing));
     case "move_visual_to_row": {
       const source = findRow(document, command.blockId);
-      const destination = findRow(document, command.destinationBlockId);
+      const destination = document.activeDraft.blocks.find((row) => row.id === command.destinationBlockId);
       if (!source) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", command.blockId);
-      if (!destination) return refused("MOVE_DESTINATION_MISSING", "Choose a script row to move this visual to. It can have narration or none.", command.destinationBlockId, command.slotId);
-      return lifecycle([command.blockId, command.destinationBlockId], command.slotId, moveVisualToRowV2(source, destination, command.slotId));
+      if (!destination || destination.type !== "narration" && destination.type !== "visual_only") {
+        return refused("MOVE_DESTINATION_MISSING", "Choose a script row to move this visual to. It can have narration or none.", command.destinationBlockId, command.slotId);
+      }
+      if (destination.type === "narration") {
+        if (command.expectedDestinationRowVersion !== undefined) return refused("ROW_COMMAND_INVALID", "Narration destinations use the existing picture sequence, not a wordless row revision.", command.destinationBlockId);
+        return lifecycle([command.blockId, command.destinationBlockId], command.slotId, moveVisualToRowV2(source, destination, command.slotId));
+      }
+      if (command.expectedDestinationRowVersion !== destination.version) {
+        return refused("ROW_REVISION_STALE", "The destination wordless row has changed before this picture move.", command.destinationBlockId);
+      }
+      const placed = source.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && slot.id === command.slotId);
+      if (placed?.kind === "content" && placed.playoutPolicy !== "match_structural_interval") {
+        return refused("WORDLESS_PLAYOUT_UNSUPPORTED", "Complete-clip playout cannot be transferred to a wordless hold without changing its timing.", command.blockId, command.slotId);
+      }
+      const waitingVersion = source.unattachedVisuals?.find((item) => item.slotId === command.slotId)?.version;
+      const lifted = liftVisualV2(source, command.slotId, "moved");
+      if (isCoverageRefusalV2(lifted)) return refused(lifted.code, lifted.message, command.blockId, command.slotId);
+      const placement = toWordlessPlacementV2(lifted.payload);
+      if (!("value" in placement)) return refused(placement.code, placement.message, command.blockId, command.slotId);
+      const issue = appendWordlessV2(destination, placement.value, command.slotId, placed?.version ?? waitingVersion ?? 1);
+      if (issue) return refused(issue.code, issue.message, command.destinationBlockId, command.slotId);
+      return lifecycle([command.blockId, command.destinationBlockId], command.slotId, {
+        slotIds: lifted.slotIds, payloadIds: lifted.payloadIds,
+      });
     }
     case "attach_visual_to_words":
       return lifecycleInRow(document, command.blockId, command.slotId, (row) => attachVisualToWordsV2(row, command.slotId, command.startTokenId, command.endTokenId));

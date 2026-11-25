@@ -36,7 +36,7 @@ The following hierarchy resolves conflicts:
 5. An approved product Claude artifact governs that product's visual
    composition and state presentation only when it agrees with items 1–4.
 
-The Research Video Clips Claude prototype is an input and visual precedent, not
+The Research Claude prototype is an input and visual precedent, not
 permission to copy Research screens into Script to Timeline. The Script to
 Timeline product specification remains authoritative for its purpose-built
 authoring surface.
@@ -156,7 +156,7 @@ Two later boundaries must remain explicit:
 ```text
 VERA Suite                                  one Claude project
 ├── VERA Suite Design Contract              contract-only; no product pages
-├── Research Video Clips                    Desktop + Web presentations
+├── Research                                Desktop + Web presentations
 └── Script to Timeline                      Web + desktop-connected presentations
 ```
 
@@ -192,7 +192,7 @@ implementations:
 
 | Product | Treatment in its artifact |
 | --- | --- |
-| Research Video Clips | Keep the installed Electron Desktop edition and limited browser Web edition in the same artifact, controlled by explicit runtime/server capabilities as required by the approved Web brief. |
+| Research | Keep the installed Electron Desktop edition and limited browser Web edition in the same artifact, controlled by explicit runtime/server capabilities as required by the approved Web brief. |
 | Script to Timeline | The current specification defines a hosted Web authoring client plus a trusted local agent on the producer workstation. Model the normal Web presentation and the local-agent/Resolve-connected desktop capability states together. Do not invent a separately packaged Desktop authoring application unless a later product decision authorizes one. |
 
 For Script to Timeline, labels such as **Local agent connected**, **Resolve
@@ -228,7 +228,7 @@ Every shared primitive receives:
 | Product navigation and information architecture | The product's approved behavior contract/specification | Render only that product's destinations; never make shared shell grammar decide IA. |
 | Project switching | Shared control behavior in the suite contract; product membership rules in each product authority | Populate only server-authorized product projects and update the entire product context. |
 | Comments, mentions, presence, unread/new indicators, and thread controls | Shared interaction/component grammar; product behavior contract for anchors, receipts, and permissions | Research keeps clip-centric flat threads; Script keeps document/block/range anchors with stale reattachment and resolve/reopen. |
-| Topics | Shared chip, picker, filter, overflow, and accessible labeling grammar | Research Topics remain canonical clip tags. Script Ideas, Extras, headings, and research-clip Topic filters retain distinct meanings and must not be merged. |
+| Topics | Shared chip, picker, filter, overflow, and accessible labeling grammar | Research Topics remain canonical clip tags. Script Extras, headings, and research-clip Topic filters retain distinct meanings and must not be merged. |
 | Search | Shared field, query, clearing, keyboard, result-state, highlight, and empty/error grammar | Each product owns searchable sources, indexes, permissions, result types, and navigation. |
 | Readiness and remediation | Shared severity, status-badge, progress, blocking, retry, contextual-action, and disclosure grammar | Research owns transcript/language/export readiness; Script owns sync, narration, media, validation, build, Resolve, and delivery readiness. |
 | Dialogs, popovers, menus, toasts, banners, and confirmations | VERA Suite Design Contract | Supply product copy and authorization-valid actions; destructive or durable operations retain their own confirmation rules. |
@@ -263,7 +263,7 @@ The suite contract must cover at least:
 
 ### 4.4 Product-specific patterns that must remain purpose-built
 
-#### Research Video Clips
+#### Research
 
 - Sources, transcript-ready Workspace, and Clips information architecture.
 - YouTube player and transcript navigation, word/cue timing, language views,
@@ -277,7 +277,9 @@ The suite contract must cover at least:
 
 #### Script to Timeline
 
-- Draft, Ideas, and Extras as one collaborative document transaction boundary.
+- Draft and Extras share one collaborative document transaction boundary. The
+  [#59 authoring design](https://github.com/mbelinkie/vera-script-to-timeline/issues/59)
+  uses Stash for parked notes and material, superseding the separate Ideas panel.
 - The readable two-column narration/visual document without spreadsheet chrome.
 - In-paragraph OC/VO spans, exact token-range anchors, visual coverage, cards,
   inspectors, and timing honesty.
@@ -296,8 +298,8 @@ primitives and grammar; each central work surface remains product-designed.
 
 ### 5.1 Interaction
 
-- Both browser products show a VERA product switcher containing **Research
-  Video Clips** and **Script to Timeline**.
+- Both browser products show a VERA product switcher containing **Research**
+  and **Script to Timeline**.
 - Selecting the other product opens it in a **new browser tab**. The source tab
   and its current in-memory session remain intact.
 - The control works by pointer and keyboard, exposes its current product and
@@ -436,7 +438,7 @@ Build these sections:
    receipts, resolved/reopened/stale states, with explicit product anchor
    differences.
 6. **Search and Topics grammar** — shared controls while stating that project
-   keywords, Research Topics, Script Ideas/Extras, and document headings are
+   keywords, Research Topics, Script Extras, and document headings are
    not interchangeable taxonomies.
 7. **Dialogs and accessibility** — modal and nonmodal rules, labels, focus,
    keyboard, Escape, focus return, announcements, contrast, reduced motion,
@@ -557,7 +559,7 @@ For every included scenario:
 
 - This accepted VERA suite design contract and its version.
 - Issue #21's accepted token set and wiring evidence.
-- The approved Research Video Clips Claude artifact and its exact accepted
+- The approved Research Claude artifact and its exact accepted
   revision, used as a visual-language reference only.
 - The Research `BEHAVIOR-CONTRACT.md`, `WEB-EDITION-DESIGN-BRIEF.md`,
   `APPROVAL-CHECKLIST.md`, and sanitized fictional fixtures.

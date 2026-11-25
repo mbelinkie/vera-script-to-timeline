@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
+import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
+import { exportPrompter } from "@vera/contracts/prompter-export";
+import { researchCandidate, researchId, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -60,11 +63,20 @@ interface ApiResult {
 interface SavedDocument {
   readonly document: ScriptDocumentV2;
   readonly revision: number;
+  readonly digest: string;
 }
 
 interface BrowserVisualTestApi {
   queueVisualCommand(intent: unknown, label: string): Promise<boolean>;
-  projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }> } | null;
+  queueResearchClipInsert(request: { researchProjectId: string; clipId: string; clipVersion: number;
+    placement: unknown }): Promise<boolean>;
+  queueResearchStillInsert(request: { researchProjectId: string; itemId: string; itemVersion: number;
+    placement: unknown }): Promise<boolean>;
+  researchCatalogGet(researchProjectId?: string, clipId?: string): Promise<unknown>;
+  researchStillCatalogGet(researchProjectId: string, offset?: number): Promise<unknown>;
+  projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }>; cards?: Array<{
+    kind: string; startTokenIndex?: number; endTokenIndexExclusive?: number; slotId?: string;
+  }> } | null;
   renderEditor(): void;
   invalidateProjection(): void;
 }
@@ -79,7 +91,7 @@ declare global {
 async function exposeVisualTestApi(page: Page): Promise<void> {
   await page.route("**/app.js", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, projectedPrimaryRow, renderEditor, invalidateProjection };` });
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, projectedPrimaryRow, renderEditor, invalidateProjection };` });
   });
 }
 
@@ -156,6 +168,35 @@ function narrationWords(text: string): Array<{ id: string; value: string; startO
   return [...text.matchAll(/[^\s[\]]+/gu)].map((match) => ({
     id: randomUUID(), value: match[0], startOffset: match.index, endOffset: match.index + match[0].length,
   }));
+}
+
+/** Valid, saved v2 narration: the expected bytes come from #37, not UI text assembly. */
+function prompterBrowserFixture(document: ScriptDocumentV2): ScriptDocumentV2 {
+  const result = structuredClone(document);
+  const rowId = randomUUID();
+  const text = "Spoken words. Another sentence!";
+  result.activeDraft.blocks = [{
+    type: "section", id: randomUUID(), title: "Act One", orderKey: "0", version: 1,
+  }, {
+    type: "narration", id: rowId, orderKey: "1", text, tokens: narrationWords(text),
+    primaryVisualSequence: { id: randomUUID(), version: 1, slots: [{
+      id: randomUUID(), version: 1, kind: "content", relation: { kind: "base" },
+      boundaryBefore: { kind: "row_start" },
+      payload: { kind: "on_camera", presenterChoiceId: null },
+      playoutPolicy: "match_structural_interval",
+    }] },
+    overlayEvents: [], timingPolicy: "narration_spine", state: "active", notes: [], version: 1,
+  }, {
+    type: "direction", id: randomUUID(), orderKey: "2", text: "NEVER SPEAK THIS DIRECTION",
+    buildBehavior: "none", version: 1,
+  }];
+  const savedId = randomUUID();
+  result.stash = [{ id: randomUUID(), rows: [{
+    type: "note_draft", id: savedId, orderKey: "parked", text: "STASH PRIVATE",
+    state: "excluded", version: 1,
+  }], supportingItems: [] }];
+  result.stashOutline = [{ rowId: savedId, kind: "row", parentRowId: null, sectionId: null }];
+  return result;
 }
 
 function editableDocumentFixture(
@@ -285,6 +326,34 @@ function multiNarrationDocumentFixture(
   const visualOnlyIndex = seeded.document.activeDraft.blocks.findIndex((block) => block.type === "visual_only");
   seeded.document.activeDraft.blocks.splice(visualOnlyIndex < 0 ? seeded.document.activeDraft.blocks.length : visualOnlyIndex, 0, ...rows.slice(1));
   return { document: seeded.document, rowIds: rows.map((row) => row.id) };
+}
+
+function draggableVisualFixture(projectId: string) {
+  const seeded = multiNarrationDocumentFixture(projectId, [
+    "one two three four five six seven eight nine ten",
+    "footage leaves this row for another passage",
+  ]);
+  const target = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowIds[0]);
+  const source = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowIds[1]);
+  if (target?.type !== "narration" || source?.type !== "narration") throw new Error("missing drag rows");
+  const first = target.primaryVisualSequence!.slots[0];
+  const moved = source.primaryVisualSequence!.slots[0];
+  if (first?.kind !== "content" || first.payload.kind !== "visual" ||
+      moved?.kind !== "content" || moved.payload.kind !== "visual") throw new Error("missing pictured slots");
+  target.primaryVisualSequence!.slots.push({ ...structuredClone(first), id: randomUUID(),
+    payload: { ...first.payload, payloadId: randomUUID() }, relation: { kind: "sequential" },
+    boundaryBefore: { kind: "spoken_word", anchor: {
+      blockId: target.id, tokenId: target.tokens[5]!.id, affinity: "before",
+      quotedWord: target.tokens[5]!.value, anchorVersion: 1,
+    } },
+  });
+  // The footage has a real in/out point. Moving it must not reset the trim.
+  moved.payload.selectedSourceRange = {
+    startFrame: moved.payload.sourceUsage?.sourceInFrame ?? 0, durationFrames: 25,
+  };
+  return { ...seeded, targetId: target.id, sourceId: source.id,
+    movedSlotId: moved.id, movedPayload: structuredClone(moved.payload),
+    targetTokenRange: { start: target.tokens[3]!.startOffset, end: target.tokens[6]!.endOffset } };
 }
 
 async function appRequest(
@@ -440,6 +509,26 @@ async function setSlider(page: Page, selector: string, value: number): Promise<v
 }
 
 describe("browser authoring over the local project service", () => {
+  const loggedClip = researchCandidate();
+  const browserStillBytes = Buffer.from("UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAAcQBSxg/wMR0f8A", "base64");
+  const browserStillHash = createHash("sha256").update(browserStillBytes).digest("hex");
+  const loggedStill = {
+    researchProjectId: loggedClip.projectId,
+    itemId: randomUUID(), itemVersion: 3, sourceId: randomUUID(),
+    title: "Saved browser still", credit: "Synthetic still credit",
+    licence: "Synthetic permission", usageNote: "Synthetic retained fixture",
+    provenance: {
+      kind: "url" as const, sourceUrl: "https://offline.example.invalid/still.webp",
+      pageUrl: "https://offline.example.invalid/article", inputSha256: browserStillHash,
+    },
+    original: {
+      versionId: "browser-still-original-v3", sha256: browserStillHash,
+      byteCount: browserStillBytes.length, mimeType: "image/webp" as const, width: 1, height: 1,
+    },
+  };
+  let researchVisible = true;
+  let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
+  let researchClips = [loggedClip];
   let directory: string;
   let databaseDirectory: string;
   let browser: Browser;
@@ -453,7 +542,42 @@ describe("browser authoring over the local project service", () => {
     database = new PGlite({ dataDir: databaseDirectory });
     await database.waitReady;
     const pool = pglitePool(database);
-    host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite });
+    host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite,
+      researchCatalog: {
+        projects: () => Promise.resolve(researchVisible ? researchProjects : []),
+        clips: (projectId) => Promise.resolve(researchVisible ? researchClips.filter((clip) =>
+          clip.projectId.toLowerCase() === projectId.toLowerCase()) : []),
+        clip: (projectId, clipId) => {
+          const clip = researchClips.find((candidate) => candidate.projectId.toLowerCase() === projectId.toLowerCase() &&
+            candidate.id.toLowerCase() === clipId.toLowerCase());
+          if (!researchVisible || !clip) {
+            return Promise.reject(new Error("The Research clip is no longer accessible."));
+          }
+          return Promise.resolve(structuredClone(clip));
+        },
+        stills: (projectId) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
+            return Promise.reject(new Error("The Research still project is no longer accessible."));
+          }
+          return Promise.resolve({ stills: [{ itemId: loggedStill.itemId, itemVersion: loggedStill.itemVersion,
+            title: loggedStill.title, credit: loggedStill.credit }], nextOffset: null });
+        },
+        still: (projectId, itemId, itemVersion) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase() ||
+              itemId.toLowerCase() !== loggedStill.itemId.toLowerCase() || itemVersion !== loggedStill.itemVersion) {
+            return Promise.reject(new Error("The Research still is no longer accessible."));
+          }
+          return Promise.resolve(structuredClone(loggedStill));
+        },
+        stillThumbnail: (projectId, itemId, itemVersion) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase() ||
+              itemId.toLowerCase() !== loggedStill.itemId.toLowerCase() || itemVersion !== loggedStill.itemVersion) {
+            return Promise.reject(new Error("The Research still thumbnail is no longer accessible."));
+          }
+          return Promise.resolve({ mimeType: "image/webp", bytes: new Uint8Array(browserStillBytes) });
+        },
+      },
+    });
   }
 
   async function restartHostAndDatabase(): Promise<void> {
@@ -501,6 +625,989 @@ describe("browser authoring over the local project service", () => {
     await host?.stop();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("downloads the exact saved #37 text and sidecar bytes with matching hashes, without Stash or directions", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Saved prompter pair");
+    const initial = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const document = prompterBrowserFixture((initial.body as SavedDocument).document);
+    await saveDocumentFixture(page, projectId, document);
+    let prepareRequests = 0;
+    page.on("request", (request) => {
+      if (request.url().endsWith(`/${projectId}/prompter-export`) && request.method() === "POST") prepareRequests += 1;
+    });
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("ready to download");
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const expected = exportPrompter(saved.document, {
+      includeSectionNavigation: false, includeBeatNumbers: false,
+    });
+    expect(expected.ok).toBe(true);
+    if (!expected.ok) throw new Error("The saved fixture must be exportable");
+    expect(await page.locator("#prompter-snapshot").textContent()).toContain(saved.digest);
+    const downloadText = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    const textFile = await downloadText;
+    expect(textFile.suggestedFilename()).toBe(`vera-prompter-r${saved.revision}.txt`);
+    const textBytes = await readFile(await textFile.path());
+    expect(textBytes.equals(Buffer.from(expected.text, "utf8"))).toBe(true);
+    const downloadSidecar = page.waitForEvent("download");
+    await page.locator("#download-prompter-sidecar").click();
+    const sidecarFile = await downloadSidecar;
+    expect(sidecarFile.suggestedFilename()).toBe(`vera-prompter-r${saved.revision}.beats.json`);
+    const sidecarBytes = await readFile(await sidecarFile.path());
+    expect(sidecarBytes.equals(Buffer.from(expected.sidecarJson, "utf8"))).toBe(true);
+    expect(prepareRequests).toBe(1); // Both independent clicks consume the one pinned HTTP response.
+    const sha256 = (bytes: Buffer) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    expect(await page.locator("#prompter-text-hash").textContent()).toBe(sha256(textBytes));
+    expect(await page.locator("#prompter-sidecar-hash").textContent()).toBe(sha256(sidecarBytes));
+    const sidecar = JSON.parse(sidecarBytes.toString("utf8")) as {
+      sourceDocument: { liveHeadSequence: number };
+    };
+    expect(sidecar.sourceDocument.liveHeadSequence)
+      .toBe(saved.document.liveHeadSequence);
+    expect(textBytes.toString("utf8")).toContain("Spoken words.");
+    expect(textBytes.toString("utf8")).not.toMatch(/STASH PRIVATE|NEVER SPEAK THIS DIRECTION|\[SECTION:|\[BEAT /u);
+    expect(sidecarBytes.toString("utf8")).not.toMatch(/STASH PRIVATE|NEVER SPEAK THIS DIRECTION/u);
+
+    await page.locator("#prompter-sections").check();
+    await page.locator("#prompter-beats").check();
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("ready to download");
+    const withOptions = exportPrompter(saved.document, {
+      includeSectionNavigation: true, includeBeatNumbers: true,
+    });
+    expect(withOptions.ok).toBe(true);
+    if (!withOptions.ok) throw new Error("Fixture must support prompter options");
+    const optionalTextDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    const optionalText = await optionalTextDownload;
+    expect(await readFile(await optionalText.path())).toEqual(Buffer.from(withOptions.text, "utf8"));
+    expect(withOptions.text).toContain("[SECTION: Act One]");
+    expect(withOptions.text).toContain("[BEAT ");
+    const optionalSidecarDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-sidecar").click();
+    const optionalSidecar = await optionalSidecarDownload;
+    expect(await readFile(await optionalSidecar.path())).toEqual(Buffer.from(withOptions.sidecarJson, "utf8"));
+    expect(prepareRequests).toBe(2); // Settings require a new Prepare, not new download requests.
+    await page.locator("#close-prompter").click();
+    expect(await page.locator("#open-prompter").evaluate((el) => el === el.ownerDocument.activeElement)).toBe(true);
+    await page.close();
+  });
+
+  it("does not undo the saved script with keyboard shortcuts while the prompter dialog is open", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter modal undo isolation");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator('[data-row-kind="narration"] [data-narration-editor]').first();
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("x");
+    await expect.poll(async () => {
+      const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+      return saved.document.activeDraft.blocks.find((block) => block.type === "narration")?.text;
+    }).toContain("sentence!x");
+    const beforeDialog = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prompter-sections").check();
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Meta+z");
+    // The old global Undo listener used to autosave a hidden script reversal.
+    await page.waitForTimeout(1_000);
+    const afterDialog = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    expect(afterDialog.revision).toBe(beforeDialog.revision);
+    expect(afterDialog.digest).toBe(beforeDialog.digest);
+    expect(afterDialog.document).toEqual(beforeDialog.document);
+    expect(await page.locator("#prompter-dialog").evaluate((element) => (element as HTMLDialogElement).open)).toBe(true);
+    await page.close();
+  });
+
+  it("blocks prepared downloads during an unsaved edit, a pending PUT, and a conflict; reload recovers", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter unsafe states");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    let releasePut: () => void = () => undefined;
+    const heldPut = new Promise<void>((resolve) => { releasePut = resolve; });
+    let intercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() === "PUT" && !intercepted) {
+        intercepted = true;
+        await heldPut;
+      }
+      await route.continue();
+    });
+    // The modal must be closed to type; closing it also clears the pinned pair.
+    await page.locator("#close-prompter").click();
+    const editor = page.locator('[data-row-kind="narration"] [data-narration-editor]').first();
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("x");
+    await expect.poll(() => intercepted).toBe(true);
+    await expect.poll(() => page.locator("#open-prompter").isDisabled()).toBe(true);
+    releasePut();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+    await page.unroute(`**/authoring/projects/${projectId}/document`);
+
+    // A second writer updates the saved head without notifying this tab.
+    const latest = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const changed = structuredClone(latest.document);
+    changed.title = "Remote changed the script";
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: latest.revision, clientMutationId: randomUUID(), document: changed,
+    })).status).toBe(200);
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("y");
+    await expect.poll(() => page.locator("#save-status").textContent()).toContain("newer script");
+    await expect.poll(() => page.locator("#open-prompter").isDisabled()).toBe(true);
+    await page.reload();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    await page.close();
+  });
+
+  it("reports 409 stale head and 422 validation without allowing either download", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter stale and invalid");
+    const original = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(original.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    const current = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const changed = structuredClone(current.document);
+    changed.title = "An updated title elsewhere";
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: current.revision, clientMutationId: randomUUID(), document: changed,
+    })).status).toBe(200);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Reload the script");
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await expect.poll(() => page.locator("#download-prompter-sidecar").isDisabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+
+    const newest = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const invalid = structuredClone(newest.document);
+    const narration = invalid.activeDraft.blocks.find((block) => block.type === "narration");
+    if (narration?.type !== "narration" || !narration.primaryVisualSequence) throw new Error("Missing narration");
+    narration.primaryVisualSequence.slots = [];
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: newest.revision, clientMutationId: randomUUID(), document: invalid,
+    })).status).toBe(200);
+    await page.reload();
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Prompter validation failed");
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("primary visual");
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.close();
+  });
+
+  it("drops delayed export responses after settings change and project navigation; empty narration is honest", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Delayed prompter response");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let intercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/prompter-export`, async (route) => {
+      const response = await route.fetch();
+      intercepted = true;
+      await held;
+      await route.fulfill({ response });
+    });
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => intercepted).toBe(true);
+    await page.locator("#prompter-beats").check();
+    release();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Settings changed");
+    await expect.poll(() => page.locator("#prepare-prompter").isEnabled()).toBe(true);
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+    await page.unroute(`**/authoring/projects/${projectId}/prompter-export`);
+    const emptyProjectId = await createProject(page, origin, "Empty narration export");
+
+    // A response belonging to a different project must not surface after navigation.
+    await page.goto(`${origin}/?project=${projectId}`);
+    let releaseNavigation: () => void = () => undefined;
+    const heldNavigation = new Promise<void>((resolve) => { releaseNavigation = resolve; });
+    let navigationIntercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/prompter-export`, async (route) => {
+      const response = await route.fetch();
+      navigationIntercepted = true;
+      await heldNavigation;
+      await route.fulfill({ response }).catch(() => { /* Navigation may cancel the old request. */ });
+    });
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => navigationIntercepted).toBe(true);
+    await page.goto(`${origin}/?project=${emptyProjectId}`);
+    releaseNavigation();
+    await expect.poll(() => page.locator("#script-title").textContent()).toContain("Empty narration export");
+    expect(await page.locator("#prompter-dialog").evaluate((el) => (el as HTMLDialogElement).open)).toBe(false);
+    expect(await page.locator("#prompter-ready").isHidden()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("no spoken narration");
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    const emptyDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    expect(await readFile(await (await emptyDownload).path())).toEqual(Buffer.alloc(0));
+    await page.close();
+  });
+  it("#674 opens saved Stash, adds a sectioned note, stashes words, reloads, drops at an interior gap and undoes", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Saved Stash browser proof");
+    const document = prompterBrowserFixture(documentFixture(projectId).document);
+    const row = document.activeDraft.blocks.find((block) => block.type === "narration");
+    if (!row || row.type !== "narration") throw new Error("Missing synthetic narration");
+    row.text = "alpha beta gamma delta echo";
+    row.tokens = narrationWords(row.text);
+    const sectionId = randomUUID();
+    const sectioned = applyRowEditV2(document, document.rowEditRevision ?? 0, {
+      kind: "create_stash_section", sectionId, title: "Ideas",
+    });
+    expect(sectioned.ok).toBe(true);
+    await saveDocumentFixture(page, projectId, sectioned.document);
+    const load = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect(response.status).toBe(200);
+      return (response.body as SavedDocument).document;
+    };
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${row.id}"] [data-narration-editor]`);
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await page.locator("#stash-section").selectOption(sectionId);
+    await page.locator("#stash-note").fill("[cold open] now");
+    await page.getByRole("button", { name: "Add note", exact: true }).click();
+    const ideas = page.locator(`[data-stash-section="${sectionId}"]`);
+    await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
+    await expect.poll(async () => (await load()).stashOutline?.filter((entry) => entry.sectionId === sectionId).length).toBe(1);
+    await selectText(editor, 6, 16);
+    await page.getByRole("button", { name: "Stash words", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo");
+    const unsectioned = page.locator('[data-stash-section=""]');
+    await expect.poll(() => unsectioned.locator(".stash-entry-text").allTextContents()).toContain("beta gamma");
+    const before = await load();
+    const remaining = before.activeDraft.blocks.find((item) => item.id === row.id);
+    if (remaining?.type !== "narration") throw new Error("Missing source");
+    expect(remaining.tokens.map((token) => token.id)).toEqual([row.tokens[0]!.id, row.tokens[3]!.id, row.tokens[4]!.id]);
+    const savedNote = before.stashOutline?.find((entry) => entry.sectionId === sectionId);
+    if (!savedNote) throw new Error("Saved note missing");
+    const original = before.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === savedNote.rowId);
+    expect(original).toMatchObject({ text: "[cold open] now", stashChecklist: { completed: false } });
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
+    await expect.poll(() => unsectioned.locator(".stash-entry-text").allTextContents()).toContain("beta gamma");
+    const note = page.locator(`[data-stash-row-id="${savedNote.rowId}"]`);
+    // Native browser drag to the beginning of the third spoken word (not the first available gap).
+    const position = await editor.evaluate((element) => {
+      const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let offset = 12;
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = node as Text;
+        if (offset < text.length) {
+          const range = element.ownerDocument.createRange();
+          range.setStart(text, offset);
+          range.collapse(true);
+          const rect = range.getBoundingClientRect();
+          const bounds = element.getBoundingClientRect();
+          return { x: rect.x - bounds.x + 1, y: rect.y - bounds.y + rect.height / 2 };
+        }
+        offset -= text.length;
+      }
+      throw new Error("Missing exact drop point");
+    });
+    await note.dragTo(editor, { targetPosition: position });
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta [cold open] now echo");
+    const inserted = await load();
+    const retained = inserted.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === savedNote.rowId);
+    expect(retained).toMatchObject({ id: original?.id, text: "[cold open] now", stashChecklist: { completed: true } });
+    if (retained?.type !== "narration" || original?.type !== "narration") throw new Error("Missing retained note");
+    expect(retained.tokens).toEqual(original.tokens);
+    expect(await note.locator('[aria-label="Completed"]').count()).toBe(1);
+    await page.getByRole("button", { name: "Undo Insert Stash note", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo");
+    await expect.poll(async () => (await load()).stash).toEqual(before.stash);
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await expect.poll(() => note.locator('[aria-label="Not completed"]').count()).toBe(1);
+    // A destination selected before a later edit must not silently land at a new point.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.locator("#stash-destination").selectOption("1");
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("!");
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo!");
+    const changed = await load();
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("changed");
+    expect(await load()).toEqual(changed);
+    await page.getByRole("button", { name: /^Undo / }).click();
+    await expect.poll(async () => (await load()).activeDraft.blocks).toEqual(before.activeDraft.blocks);
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    // Keyboard-accessible exact destination fallback works without a pointer drag.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.locator("#stash-destination").selectOption("0");
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha [cold open] now delta echo");
+    await page.getByRole("button", { name: "Undo Insert Stash note", exact: true }).click();
+    await expect.poll(async () => (await load()).stash).toEqual(before.stash);
+    // A denied host command must not save or make Undo.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.route("**/authoring/command", (route) => route.fulfill({
+      status: 403, contentType: "application/json", body: JSON.stringify({ ok: false, diagnostics: [{ message: "Denied" }] }),
+    }));
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("not inserted");
+    expect(await load()).toEqual(before);
+    expect(await page.getByRole("button", { name: "Undo", exact: true }).isDisabled()).toBe(true);
+    await page.close();
+  }, 60_000);
+
+  it("inserts selected-word and exact-gap Research footage through one Undo/save queue and survives reload", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Research insertion browser proof");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor({ state: "visible" });
+    const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing narration row");
+    const picker = { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version };
+    expect(await page.evaluate(() => window.__veraVisualTest?.researchCatalogGet())).toMatchObject({
+      projects: [{ id: loggedClip.projectId }],
+    });
+    const selected = await page.evaluate(async ({ picker: clip, rowId, startTokenId, rowVersion, sequenceVersion }) =>
+      await window.__veraVisualTest!.queueResearchClipInsert({ ...clip, placement: {
+        kind: "selected_words", rowId, expectedRowVersion: rowVersion,
+        expectedSequenceVersion: sequenceVersion, startTokenId, endTokenId: startTokenId,
+      } }), {
+      picker, rowId: row.id, startTokenId: row.tokens[0]!.id,
+      rowVersion: row.version, sequenceVersion: row.primaryVisualSequence.version,
+    });
+    expect(selected).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await expect.poll(async () => {
+      const next = await narrationRowFromApi(page, projectId, row.id);
+      return next?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === loggedClip.id);
+    }).toBe(true);
+    await page.getByRole("button", { name: "Undo Add footage" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.primaryVisualSequence)
+      .toEqual(row.primaryVisualSequence);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    const blockIndex = seeded.document.activeDraft.blocks.findIndex((item) => item.id === row.id);
+    const before = seeded.document.activeDraft.blocks[blockIndex + 1];
+    const gap = { sectionId: null, afterRowId: row.id, beforeRowId: before?.id ?? null };
+    const inserted = await page.evaluate(async ({ clip, destination }) =>
+      await window.__veraVisualTest!.queueResearchClipInsert({ ...clip, placement: { kind: "gap", destination } }),
+    { clip: picker, destination: gap });
+    expect(inserted).toBe(true);
+    await expect.poll(async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      const blocks = (response.body as SavedDocument).document.activeDraft.blocks;
+      return blocks.filter((item) => item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id).length;
+    }).toBe(1);
+    await page.reload();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBeGreaterThan(0);
+    const persisted = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect((persisted.body as SavedDocument).document.activeDraft.blocks.some((block) =>
+      block.type === "visual_only" && block.researchClip?.clipId === loggedClip.id)).toBe(true);
+    await page.close();
+  });
+
+  it("does not add Undo or save when Research membership is revoked or a choice is stale", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Research refused insertion browser proof");
+    const seeded = editableDocumentFixture(projectId, "one two three");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor({ state: "visible" });
+    const first = seeded.document.activeDraft.blocks[0]!;
+    const second = seeded.document.activeDraft.blocks[1];
+    const gap = { sectionId: null, afterRowId: first.id, beforeRowId: second?.id ?? null };
+    researchVisible = false;
+    try {
+      const refused = await page.evaluate(async ({ clip, destination }) =>
+        await window.__veraVisualTest!.queueResearchClipInsert({ ...clip, placement: { kind: "gap", destination } }), {
+        clip: { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version },
+        destination: gap,
+      });
+      expect(refused).toBe(false);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+      const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect((saved.body as SavedDocument).document).toEqual(seeded.document);
+    } finally { researchVisible = true; await page.close(); }
+  });
+
+  it("shows r29 Footage project/search/usage, does not mutate on cancel, and saves one exact gap placement", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research Footage sidebar");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await expect.poll(() => page.getByRole("combobox", { name: "Research project" }).inputValue())
+      .toBe(loggedClip.projectId);
+    const search = page.getByRole("searchbox", { name: "Search title or transcript" });
+    await search.fill("English text");
+    await expect.poll(() => page.locator(".footage-item").count()).toBe(1);
+    await search.fill("synthetic"); // URL and other metadata must not be searchable.
+    await expect.poll(() => page.locator(".footage-item").count()).toBe(0);
+    await search.fill("Frozen research source");
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await page.getByRole("button", { name: "Cancel choice" }).click();
+    await page.getByRole("button", { name: "Close footage" }).click();
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`)).body).toMatchObject({ document: seeded.document });
+
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await page.getByRole("combobox", { name: "Destination gap" }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Place in script", exact: true }).click();
+    await expect.poll(async () => {
+      const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (result.body as SavedDocument).document.activeDraft.blocks.some((item) =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+    }).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await page.getByLabel("Show used").check();
+    await expect.poll(() => page.locator(".footage-item__usage").first().textContent()).toBe("Used 1×");
+    await page.getByRole("button", { name: "Jump to use 1" }).click();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"]:focus').count()).toBe(1);
+    const scriptBox = await page.locator(".script-paper").boundingBox();
+    expect(scriptBox?.width).toBeGreaterThan(400);
+    await page.reload();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card__source-state').first().textContent())
+      .toBe("Research · Playback unavailable");
+    await page.close();
+  }, 90_000);
+
+  it("loads a sandboxed public YouTube preview only on Play, honors saved bounds, replays and tears down on switch/close", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const playable = { ...loggedClip, id: researchId(711001),
+      video: { ...loggedClip.video, title: "Public playback test", youtubeVideoId: "p0W_cxbbTQA" } };
+    const other = { ...playable, id: researchId(711002),
+      video: { ...playable.video, title: "Second public playback", youtubeVideoId: "M7lc1UVf-VE" },
+      selection: { ...playable.selection, exportStartMs: 1250, exportEndMs: 3750 } };
+    const externalRequests: Array<{ url: string; referer: string | undefined }> = [];
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
+      contentType: "application/json", body: JSON.stringify({ clips: [playable, other, loggedClip] }) }));
+    await page.route("https://www.youtube-nocookie.com/**", (route) => {
+      externalRequests.push({ url: route.request().url(), referer: route.request().headers()["referer"] });
+      return route.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><html><body><script>
+        window.commands = [];
+        window.listenMessages = [];
+        let ready = false;
+        const emit = (event, info) => parent.postMessage(JSON.stringify({ event, info }), '*');
+        window.emitState = (playerState) => emit('infoDelivery', { playerState });
+        window.emitAutoplayBlocked = () => emit('onAutoplayBlocked');
+        addEventListener('message', (event) => {
+          let item; try { item = JSON.parse(event.data); } catch { return; }
+          if (item.event === 'listening') {
+            window.listenMessages.push(item);
+            // Ignore early handshakes to model a player that initializes after iframe load.
+            if (window.listenMessages.length === 3) {
+              ready = true;
+              emit('onReady');
+            }
+          }
+          if (item.event === 'command' && ready) {
+            window.commands.push({ func: item.func, args: item.args });
+            if (item.func === 'loadVideoById') {
+              window.emitState(window.holdNextPlay ? 0 : 1);
+              window.holdNextPlay = false;
+            }
+          }
+        });
+      </script></body></html>` });
+    });
+    try {
+      const projectId = await createProject(page, origin, "Saved range playback browser proof");
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator(".footage-item").count()).toBe(3);
+      await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
+      expect(externalRequests).toHaveLength(0);
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      const url = new URL(externalRequests[0]!.url);
+      expect(url.pathname).toBe("/embed/p0W_cxbbTQA");
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        enablejsapi: "1", playsinline: "1", widgetid: "1", origin,
+      });
+      expect(externalRequests[0]!.referer).toBe(`${origin}/`);
+      expect(url.href).not.toContain(loggedClip.id);
+      expect(url.href).not.toContain(loggedClip.selection.text);
+      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("sandbox"))
+        .toBe("allow-scripts allow-same-origin allow-presentation");
+      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("referrerpolicy"))
+        .toBe("strict-origin-when-cross-origin");
+      const playerDocument = page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
+      const commands = () => playerDocument.evaluate(() =>
+        (window as unknown as { commands: Array<{ func: string; args: unknown[] }> }).commands);
+      const rangeLoads = async () => (await commands()).filter((entry) => entry.func === "loadVideoById");
+      const loadRange = { func: "loadVideoById", args: [{ videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 }] };
+      const status = page.locator("[data-footage-player-status]");
+      const emitState = (state: number) => playerDocument.evaluate((_, value) =>
+        (window as unknown as { emitState: (playerState: number) => void }).emitState(value), state);
+      await expect.poll(() => playerDocument.evaluate(() =>
+        (window as unknown as { listenMessages: unknown[] }).listenMessages.slice(0, 3)))
+        .toEqual(Array.from({ length: 3 }, () => ({ event: "listening", id: 1, channel: "widget" })));
+      await expect.poll(rangeLoads).toEqual([loadRange]);
+      await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
+      expect(externalRequests).toHaveLength(1);
+      await emitState(2);
+      await expect.poll(() => status.textContent()).toBe("Paused.");
+      await emitState(1);
+      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      await expect.poll(async () => (await commands()).some((entry) => entry.func === "pauseVideo")).toBe(true);
+      await playerDocument.evaluate(() => {
+        (window as unknown as { holdNextPlay: boolean }).holdNextPlay = true;
+      });
+      await page.getByRole("button", { name: "Replay from start" }).click();
+      await expect.poll(rangeLoads).toEqual([loadRange, loadRange]);
+      // A late ended event from the previous run must not finish a replay.
+      expect(await status.textContent()).toBe("Starting saved range…");
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+      await emitState(0);
+      await expect.poll(() => status.textContent()).toBe("Saved range finished.");
+      await page.getByRole("button", { name: "Replay saved range" }).click();
+      await expect.poll(rangeLoads).toEqual([loadRange, loadRange, loadRange]);
+      await playerDocument.evaluate(() =>
+        (window as unknown as { emitAutoplayBlocked: () => void }).emitAutoplayBlocked());
+      await expect.poll(() => status.textContent()).toBe("Press Play inside the YouTube player.");
+      await expect.poll(commands).toContainEqual({ ...loadRange, func: "cueVideoById" });
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+
+      await page.evaluate(() => {
+        (window as unknown as { oldFrame: HTMLIFrameElement | undefined }).oldFrame =
+          document.querySelector<HTMLIFrameElement>('[data-footage-player-mount] iframe') ?? undefined;
+      });
+      await page.getByRole("button", { name: "Preview footage: Second public playback" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
+      await expect.poll(() => page.locator("[data-footage-placement]").isHidden()).toBe(true);
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await page.evaluate(() => {
+        (window as unknown as { oldFrame?: HTMLIFrameElement }).oldFrame?.dispatchEvent(new Event("error"));
+      });
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      expect(new URL(externalRequests[1]!.url).pathname).toBe("/embed/M7lc1UVf-VE");
+      await page.getByRole("button", { name: "Close preview" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
+      await expect.poll(() => page.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
+      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
+      expect(externalRequests).toHaveLength(2);
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
+      await page.getByRole("button", { name: "Close footage" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  // An opt-in external gate: no player mocking and no private Research source.
+  // CI keeps the deterministic fixture above; locally run with VERA_LIVE_YOUTUBE=1.
+  it.runIf(process.env.VERA_LIVE_YOUTUBE === "1")(
+    "plays and replays the saved range in the real YouTube Chromium iframe (@slow external)", async () => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      const startSeconds = 5.375;
+      const endSeconds = 9.625;
+      const videoId = "M7lc1UVf-VE"; // The public sample from YouTube's IFrame API docs.
+      const publicClip = { ...loggedClip, id: researchId(711003),
+        video: { ...loggedClip.video, title: "YouTube IFrame API public sample",
+          youtubeVideoId: videoId, canonicalUrl: `https://youtu.be/${videoId}` },
+        selection: { ...loggedClip.selection, transcriptStartMs: 6000, transcriptEndMs: 9000,
+          exportStartMs: startSeconds * 1000,
+          exportEndMs: endSeconds * 1000 } };
+      const secondClip = { ...publicClip, id: researchId(711004),
+        video: { ...publicClip.video, title: "Second saved range" } };
+      const missingId = "___________";
+      const missingClip = { ...publicClip, id: researchId(711005),
+        video: { ...publicClip.video, title: "Missing YouTube video",
+          youtubeVideoId: missingId, canonicalUrl: `https://youtu.be/${missingId}` } };
+      const otherProject = { id: researchId(711006), name: "Second browser test catalog" };
+      const previousProjects = researchProjects;
+      const previousClips = researchClips;
+      researchProjects = [...researchProjects, otherProject];
+      researchClips = [...researchClips, publicClip, secondClip, missingClip];
+
+      const requests: string[] = [];
+      const failures: string[] = [];
+      const isProvider = (url: string) => /(^|\.)(youtube(-nocookie)?|googlevideo|ytimg)\.com$/u.test(new URL(url).hostname);
+      page.on("request", (request) => {
+        if (isProvider(request.url())) requests.push(new URL(request.url()).pathname);
+      });
+      page.on("requestfailed", (request) => {
+        if (isProvider(request.url())) failures.push(`${new URL(request.url()).hostname}: ${request.failure()?.errorText}`);
+      });
+      const preview = page.locator("[data-footage-preview]");
+      const status = preview.locator("[data-footage-player-status]");
+      const iframe = preview.locator("iframe");
+      const playerFrame = () => page.frames().find((frame) =>
+        frame.url().startsWith(`https://www.youtube-nocookie.com/embed/${videoId}?`));
+      const readMedia = async () => playerFrame()?.evaluate(() => {
+        const video = document.querySelector("video.html5-main-video");
+        return video instanceof HTMLVideoElement ?
+          { seconds: video.currentTime, paused: video.paused, ready: video.readyState, seeking: video.seeking } : null;
+      });
+      const waitForMedia = async (paused: boolean, after = 0) => {
+        let seconds = NaN;
+        await expect.poll(async () => {
+          const state = await readMedia();
+          if (!state || state.paused !== paused || state.seeking || state.ready < 2 || state.seconds <= after) return false;
+          seconds = state.seconds;
+          return true;
+        }, { timeout: 20_000, interval: 25 }).toBe(true);
+        return seconds;
+      };
+      const assertStart = (seconds: number) => {
+        expect(Math.abs(seconds - startSeconds)).toBeLessThan(0.25);
+      };
+      const waitForEnd = async () => {
+        await expect.poll(() => status.textContent(), { timeout: 15_000 }).toBe("Saved range finished.");
+        const seconds = await waitForMedia(true);
+        expect(Math.abs(seconds - endSeconds)).toBeLessThan(0.15);
+        return seconds;
+      };
+      const playSavedRange = page.getByRole("button", { name: "Play saved range" });
+      const replaySavedRange = page.getByRole("button", { name: "Replay saved range" });
+      const catalog = page.getByRole("combobox", { name: "Research project" });
+      const expectTeardown = async () => {
+        await expect.poll(() => iframe.count()).toBe(0);
+        await expect.poll(playerFrame).toBeUndefined();
+      };
+      try {
+        const projectId = await createProject(page, origin, "External public playback acceptance");
+        await page.goto(`${origin}/?project=${projectId}`);
+        await page.getByRole("button", { name: "Footage", exact: true }).click();
+        await catalog.selectOption(loggedClip.projectId);
+        await page.getByRole("button", { name: "Preview footage: YouTube IFrame API public sample" }).click();
+        expect(await preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 5.375–9.625 s");
+        expect(await iframe.count()).toBe(0);
+        expect(requests).toEqual([]);
+
+        await playSavedRange.click();
+        const first = await waitForMedia(false);
+        console.info(`[live-youtube] start=${first.toFixed(6)}s`);
+        assertStart(first);
+        await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+        await waitForMedia(false, first + 0.2);
+        await page.getByRole("button", { name: "Pause", exact: true }).click();
+        const paused = await waitForMedia(true);
+        expect(paused).toBeLessThan(endSeconds - 0.5);
+        // Allow time for the clock to visibly advance if our Pause was ignored.
+        await page.waitForTimeout(350);
+        expect(await readMedia()).toMatchObject({ seconds: paused, paused: true });
+        await page.getByRole("button", { name: "Resume", exact: true }).click();
+        await waitForMedia(false, paused);
+        const stopped = await waitForEnd();
+
+        await replaySavedRange.click();
+        const replayed = await waitForMedia(false);
+        console.info(`[live-youtube] replay start=${replayed.toFixed(6)}s`);
+        assertStart(replayed);
+        const replayStopped = await waitForEnd();
+        console.info(`[live-youtube] saved=${startSeconds}–${endSeconds}s, pause=${paused.toFixed(6)}s, ` +
+          `stop=${stopped.toFixed(6)}s, replay stop=${replayStopped.toFixed(6)}s`);
+
+        await replaySavedRange.click();
+        await waitForMedia(false);
+        await page.getByRole("button", { name: "Preview footage: Second saved range" }).click();
+        await expectTeardown();
+        await playSavedRange.click();
+        await waitForMedia(false);
+        await catalog.selectOption(otherProject.id);
+        await expectTeardown();
+        await catalog.selectOption(loggedClip.projectId);
+        await page.getByRole("button", { name: "Preview footage: YouTube IFrame API public sample" }).click();
+        await playSavedRange.click();
+        await waitForMedia(false);
+        await page.getByRole("button", { name: "Close preview" }).click();
+        await expectTeardown();
+
+        await page.getByRole("button", { name: "Choose footage: Missing YouTube video" }).click();
+        await playSavedRange.click();
+        await expect.poll(() => status.textContent(), { timeout: 20_000 }).toContain("removed or restricted");
+        expect(await iframe.count()).toBe(0);
+        await page.getByRole("button", { name: "Place in script", exact: true }).click();
+        await expect.poll(async () => {
+          const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+          return (result.body as SavedDocument).document.activeDraft.blocks.some((item) =>
+            item.type === "visual_only" && item.researchClip?.clipId === missingClip.id);
+        }).toBe(true);
+      } catch (error) {
+        console.info(`[live-youtube] status=${await status.textContent()}, media=${JSON.stringify(await readMedia().catch(() => null))}, ` +
+          `request failures=${JSON.stringify(failures.slice(0, 12))}`);
+        throw error;
+      } finally {
+        researchProjects = previousProjects;
+        researchClips = previousClips;
+        await page.close();
+      }
+    }, 90_000);
+
+  it("shows provider-denied playback without making insertion unavailable", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
+      contentType: "application/json", body: JSON.stringify({ clips: [{ ...loggedClip,
+        video: { ...loggedClip.video, youtubeVideoId: "p0W_cxbbTQA" } }] }) }));
+    await page.route("https://www.youtube-nocookie.com/**", (route) => route.fulfill({ status: 200,
+      contentType: "text/html", body: `<!doctype html><script>
+        addEventListener('message', (event) => {
+          if (event.data.includes('listening')) parent.postMessage(JSON.stringify({ event: 'onError', info: 150 }), '*');
+        });
+      </script>` }));
+    try {
+      const projectId = await createProject(page, origin, "Restricted footage browser proof");
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
+      await page.getByRole("button", { name: "Close footage" }).click();
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  it("opens word-selection quick footage, cancels by Escape, then inserts one selected-word picture", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Research quick footage picker");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Footage…" }).click();
+    await expect.poll(() => page.getByRole("heading", { name: "Choose footage for words" }).isVisible()).toBe(true);
+    await page.getByRole("searchbox", { name: "Search title or transcript" }).press("Escape");
+    await expect.poll(() => editor.evaluate((node) => document.activeElement === node)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Footage…" }).click();
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).evaluate((node) => {
+      // Two clicks before the queued server edit resolves must commit only once.
+      node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      return row?.primaryVisualSequence?.slots.filter((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === loggedClip.id).length;
+    }).toBe(1);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Undo Add footage" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual((seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId) as
+        Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>).primaryVisualSequence);
+    await page.close();
+  }, 90_000);
+
+  it("picks a kept Research still for selected words, fetches its thumbnail, and saves one adjustable image", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Research still picker browser proof");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    let thumbnailRequests = 0;
+    let thumbnailSession = "";
+    page.on("request", (request) => {
+      if (request.url().includes(`/stills/${loggedStill.itemId}/thumbnail?version=${loggedStill.itemVersion}`)) {
+        thumbnailRequests += 1;
+        thumbnailSession = request.headers()["x-vera-session"] ?? "";
+      }
+    });
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Saved Research still…" }).click();
+    await expect.poll(() => page.getByRole("heading", { name: "Choose saved Research still" }).isVisible()).toBe(true);
+    await expect.poll(() => page.locator("[data-research-still-project]").inputValue())
+      .toBe(loggedStill.researchProjectId);
+    await expect.poll(() => page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).isVisible()).toBe(true);
+    await expect.poll(() => page.locator(".research-still-item img").count()).toBe(1);
+    expect(await page.locator(".research-still-item img").getAttribute("src")).toMatch(/^blob:/u);
+    expect(thumbnailRequests).toBeGreaterThan(0);
+    expect(thumbnailSession).toHaveLength(64);
+
+    await page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).click();
+    await expect.poll(() => page.locator("#undo-history li").allTextContents())
+      .toEqual(["Add still"]);
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const payload = row?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+      return payload?.kind === "content" ? payload.payload : null;
+    }).toMatchObject({
+      pictureKind: "image", source: { kind: "media_reference" }, sourceUsage: null, audioPolicy: "mute",
+      researchStill: loggedStill,
+    });
+    const placed = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!placed?.primaryVisualSequence) throw new Error("missing placed still sequence");
+    const placedSlot = placed.primaryVisualSequence.slots.find((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    if (placedSlot?.kind !== "content") throw new Error("missing placed still slot");
+    expect(placedSlot.boundaryBefore).toEqual({ kind: "row_start" });
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const range = projectPrimarySequenceV2((saved.body as SavedDocument).document).rows
+      .find((row) => row.blockId === seeded.rowId)?.brackets.find((bracket) => bracket.slotId === placedSlot.id);
+    expect(range).toMatchObject({ startTokenIndex: 0, endTokenIndexExclusive: 1 });
+    await page.getByRole("button", { name: "Undo Add still" }).click();
+    const initial = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId);
+    if (initial?.type !== "narration") throw new Error("missing seeded narration row");
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(initial.primaryVisualSequence);
+
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Saved Research still…" }).click();
+    await page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).click();
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      return row?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    }).toBe(true);
+    const savedBeforeReload = await narrationRowFromApi(page, projectId, seeded.rowId);
+
+    await page.reload();
+    const card = page.getByLabel(`Still image: ${loggedStill.title}`);
+    await expect.poll(() => card.isVisible()).toBe(true);
+    expect(await card.locator(".visual-card__source-state").textContent()).toContain(loggedStill.credit);
+    expect(await card.locator(".visual-card__source-state").textContent()).toContain(loggedStill.provenance.kind);
+    const reopened = await narrationRowFromApi(page, projectId, seeded.rowId);
+    const reopenedSlot = reopened?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    expect(reopenedSlot).toBeDefined();
+    expect(reopened?.primaryVisualSequence).toEqual(savedBeforeReload?.primaryVisualSequence);
+    await page.close();
+  }, 90_000);
+
+  it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research drag to script");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({
+      status: 200,
+      json: { clips: [{ ...loggedClip, projectId: loggedClip.projectId.toUpperCase() }] },
+    }));
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    await clip.dragTo(row.locator(".visuals-cell"));
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Undo Add footage" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length ?? 0).toBe(0);
+    await clip.dragTo(page.locator("[data-row-gap]").first());
+    await expect.poll(async () => {
+      const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (result.body as SavedDocument).document.activeDraft.blocks.filter((item) =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id).length;
+    }).toBe(1);
+    await page.reload();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBeGreaterThan(0);
+    await page.close();
+  }, 90_000);
+
+  it("opens Footage by keyboard at 1024px, restores focus on Escape and reports no authorized project", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Keyboard accessible Research Footage");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor({ state: "visible" });
+    await page.locator("#script-title").focus();
+    await page.keyboard.press("Control+Shift+F");
+    await expect.poll(() => page.getByRole("searchbox", { name: "Search title or transcript" }).evaluate((node) =>
+      document.activeElement === node)).toBe(true);
+    expect((await page.locator(".script-paper").boundingBox())?.width).toBeGreaterThan(400);
+    await page.getByRole("searchbox", { name: "Search title or transcript" }).press("Escape");
+    expect(await page.getByRole("button", { name: "Footage", exact: true }).getAttribute("aria-expanded")).toBe("false");
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("script-title");
+    researchVisible = false;
+    try {
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator("[data-footage-status]").textContent())
+        .toContain("No logged Research projects");
+      expect(await page.locator(".footage-item").count()).toBe(0);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+      researchVisible = true;
+      await page.getByRole("button", { name: "Close footage" }).click();
+      await page.route("**/authoring/research/**", (route) => route.fulfill({ status: 503,
+        contentType: "application/json", body: JSON.stringify({ error: "research_unavailable" }) }));
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator("[data-footage-status]").textContent())
+        .toContain("Research projects could not be loaded");
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { researchVisible = true; await page.close(); }
+  }, 90_000);
 
   it("protects pure projection and range commands with the browser session and exact sequence version", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
@@ -857,6 +1964,96 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("cycles repeated footage uses from the card without changing the saved script", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 420 });
+    const projectId = await createProject(page, origin, "Footage use shortcuts");
+    const seeded = documentFixture(projectId);
+    const visualIndex = seeded.document.activeDraft.blocks.findIndex((block) => block.type === "visual_only");
+    if (visualIndex < 0) throw new Error("missing saved visual-only fixture");
+    const uses = [
+      researchOccurrence(710020, false),
+      researchOccurrence(710030, false),
+      researchOccurrence(710040, false),
+      researchOccurrence(710050, false),
+    ];
+    const singleClip = uses[3]!.researchClip;
+    if (!singleClip) throw new Error("missing single-use Research clip snapshot");
+    singleClip.clipId = researchId(710099);
+    singleClip.video.title = "Single-use source";
+    uses.forEach((row, index) => { row.orderKey = index === 0 ? "z" : `z${index}`; });
+    seeded.document.activeDraft.blocks.splice(visualIndex, 1, ...uses);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const savedBefore = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect(savedBefore.status).toBe(200);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+
+    const cards = page.locator("#script-rows [data-row-kind='visual_only'] .visual-card[data-footage-placement]");
+    await expect.poll(() => cards.count()).toBe(4);
+    const renderedRowIds = await cards.evaluateAll((items) => items.map((card) =>
+      card.closest("[data-row-id]")?.getAttribute("data-row-id")));
+    expect(renderedRowIds).toEqual(uses.map((row) => row.id));
+    expect(new Set(renderedRowIds).size).toBe(4);
+    const first = cards.nth(0).locator("[data-footage-use]");
+    const second = cards.nth(1).locator("[data-footage-use]");
+    const third = cards.nth(2).locator("[data-footage-use]");
+    const singleUse = cards.nth(3);
+    for (const [card, button, ordinal, action] of [
+      [cards.nth(0), first, 1, "Next use"],
+      [cards.nth(1), second, 2, "Next use"],
+      [cards.nth(2), third, 3, "Back to use 1"],
+    ] as const) {
+      expect(await card.locator(".visual-card__footage-use").innerText()).toContain(`Use ${ordinal} of 3`);
+      expect(await card.locator(".visual-card__footage-use").innerText()).toContain(action);
+      expect(await button.getAttribute("aria-label")).toMatch(
+        new RegExp(`^Use ${ordinal} of 3\\. ${action}(?:, row \\d+)?$`, "u"),
+      );
+      expect(await button.evaluate((element) => element instanceof HTMLButtonElement && element.type === "button"))
+        .toBe(true);
+    }
+    expect(await singleUse.locator("[data-footage-use]").count()).toBe(0);
+
+    await cards.nth(0).scrollIntoViewIfNeeded();
+    const firstBox = await cards.nth(0).boundingBox();
+    if (!firstBox) throw new Error("first footage use is not rendered");
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    await page.evaluate(({ top, height, viewport }) => {
+      window.scrollBy(0, top + height - viewport + 1);
+    }, { top: firstBox.y, height: firstBox.height, viewport: viewportHeight });
+    const offscreenBox = await cards.nth(1).boundingBox();
+    if (!offscreenBox) throw new Error("second footage use is not rendered");
+    expect(offscreenBox.y >= viewportHeight || offscreenBox.y + offscreenBox.height <= 0).toBe(true);
+
+    await first.click();
+    await expect.poll(() => cards.nth(1).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => second.evaluate((button) => button === document.activeElement)).toBe(true);
+    await expect.poll(async () => {
+      const box = await cards.nth(1).boundingBox();
+      return box !== null && box.y >= 0 && box.y + box.height <= viewportHeight;
+    }).toBe(true);
+    await page.evaluate(() => window.__veraVisualTest!.renderEditor());
+    expect(await second.evaluate((button) => button === document.activeElement)).toBe(true);
+    expect(await cards.nth(1).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await second.press("Enter");
+    await expect.poll(() => cards.nth(2).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => third.evaluate((button) => button === document.activeElement)).toBe(true);
+    await third.press("Space");
+    await expect.poll(() => cards.nth(0).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => first.evaluate((button) => button === document.activeElement)).toBe(true);
+
+    const savedAfter = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect(savedAfter).toEqual(savedBefore);
+    expect(await page.locator("#undo-history li").allTextContents())
+      .toEqual(["Nothing to undo in this session"]);
+    await page.close();
+  }, 90_000);
+
   it("changes type, reports dropped media, deletes the final cue, and undoes and reloads each saved edit", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -960,6 +2157,217 @@ describe("browser authoring over the local project service", () => {
       .getAttribute("class")).toContain("visual-card--moved");
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
       ?.primaryVisualSequence?.slots.length).toBeGreaterThan(1);
+    await page.close();
+  }, 90_000);
+
+  it("#621 promotes a blank row, adds two pictures, reorders, edits Hold and moves a wordless picture", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Wordless visual authoring");
+    const seeded = documentFixture(projectId);
+    const existingWordless = seeded.document.activeDraft.blocks.find((item) => item.type === "visual_only");
+    const narrated = seeded.document.activeDraft.blocks.find((item) => item.type === "narration");
+    if (!existingWordless || !narrated) throw new Error("missing source rows");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const narratedRow = page.locator(`[data-row-id="${narrated.id}"]`);
+    expect(await narratedRow.locator("[data-wordless-add]").count()).toBe(0);
+    await page.getByRole("button", { name: "Add row" }).last().click();
+    const read = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (response.body as SavedDocument).document;
+    };
+    await expect.poll(async () => (await read()).activeDraft.blocks.filter((item) => item.type === "narration").length).toBe(2);
+    const blank = (await read()).activeDraft.blocks.find((item) => item.type === "narration" && item.id !== narrated.id);
+    if (!blank) throw new Error("Add row did not create a blank narration row");
+    const row = page.locator(`[data-row-id="${blank.id}"]`);
+    const add = async (type: "Onscreen Placeholder" | "Need to Find") => {
+      await row.getByRole("button", { name: "+ Visual" }).click();
+      await row.getByRole("menu", { name: "Add wordless visual" }).getByRole("menuitem", { name: type }).click();
+    };
+    await add("Onscreen Placeholder");
+    await expect.poll(() => row.getAttribute("data-row-kind")).toBe("visual_only");
+    await add("Onscreen Placeholder");
+    const rowModel = async () => (await read()).activeDraft.blocks.find((item) => item.id === blank.id);
+    await expect.poll(async () => {
+      const current = await rowModel();
+      return current?.type === "visual_only" ? 1 + (current.additionalVisuals?.length ?? 0) : 0;
+    }).toBe(2);
+    let current = await rowModel();
+    if (!current || current.type !== "visual_only") throw new Error("blank row did not promote");
+    const firstId = current.payload.payloadId;
+    const secondId = current.additionalVisuals?.[0]?.payload.payloadId;
+    if (!secondId) throw new Error("wordless append missing");
+    expect(await row.locator(".visual-card__hold-input").evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value))).toEqual(["4.0", "4.0"]);
+    const secondHold = row.locator(`[data-visual-hold="${secondId}"]`);
+    await secondHold.fill("6");
+    await secondHold.press("Enter");
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.additionalVisuals?.[0]?.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(6000);
+    const undoBeforeBadHold = await page.locator("#undo-history li").allTextContents();
+    await row.locator(`[data-visual-hold="${secondId}"]`).fill("-2");
+    await row.locator(`[data-visual-hold="${secondId}"]`).press("Enter");
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(undoBeforeBadHold);
+    await row.locator(`[data-visual-hold="${firstId}"]`).fill("5.5");
+    await row.locator(`[data-visual-hold="${firstId}"]`).blur();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(5500);
+    await page.getByRole("button", { name: "Undo Set visual hold" }).click();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(4000);
+
+    const firstCard = row.locator(`.visual-card[data-payload-id="${firstId}"]`);
+    const secondCard = row.locator(`.visual-card[data-payload-id="${secondId}"]`);
+    await secondCard.dragTo(firstCard, { sourcePosition: { x: 12, y: 12 }, targetPosition: { x: 20, y: 4 } });
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(secondId);
+    expect(await row.locator(".visual-card[data-payload-id]").evaluateAll((cards) =>
+      cards.map((item) => (item as HTMLElement).dataset.payloadId))).toEqual([secondId, firstId]);
+    expect(await page.locator("#undo-history li").first().textContent()).toBe("Reorder visuals");
+    await page.getByRole("button", { name: "Undo Reorder visuals" }).click();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(firstId);
+    await secondCard.dragTo(firstCard, { sourcePosition: { x: 12, y: 12 }, targetPosition: { x: 20, y: 4 } });
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(secondId);
+
+    const destination = page.locator(`[data-row-id="${existingWordless.id}"]`);
+    await row.locator(`.visual-card[data-payload-id="${firstId}"]`).dragTo(destination.locator(".visuals-cell"), {
+      sourcePosition: { x: 12, y: 12 },
+      targetPosition: { x: 100, y: 45 },
+    });
+    await expect.poll(async () => {
+      const model = (await read()).activeDraft.blocks.find((item) => item.id === existingWordless.id);
+      return model?.type === "visual_only" ? model.additionalVisuals?.at(-1)?.payload.payloadId : null;
+    }).toBe(firstId);
+    current = await rowModel();
+    expect(current?.type === "visual_only" ? current.payload.payloadId : null).toBe(secondId);
+    expect(await destination.getByRole("button", { name: "Attach to words" }).count()).toBe(0);
+    await page.reload();
+    await expect.poll(() => row.locator(".visual-card[data-payload-id]").count()).toBe(1);
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
+    expect(await destination.locator(`.visual-card[data-payload-id="${firstId}"]`).count()).toBe(1);
+    const destinationModel = (await read()).activeDraft.blocks.find((item) => item.id === existingWordless.id);
+    expect(destinationModel?.type === "visual_only" ? destinationModel.additionalVisuals?.at(-1)?.visualOnlyTiming.durationOverrideMs : null)
+      .toBe(4000);
+    await page.close();
+  }, 150_000);
+
+  it("drags a trimmed picture into another narrated row, attaches across two cues, undoes and reloads", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Move trimmed visual and Attach");
+    const seeded = draggableVisualFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const source = page.locator(`[data-row-id="${seeded.sourceId}"]`);
+    const target = page.locator(`[data-row-id="${seeded.targetId}"]`);
+    const originalOrder = seeded.rowIds;
+    const saved = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (response.body as SavedDocument).document;
+    };
+    const waiting = async () => {
+      const row = (await saved()).activeDraft.blocks.find((item) => item.id === seeded.targetId);
+      return row?.type === "narration" ? row.unattachedVisuals?.find((item) => item.slotId === seeded.movedSlotId) : undefined;
+    };
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    expect((await saved()).activeDraft.blocks.filter((item) => item.type === "narration").map((item) => item.id))
+      .toEqual(originalOrder);
+    await expect.poll(() => target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+
+    await target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).click();
+    await selectText(target.locator("[data-narration-editor]"), seeded.targetTokenRange.start, seeded.targetTokenRange.end);
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(true);
+    await target.getByRole("button", { name: "Attach visual", exact: true }).click();
+    await expect.poll(async () => waiting()).toBeUndefined();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.targetId))
+      ?.primaryVisualSequence?.slots.some((item) => item.kind === "content" && item.id === seeded.movedSlotId)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Attach visual", "Move visual"]);
+    const projected = await appRequest(page, "/authoring/projection", "POST", { document: await saved() });
+    const cards = (projected.body as { projection: { rows: Array<{ blockId: string; cards: Array<{
+      slotId: string; startTokenIndex: number; endTokenIndexExclusive: number; compact: boolean;
+    }> }> } }).projection.rows.find((item) => item.blockId === seeded.targetId)?.cards ?? [];
+    expect(cards.some((item) => item.slotId === seeded.movedSlotId && item.startTokenIndex === 3 &&
+      item.endTokenIndexExclusive === 7 && !item.compact)).toBe(true);
+
+    await page.getByRole("button", { name: "Undo Attach visual" }).click();
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.getByRole("button", { name: "Undo Move visual" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.sourceId))
+      ?.primaryVisualSequence?.slots.some((item) => item.kind === "content" && item.id === seeded.movedSlotId))
+      .toBe(true);
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.reload();
+    await expect.poll(() => target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.close();
+  }, 90_000);
+
+  it("cancels a waiting visual's Attach with Escape without changing rows or Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Cancel Attach visual");
+    const seeded = draggableVisualFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const target = page.locator(`[data-row-id="${seeded.targetId}"]`);
+    const source = page.locator(`[data-row-id="${seeded.sourceId}"]`);
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(() => target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    // Start a second *native* card drag, then Escape before dropping. A
+    // canceled card move must not accidentally become a row handle move.
+    const waitingCard = target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`);
+    const dragBox = await waitingCard.boundingBox();
+    const dropBox = await source.locator(".visuals-cell").boundingBox();
+    if (!dragBox || !dropBox) throw new Error("missing native picture drag surfaces");
+    await page.evaluate(() => {
+      document.querySelector("#script-rows")?.addEventListener("dragstart", (event) => {
+        if ((event.target as Element)?.closest("[data-visual-drag]")) document.body.dataset.cardDragStarted = "true";
+      }, { once: true });
+    });
+    await page.mouse.move(dragBox.x + 18, dragBox.y + 17);
+    await page.mouse.down();
+    await page.mouse.move(dragBox.x + 58, dragBox.y + 35, { steps: 8 });
+    await expect.poll(() => page.locator("body").getAttribute("data-card-drag-started")).toBe("true");
+    await page.keyboard.press("Escape");
+    await page.mouse.move(dropBox.x + 50, dropBox.y + 45, { steps: 8 });
+    await page.mouse.up();
+    expect((await narrationRowFromApi(page, projectId, seeded.sourceId))?.unattachedVisuals).toBeUndefined();
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+    await target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).click();
+    const editor = target.locator("[data-narration-editor]");
+    await selectText(editor, seeded.targetTokenRange.start, seeded.targetTokenRange.end);
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(true);
+    await editor.press("Escape");
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(false);
+    await expect.poll(() => target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+    expect((await narrationRowFromApi(page, projectId, seeded.targetId))?.unattachedVisuals)
+      .toMatchObject([{ slotId: seeded.movedSlotId, payload: seeded.movedPayload }]);
     await page.close();
   }, 90_000);
 
@@ -1471,6 +2879,107 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([
+    { keys: ["Backspace"], expected: ["alpha beta gamma"], undoLabel: "Join rows", requests: 2 },
+    { keys: ["x"], expected: ["alpha", "xbeta gamma"], undoLabel: "Edit narration", requests: 2 },
+    { keys: ["x", "y"], expected: ["alpha", "xybeta gamma"], undoLabel: "Edit narration", requests: 3 },
+    { keys: ["x", "Control+z"], expected: ["alpha", "beta gamma"], undoLabel: "Split row", requests: 2 },
+    { keys: ["paste"], expected: ["alpha", "pasted beta gamma"], undoLabel: "Paste text", requests: 2 },
+  ])("hands $keys to the new row while the Tab split command is held (#716)", async ({ keys, expected, undoLabel, requests }) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, `Pending split ${keys.join(" ")}`);
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let started!: () => void;
+    let release!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { started = resolve; });
+    const firstReleased = new Promise<void>((resolve) => { release = resolve; });
+    let commands = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      if (++commands === 1) { started(); await firstReleased; }
+      await route.continue();
+    });
+    try {
+      await placeCaret(editor, 6);
+      await page.keyboard.press("Tab");
+      await firstStarted;
+      for (const key of keys) {
+        if (key === "paste") {
+          await editor.evaluate((element) => {
+            const clipboardData = new DataTransfer();
+            clipboardData.setData("text/plain", "pasted ");
+            element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }));
+          });
+        } else await page.keyboard.press(key);
+      }
+      expect(commands).toBe(1);
+    } finally { release(); }
+    try {
+      await expect.poll(() => page.locator("#save-status").textContent()).toBe("Saved");
+      expect(commands).toBe(requests);
+      const rows = await narrationRowsFromApi(page, projectId);
+      expect(rows.map((row) => row.text)).toEqual(expected);
+      expect(await page.locator("#discard-edit").isHidden()).toBe(true);
+      await expect.poll(() => page.locator("[data-narration-editor]").allTextContents()).toEqual(expected);
+      if (undoLabel !== "Split row") {
+        await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id")))
+          .toBe(rows.at(-1)?.id);
+        await page.getByRole("button", { name: `Undo ${undoLabel}` }).click();
+        await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+          .toEqual(["alpha", "beta gamma"]);
+      }
+      await page.getByRole("button", { name: "Undo Split row" }).click();
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+        .toEqual(["alpha beta gamma"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  it("keeps queued text copyable when the held Tab split is refused (#716)", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Refused pending split");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let started!: () => void;
+    let release!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { started = resolve; });
+    const firstReleased = new Promise<void>((resolve) => { release = resolve; });
+    let commands = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      if (++commands !== 1) return await route.continue();
+      started(); await firstReleased;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: false, diagnostics: [{ message: "Deliberate split refusal" }] }) });
+    });
+    try {
+      await placeCaret(editor, 6);
+      await page.keyboard.press("Tab");
+      await firstStarted;
+      await page.keyboard.press("x");
+      await page.keyboard.press("y");
+    } finally { release(); }
+    try {
+      const discard = page.getByRole("button", { name: "Discard unsaved text" });
+      await discard.waitFor({ state: "visible" });
+      await expect.poll(() => discard.isEnabled()).toBe(true);
+      expect(await page.locator("#save-status").textContent()).toContain("Deliberate split refusal");
+      expect(await editorText(editor)).toBe("alpha xybeta gamma");
+      expect(commands).toBe(1);
+      expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["alpha beta gamma"]);
+      page.once("dialog", async (dialog) => await dialog.accept());
+      await discard.click();
+      await expect.poll(() => editorText(editor)).toBe("alpha beta gamma");
+      await expect.poll(() => page.locator("#save-status").textContent()).toBe("Saved");
+    } finally { await page.close(); }
+  }, 90_000);
+
   it("Tab at the end makes a valid blank row, and Backspace cannot join across a section", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -1827,6 +3336,135 @@ describe("browser authoring over the local project service", () => {
     expect(await retryPage.locator("#project-title").inputValue()).toBe(failedDraft);
   }, 90_000);
 
+  it("keeps a failed script save and Retry after unchanged name blur", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Script retry project");
+    const initialText = "initial narration";
+    const editedText = "narration retained after failed save";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    const mutationIds: string[] = [];
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() !== "PUT") return await route.continue();
+      mutationIds.push((route.request().postDataJSON() as { clientMutationId: string }).clientMutationId);
+      if (mutationIds.length === 1) {
+        return await route.fulfill({ status: 503, contentType: "application/json",
+          body: JSON.stringify({ error: "service_unavailable" }) });
+      }
+      return await route.continue();
+    });
+    const status = page.locator("#save-status");
+    const retry = page.locator("#retry-save");
+    const failure = "Couldn’t save the script. Your unsaved changes are still here.";
+    try {
+      await editor.fill(editedText);
+      await expect.poll(() => status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(initialText);
+      await page.locator("#project-title").focus();
+      await page.locator("#project-title").blur();
+      expect(await status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      // A real, successful name PATCH must not clear the document failure either.
+      const title = page.locator("#project-title");
+      const renamed = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Renamed while narration is unsaved");
+      await title.blur();
+      expect((await renamed).status()).toBe(200);
+      expect(await status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      // Both independent failed mutations can coexist; Retry must target the
+      // document first, then expose the outstanding name failure.
+      const nameMutationIds: string[] = [];
+      await page.route(`**/authoring/projects/${projectId}`, async (route) => {
+        if (route.request().method() !== "PATCH") return await route.continue();
+        nameMutationIds.push((route.request().postDataJSON() as { clientMutationId: string }).clientMutationId);
+        if (nameMutationIds.length === 1) return await route.fulfill({ status: 503,
+          contentType: "application/json", body: JSON.stringify({ error: "service_unavailable" }) });
+        return await route.continue();
+      });
+      const failedName = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Second name retained for retry");
+      await title.blur();
+      expect((await failedName).status()).toBe(503);
+      expect(await status.textContent()).toBe(failure);
+      await retry.click();
+      await expect.poll(() => status.textContent()).toBe("Couldn’t save the project name. Your unsaved name is still here.");
+      expect(await retry.isVisible()).toBe(true);
+      expect(mutationIds).toHaveLength(2);
+      expect(mutationIds[1]).toBe(mutationIds[0]);
+      await retry.click();
+      await expect.poll(() => status.textContent()).toBe("Saved");
+      expect(mutationIds).toHaveLength(2);
+      expect(mutationIds[1]).toBe(mutationIds[0]);
+      expect(nameMutationIds).toHaveLength(2);
+      expect(nameMutationIds[1]).toBe(nameMutationIds[0]);
+      expect(await retry.isVisible()).toBe(false);
+      await page.reload();
+      await expect.poll(() => editorText(editor)).toBe(editedText);
+      expect(await title.inputValue()).toBe("Second name retained for retry");
+      expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(editedText);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
+  it("keeps the save status pending when a PUT finishes before a queued command", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Queued save project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const musicWarningResponse = () => page.waitForResponse((response) =>
+      response.url() === `${origin}/authoring/projects/${projectId}/music-warnings`);
+    const initialWarnings = musicWarningResponse();
+    await page.goto(`${origin}/?project=${projectId}`);
+    await initialWarnings;
+    let releasePut: () => void = () => undefined;
+    const heldPut = new Promise<void>((resolve) => { releasePut = resolve; });
+    let releaseCommand: () => void = () => undefined;
+    const heldCommand = new Promise<void>((resolve) => { releaseCommand = resolve; });
+    let puts = 0;
+    let commands = 0;
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() === "PUT" && ++puts === 1) await heldPut;
+      await route.continue();
+    });
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() === "POST" && ++commands === 2) await heldCommand;
+      await route.continue();
+    });
+    const status = page.locator("#save-status");
+    try {
+      await page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`).fill("first row saved");
+      await expect.poll(() => puts).toBe(1);
+      await page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`).fill("second row queued");
+      await expect.poll(() => commands).toBe(2);
+      // A music-warning refresh is requested by the browser after processing the PUT receipt.
+      const receiptProcessed = musicWarningResponse();
+      releasePut();
+      await receiptProcessed;
+      expect(await status.textContent()).toBe("Saving…");
+      await page.locator("#project-title").focus();
+      await page.locator("#project-title").blur();
+      expect(await status.textContent()).toBe("Saving…");
+      releaseCommand();
+      await expect.poll(() => status.textContent()).toBe("Saved");
+      expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+        .toEqual(["first row saved", "second row queued"]);
+      expect(puts).toBe(2);
+    } finally {
+      releasePut();
+      releaseCommand();
+      await page.close();
+    }
+  }, 90_000);
+
   it("edits repeated and Unicode narration, keeps visual anchors, undoes by keyboard and button, and reloads", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -1972,6 +3610,86 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("D192 clamps bracket gestures while Reselect still makes room for the full selection", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "D192 generated bracket neighbours");
+    const seeded = foldedLetterRangeFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const handle = (slotId: string, edge: string) =>
+      row.locator(`[data-range-slot="${slotId}"][data-range-edge="${edge}"]`);
+    const end = handle(seeded.firstSlotId, "end");
+    const secondStart = handle(seeded.secondSlotId, "start");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
+    await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("18");
+    const original = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!original?.primaryVisualSequence) throw new Error("missing D192 original sequence");
+    const sequence = original.primaryVisualSequence;
+
+    const checkAndUndo = async (firstEnd: number, secondBegin: number) => {
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+        ?.primaryVisualSequence?.version).toBe(sequence.version + 1);
+      await expect.poll(async () => await end.getAttribute("data-word-index")).toBe(String(firstEnd));
+      await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe(String(secondBegin));
+      const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.cameraSlotId)).toBe(false);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.firstSlotId)).toBe(true);
+      expect(saved?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.secondSlotId)).toBe(true);
+      expect(saved?.unattachedVisuals ?? []).toEqual(original.unattachedVisuals ?? []);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Adjust visual range"]);
+      await page.getByRole("button", { name: "Undo Adjust visual range" }).click();
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence).toEqual(sequence);
+      await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
+      await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("18");
+    };
+
+    await end.press("End");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await end.press("ArrowRight");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await end.press("Enter");
+    await checkAndUndo(25, 25);
+
+    // A real pointer drag all the way to the end of the row must stop at 25.
+    const bounds = await end.boundingBox();
+    const last = await handle(seeded.secondSlotId, "end").boundingBox();
+    if (!bounds || !last) throw new Error("missing D192 pointer handles");
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, { steps: 12 });
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("25");
+    await page.mouse.up();
+    await checkAndUndo(25, 25);
+
+    await secondStart.press("Home");
+    await expect.poll(async () => await secondStart.getAttribute("data-word-index")).toBe("9");
+    await secondStart.press("Enter");
+    await checkAndUndo(9, 9);
+
+    // Explicit Reselect is still allowed to displace a visual and offers Undo.
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    const reselect = card.locator("[data-reselect-open='button']");
+    await card.focus();
+    await reselect.click();
+    await expect.poll(async () => await row.locator("[data-reselect-panel]").isVisible()).toBe(true);
+    await selectText(editor, original.tokens[0]!.startOffset, original.tokens.at(-1)!.endOffset);
+    await editor.press("Enter");
+    const set = row.locator("[data-reselect-set]");
+    await expect.poll(async () => await set.isVisible() && await set.isEnabled()).toBe(true);
+    await set.click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.unattachedVisuals?.map((visual) => visual.slotId)).toEqual([seeded.secondSlotId]);
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("26");
+    await page.getByRole("button", { name: "Undo Set visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence).toEqual(sequence);
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals ?? []).toEqual(original.unattachedVisuals ?? []);
+    await page.close();
+  }, 90_000);
+
   it("Reselects Amber Lantern with six native word steps, Enter review, and one Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -2029,6 +3747,8 @@ describe("browser authoring over the local project service", () => {
       .toEqual(original.primaryVisualSequence);
     await button.click();
     await editor.press("Enter");
+    // The browser can deliver the selection change from opening Reselect after Enter.
+    await editor.evaluate((node) => node.ownerDocument.dispatchEvent(new Event("selectionchange")));
     await expect.poll(async () => await panel.textContent()).toContain("Select at least one spoken word");
     await selectText(editor, original.tokens[0]!.startOffset, original.tokens[8]!.endOffset);
     await editor.press("Enter");
@@ -2782,6 +4502,122 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#675 Sorting isolates keyboard moves, discards without saving, accepts once and survives reload", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Sorting trial project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["Opening words", "Middle words", "Closing words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+    const baseline = await saved();
+    const original = baseline.document.activeDraft.blocks.map((row) => row.id);
+    const reordered = [original[1], original[0], ...original.slice(2)];
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    const draftOrder = () => page.locator("#script-rows .script-row").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-row-id")));
+    const trialOrder = () => page.locator("[data-sorting-row-id]").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-sorting-row-id")));
+    const open = async () => {
+      await page.locator("#open-sorting").click();
+      expect(await page.locator("#sorting-heading").evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await page.locator("#script-rows").isVisible()).toBe(false);
+      expect(await page.locator(".script-paper").count()).toBe(1);
+      expect(await page.locator("#sorting-view").evaluate((el) => getComputedStyle(el).zoom))
+        .toBe(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom));
+      expect(await trialOrder()).toEqual(original);
+      expect(await page.locator("#undo").isVisible()).toBe(false);
+    };
+    const move = async () => {
+      const up = page.getByRole("button", { name: "Move Middle words up" });
+      await up.focus();
+      await up.press("Enter");
+      await expect.poll(trialOrder).toEqual(reordered);
+      const down = page.getByRole("button", { name: "Move Middle words down" });
+      expect(await down.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await saved()).toEqual(baseline);
+      expect(puts).toBe(0);
+    };
+    await page.reload();
+    await open();
+    await move();
+    await page.locator("#open-stash").click();
+    expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+    expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+    await page.locator("[data-stash-close]").click();
+    page.once("dialog", async (dialog) => await dialog.dismiss());
+    await page.locator("#open-sorting").click();
+    expect(await trialOrder()).toEqual(reordered);
+    expect(await saved()).toEqual(baseline);
+    await page.locator("#sorting-discard").click();
+    expect(await page.locator("#open-sorting").evaluate((el) => el === document.activeElement)).toBe(true);
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await draftOrder()).toEqual(original);
+    expect(await saved()).toEqual(baseline);
+    await open();
+    await move();
+    // Escape is a discard path, never an acceptance shortcut.
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await page.keyboard.press("Escape");
+    expect(await page.locator("#sorting-view").isVisible()).toBe(false);
+    expect(await saved()).toEqual(baseline);
+    await open();
+    await move();
+    await page.locator("#sorting-accept").click();
+    await expect.poll(async () => (await saved()).document.activeDraft.blocks.map((row) => row.id)).toEqual(reordered);
+    expect(puts).toBe(1);
+    expect(await page.locator("#undo").getAttribute("aria-label")).toBe("Undo Sort rows");
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await draftOrder()).toEqual(reordered);
+    expect((await saved()).revision).toBe(baseline.revision + 1);
+    await page.close();
+  }, 90_000);
+
+  it("#675 Sorting refuses acceptance after another saved revision", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Stale Sorting project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["Opening words", "Middle words", "Closing words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.reload();
+    await page.locator("#open-sorting").click();
+    await page.getByRole("button", { name: "Move Middle words up" }).click();
+    await expect.poll(() => page.locator("#sorting-accept").isEnabled()).toBe(true);
+    const path = `/authoring/projects/${projectId}/document`;
+    const baseline = (await appRequest(page, path)).body as SavedDocument;
+    const other = await context.newPage();
+    await other.goto(`${origin}/?project=${projectId}`);
+    await other.locator("#script-rows").waitFor({ state: "visible" });
+    const changed = await appRequest(other, path, "PUT", {
+      expectedRevision: baseline.revision, clientMutationId: randomUUID(),
+      document: { ...baseline.document, title: "Newer saved revision" },
+    });
+    expect(changed.status).toBe(200);
+    const newer = (await appRequest(other, path)).body as SavedDocument;
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    await page.locator("#sorting-accept").click();
+    await expect.poll(() => page.locator("#sorting-status").textContent()).toContain("saved script changed");
+    expect(await page.locator("#sorting-view").isVisible()).toBe(true);
+    expect(puts).toBe(0);
+    expect((await appRequest(page, path)).body).toEqual(newer);
+    await page.locator("#sorting-discard").click();
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await page.locator("#script-title").textContent()).toBe("Newer saved revision");
+    expect(await page.locator("#script-rows .script-row").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-row-id")))).toEqual(baseline.document.activeDraft.blocks.map((row) => row.id));
+    await other.close();
+    await page.close();
+  }, 90_000);
+
   it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -2833,7 +4669,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Add visual" }).click();
     await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(true);
     expect(await page.getByRole("menuitem").allTextContents()).toEqual([
-      "Onscreen Placeholder", "Need to Find", "Visual Undefined",
+      "Onscreen Placeholder", "Need to Find", "Visual Undefined", "Footage…", "Saved Research still…",
     ]);
     await page.getByRole("menuitem", { name: label }).click();
     await expect.poll(async () => (await added()).length).toBe(1);
@@ -2931,13 +4767,13 @@ describe("browser authoring over the local project service", () => {
     const visible = () => page.locator(`[data-row-id="${seeded.rowIds[1]}"] .narration-editor__actions button:visible`).allTextContents();
 
     await selectText(editor, 0, "alpha beta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row", "Stash words"]);
     await selectText(editor, "gamma".length + "alpha beta ".length, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row", "Stash words"]);
     await selectText(editor, 0, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row", "Stash words"]);
     await selectText(editor, "alpha ".length, "alpha beta gamma".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Stash words"]);
     await page.close();
   }, 90_000);
 

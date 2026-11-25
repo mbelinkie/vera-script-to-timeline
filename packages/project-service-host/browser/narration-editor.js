@@ -538,6 +538,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
     if (!Number.isInteger(bracket.startTokenIndex) || !Number.isInteger(bracket.endTokenIndexExclusive) ||
         bracket.startTokenIndex < 0 || bracket.endTokenIndexExclusive > words.length ||
         bracket.startTokenIndex >= bracket.endTokenIndexExclusive) continue;
+    const bracketContext = { originalRange: bracket, brackets: projectedRow.brackets };
     for (const edge of ["start", "end"]) {
       const button = element(document, "button", `narration-range-handle narration-range-handle--${edge}`);
       button.type = "button";
@@ -565,7 +566,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
         const index = nearestBoundary(edge, event.clientX, event.clientY);
         setPending(bracket, edge, moveVisualBracket({
           startTokenIndex: pending.range.startIndex, endTokenIndexExclusive: pending.range.endIndexExclusive,
-        }, edge, index, words.length));
+        }, edge, index, words.length, bracketContext));
       });
       button.addEventListener("pointerup", (event) => {
         if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
@@ -591,7 +592,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
           event.key === "Home" ? -words.length : words.length;
         setPending(bracket, edge, stepVisualBracket({
           startTokenIndex: current.startIndex, endTokenIndexExclusive: current.endIndexExclusive,
-        }, edge, delta, words.length));
+        }, edge, delta, words.length, bracketContext));
       });
       button.addEventListener("blur", () => { if (!dragging && pending?.slotId === bracket.slotId) reset(); });
       overlay.append(button);
@@ -718,7 +719,10 @@ function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, 
 
   function updateSelection() {
     if (!mounted || reviewing) return;
-    pending = selectionProposal();
+    const next = selectionProposal();
+    // A delayed selectionchange can report the same words after Enter shows a refusal.
+    if (next?.startIndex === pending?.startIndex && next?.endIndexExclusive === pending?.endIndexExclusive) return;
+    pending = next;
     state.pending = pending;
     proposal = null;
     display();
@@ -872,7 +876,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   if (!root || !root.ownerDocument || typeof command !== "function") return () => undefined;
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
-  const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect } =
+  const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect,
+    attaching, finishAttach, cancelAttach, chooseFootage, chooseStill, stashWords } =
     options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
@@ -893,6 +898,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   actions.setAttribute("aria-label", "Selected words");
   const visualButton = element(document, "button", "narration-editor__action", "Add visual");
   visualButton.type = "button";
+  const attachButton = element(document, "button", "narration-editor__action narration-editor__attach", "Attach visual");
+  attachButton.type = "button";
+  attachButton.hidden = true;
   visualButton.setAttribute("aria-haspopup", "menu");
   visualButton.setAttribute("aria-expanded", "false");
   const visualMenu = element(document, "div", "narration-editor__visual-menu");
@@ -907,6 +915,22 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     visualMenu.append(button);
     return button;
   });
+  if (typeof chooseFootage === "function") {
+    const footage = element(document, "button", "narration-editor__visual-choice narration-editor__visual-choice--footage", "Footage…");
+    footage.type = "button";
+    footage.dataset.visualType = "footage";
+    footage.setAttribute("role", "menuitem");
+    visualMenu.append(footage);
+    visualChoices.push(footage);
+  }
+  if (typeof chooseStill === "function") {
+    const still = element(document, "button", "narration-editor__visual-choice narration-editor__visual-choice--still", "Saved Research still…");
+    still.type = "button";
+    still.dataset.visualType = "research-still";
+    still.setAttribute("role", "menuitem");
+    visualMenu.append(still);
+    visualChoices.push(still);
+  }
   const stageButton = element(document, "button", "narration-editor__action", "Make stage direction");
   stageButton.type = "button";
   const spokenButton = element(document, "button", "narration-editor__action", "Make spoken");
@@ -923,7 +947,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     button.dataset.rowSelectionAction = kind;
     return button;
   });
-  actions.append(visualButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
+  const stashButton = element(document, "button", "narration-editor__action", "Stash words");
+  stashButton.type = "button";
+  stashButton.hidden = true;
+  actions.append(visualButton, attachButton, stageButton, spokenButton, actionDivider, ...rowButtons, stashButton, visualMenu);
   const surface = element(document, "div", "narration-editor__surface");
   surface.append(editor);
   root.replaceChildren(surface, actions, hint);
@@ -941,6 +968,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   let savedSelection = null;
   let selectionGuard = false;
   let editingBlocked = false;
+  let pendingSplit = null;
   let mounted = true;
   const typingSession = newId();
   let typingBoundary = 0;
@@ -960,7 +988,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
     if (!visual) closeVisualMenu();
     actions.hidden = !visual && !action && rowActions.length === 0;
-    visualButton.hidden = !visual;
+    visualButton.hidden = !visual || Boolean(attaching);
+    stashButton.hidden = !visual || Boolean(attaching) || typeof stashWords !== "function";
+    attachButton.hidden = !visual || !attaching;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
     actionDivider.hidden = (!action && !visual) || rowActions.length === 0;
@@ -1021,6 +1051,31 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const pending = dispatch(intent, "Add visual", before, { structural: true });
     editingBlocked = true;
     void pending.then((accepted) => { if (!accepted) editingBlocked = false; });
+  }
+
+  function performAttachVisual() {
+    if (!attaching || editingBlocked || composing) return;
+    currentSelection();
+    const selection = savedSelection && { ...savedSelection };
+    const before = localRow;
+    if (!selectedSpokenWords(before, selection)) return;
+    const intent = (latest) => {
+      const actual = latest.activeDraft.blocks.find((item) => item.id === before.id);
+      if (actual?.type !== "narration" || !actual.unattachedVisuals?.some((item) => item.slotId === attaching.slotId)) {
+        throw new Error("The waiting visual is no longer available. Start Attach again.");
+      }
+      const words = selectedSpokenWords(actual, selection, true);
+      if (!words) throw new Error("The chosen spoken words are no longer available.");
+      return { kind: "attach_visual_to_words", blockId: actual.id, slotId: attaching.slotId,
+        startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+    };
+    actions.hidden = true;
+    const pending = dispatch(intent, "Attach visual", before, { structural: true });
+    editingBlocked = true;
+    void pending.then((accepted) => {
+      if (accepted) finishAttach?.(attaching);
+      else editingBlocked = false;
+    });
   }
 
   function expectedRow(rowSnapshot) {
@@ -1138,13 +1193,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editingBlocked = true;
   }
 
-  function splitAtCaret(offset) {
-    if (editingBlocked) return;
-    const before = localRow;
-    const newRowId = newId();
+  function splitIntent(before, newRowId, offset) {
     // Resolve token identity *after* queued typing has been accepted. The
     // optimistic tokenizer does not own IDs and must not invent them.
-    const intent = (currentDocument) => {
+    return (currentDocument) => {
       const blocks = currentDocument.activeDraft.blocks;
       const actual = blocks.find((block) => block.id === before.id);
       if (!actual || actual.type !== "narration") throw new Error("The row changed before the split.");
@@ -1159,9 +1211,135 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       }
       return { kind: "split_row", rowId: before.id, newRowId, at: { beforeTokenId: actual.tokens[boundary].id } };
     };
-    void dispatch(intent, "Split row", before, {
+  }
+
+  function splitAtCaret(offset) {
+    if (editingBlocked) return;
+    const before = localRow;
+    const newRowId = newId();
+    const handoff = { original: before, originalOffset: offset, target: null, offset: 0,
+      failure: null, typingSession: newId(), inputs: [] };
+    pendingSplit = handoff;
+    const pending = dispatch(splitIntent(before, newRowId, offset), "Split row", before, {
       structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+      onSplitApplied: (latest, focus) => acceptSplitFocus(handoff, latest, focus),
+      onSplitRefused: (error) => { handoff.failure = error.message || "Split row was refused."; },
     });
+    editingBlocked = true;
+    void pending.then((accepted) => {
+      if (!accepted && pendingSplit === handoff) {
+        pendingSplit = null;
+        editingBlocked = false;
+      }
+    });
+  }
+
+  function acceptSplitFocus(handoff, latest, focus) {
+    const target = latest.activeDraft.blocks.find((block) => block.id === focus?.rowId);
+    handoff.target = target?.type === "narration" ? target
+      : target?.type === "visual_only" && target.clearedNarration ? { ...target, type: "narration", text: "", tokens: [] } : null;
+    handoff.offset = Math.min(focus?.offset ?? 0, handoff.target?.text.length ?? 0);
+  }
+
+  // The old DOM remains mounted while the command queue is busy. Queue the
+  // input now, not in a later render callback (which could overtake Undo or
+  // another edit). Resolve its caret and row from the preceding model result.
+  function splitTextEdit(before, offset, input) {
+    let start = offset, end = offset;
+    let text = input.text ?? "";
+    if (input.kind === "backspace") {
+      if (!offset) return null;
+      start -= Array.from(before.text.slice(0, offset)).at(-1).length;
+    } else if (input.kind === "delete") {
+      if (offset === before.text.length) return null;
+      end += Array.from(before.text.slice(offset))[0].length;
+    } else if (input.kind === "paragraph") {
+      if (!offset) return null;
+      text = "\n";
+    } else if (input.kind === "paste") {
+      text = pasteParagraphBlocks(text).join("\n\n");
+    }
+    const delimiter = directionDelimiterAt(before, start, end, before.text);
+    if (delimiter !== null && text === "") {
+      const run = directionRuns(before).find(({ openOffset, closeOffset }) => openOffset === delimiter || closeOffset === delimiter);
+      if (!run) return null;
+      return { command: { kind: "delete_direction_delimiter", blockId: before.id, offset: delimiter },
+        label: "Remove stage direction", draft: localSpokenEdit(before, run),
+        offset: start <= run.openOffset ? start : Math.max(0, start - 2) };
+    }
+    const draft = localTextEdit(before, start, end, text);
+    if (draft.text === before.text) return null;
+    const normalized = normalizedTextEdit(before, start, end, text);
+    return { command: { kind: "edit_narration_text", rowId: before.id, startOffset: start, endOffset: end,
+      insertedText: text, editId: newId() }, draft,
+      label: input.kind === "paragraph" ? "New paragraph"
+        : before.text.slice(0, start) + text + before.text.slice(end) === "" ? "Cleared narration" : "Edit narration",
+      offset: Math.min(normalized.startOffset + normalized.insertedText.length, draft.text.length) };
+  }
+
+  function showRefusedSplitDraft(handoff, edit) {
+    // Keep the rejected draft copyable, including typing already queued
+    // behind this failed edit, just as the ordinary optimistic editor does.
+    if (!mounted) return;
+    let draft = edit.draft, caret = edit.offset;
+    for (const later of handoff.inputs) {
+      if (later.kind === "split" || later.kind === "backspace" && caret === 0) break;
+      const next = splitTextEdit(draft, caret, later);
+      if (next) { draft = next.draft; caret = next.offset; }
+    }
+    pendingSplit = null;
+    editingBlocked = true;
+    localRow = draft;
+    knownText = draft.text;
+    renderEditor(editor, draft);
+    setCaret(editor, caret);
+  }
+
+  function queueSplitInput(input) {
+    const handoff = pendingSplit;
+    if (!handoff) return;
+    const boundary = typingBoundary;
+    handoff.inputs.push(input);
+    void command(null, "Continue after split", { structural: true, prepareSplitInput() {
+      handoff.inputs.splice(handoff.inputs.indexOf(input), 1);
+      if (handoff.failure) {
+        // No destination was created. Never apply a queued key to the old
+        // row, but retain entered text for copy/discard if the split failed.
+        const before = handoff.target ?? handoff.original;
+        const offset = handoff.target ? handoff.offset : handoff.originalOffset;
+        const edit = ["text", "paste"].includes(input.kind) ? splitTextEdit(before, offset, input) : null;
+        if (!edit) throw new Error(handoff.failure);
+        return { command: () => { throw new Error(handoff.failure); }, label: edit.label,
+          options: { expectedRow: expectedRow(before), onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
+      }
+      const before = handoff.target;
+      if (!before) return null;
+      const offset = handoff.offset;
+      const options = { expectedRow: expectedRow(before),
+        onSplitApplied: (latest, focus) => acceptSplitFocus(handoff, latest, focus) };
+      if (input.kind === "backspace" && offset === 0) {
+        return { command: { kind: "join_rows", rowId: before.id, direction: "previous", words: null },
+          label: "Join rows", options: { ...options, structural: true, focusPrevious: true } };
+      }
+      if (input.kind === "split") {
+        const newRowId = newId();
+        return { command: splitIntent(before, newRowId, offset), label: "Split row",
+          options: { ...options, structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+            onSplitRefused: (error) => { handoff.failure = error.message || "Split row was refused."; } } };
+      }
+      const edit = splitTextEdit(before, offset, input);
+      if (!edit) return null;
+      if (input.kind === "paste") {
+        return { command: { kind: "paste_plain_text", rowId: before.id, startOffset: offset, endOffset: offset,
+          blocks: pasteParagraphBlocks(input.text) }, label: "Paste text",
+          options: { ...options, paste: true, onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
+      }
+      return { command: edit.command, label: edit.label, options: { ...options,
+        focusAfter: { rowId: before.id, offset: edit.offset },
+        ...(edit.command.kind === "edit_narration_text" && input.kind !== "paragraph"
+          ? { typingSession: handoff.typingSession, typingBoundary: boundary } : {}),
+        onSplitRefused: () => showRefusedSplitDraft(handoff, edit) } };
+    } });
   }
 
   function joinPrevious() {
@@ -1181,6 +1359,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
     if (event.key === "Escape") return leaveText(event);
+    if (pendingSplit && !composing && !event.isComposing && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      const kind = event.key === "Backspace" ? "backspace" : event.key === "Delete" ? "delete"
+        : event.key === "Enter" ? "paragraph" : event.key === "Tab" && !event.shiftKey ? "split" : null;
+      if (kind) { event.preventDefault(); queueSplitInput({ kind }); }
+      return;
+    }
     if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
     if (event.key === "Enter") {
       event.preventDefault();
@@ -1200,6 +1384,24 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onBeforeInput(event) {
     if (reselect) { event.preventDefault(); return; }
+    if (pendingSplit) {
+      event.preventDefault();
+      if (composing || event.isComposing) return;
+      const type = event.inputType;
+      if (type === "insertText" || type === "insertReplacementText") {
+        let text = event.data;
+        if (text == null && type === "insertReplacementText") {
+          try { text = event.dataTransfer?.getData?.("text/plain"); } catch { return; }
+        }
+        if (typeof text === "string" && text) queueSplitInput({ kind: "text", text });
+      } else if (type === "insertFromPaste") {
+        const text = event.dataTransfer?.getData?.("text/plain");
+        if (typeof text === "string" && text) queueSplitInput({ kind: "paste", text });
+      } else if (type === "deleteContentBackward") queueSplitInput({ kind: "backspace" });
+      else if (type === "deleteContentForward") queueSplitInput({ kind: "delete" });
+      else if (type === "insertParagraph" || type === "insertLineBreak") queueSplitInput({ kind: "paragraph" });
+      return;
+    }
     if (editingBlocked) {
       event.preventDefault();
       return;
@@ -1272,7 +1474,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     event.preventDefault();
     if (reselect) return;
     const plain = event.clipboardData?.getData("text/plain");
-    if (typeof plain === "string") pastePlainText(plain);
+    if (typeof plain === "string") {
+      if (pendingSplit && plain && !composing) queueSplitInput({ kind: "paste", text: plain });
+      else pastePlainText(plain);
+    }
   }
 
   function performAction(action) {
@@ -1366,6 +1571,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     if (event.key !== "Escape" || composing) return;
     event.preventDefault();
     event.stopPropagation();
+    if (attaching) { cancelAttach?.(); return; }
     editor.blur();
     hint.hidden = true;
     const rowElement = root.closest("[data-row-id]");
@@ -1431,15 +1637,37 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", onPaste);
+  const onStashWords = () => {
+    if (editingBlocked || composing || !selectedSpokenWords(localRow, savedSelection)) return;
+    stashWords?.(localRow.id, { ...savedSelection }, localRow.text);
+  };
+  stashButton.addEventListener("mousedown", preserveActionSelection);
+  stashButton.addEventListener("click", onStashWords);
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   visualButton.addEventListener("mousedown", preserveActionSelection);
+  attachButton.addEventListener("mousedown", preserveActionSelection);
   visualButton.addEventListener("click", openVisualMenu);
+  attachButton.addEventListener("click", performAttachVisual);
   visualMenu.addEventListener("keydown", onVisualMenuKey);
   actions.addEventListener("focusout", onVisualMenuFocusOut);
   document.addEventListener("pointerdown", dismissVisualMenu, true);
   const visualListeners = visualChoices.map((button) => {
-    const onClick = () => performAddVisual(button.dataset.visualType);
+    const onClick = () => {
+      if (button.dataset.visualType !== "footage" && button.dataset.visualType !== "research-still") {
+        performAddVisual(button.dataset.visualType); return;
+      }
+      const selection = savedSelection && { ...savedSelection };
+      if (!selectedSpokenWords(localRow, selection)) return;
+      closeVisualMenu();
+      actions.hidden = true;
+      if (button.dataset.visualType === "research-still") {
+        chooseStill?.({ rowId: localRow.id, text: localRow.text, selection, from: editor });
+      } else {
+        chooseFootage?.({ rowId: localRow.id, text: localRow.text, selection,
+          seed: localRow.text.slice(selection.start, selection.end), from: editor });
+      }
+    };
     button.addEventListener("mousedown", preserveActionSelection);
     button.addEventListener("click", onClick);
     return { button, onClick };
@@ -1472,9 +1700,13 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("blur", onBlur);
     editor.removeEventListener("paste", onPaste);
     document.removeEventListener("selectionchange", onSelectionChange);
+    stashButton.removeEventListener("mousedown", preserveActionSelection);
+    stashButton.removeEventListener("click", onStashWords);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     visualButton.removeEventListener("mousedown", preserveActionSelection);
+    attachButton.removeEventListener("mousedown", preserveActionSelection);
     visualButton.removeEventListener("click", openVisualMenu);
+    attachButton.removeEventListener("click", performAttachVisual);
     visualMenu.removeEventListener("keydown", onVisualMenuKey);
     actions.removeEventListener("focusout", onVisualMenuFocusOut);
     document.removeEventListener("pointerdown", dismissVisualMenu, true);

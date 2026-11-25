@@ -49,9 +49,12 @@
           </label>
         </div>
 
-        <div class="toolbar-controls" role="group" aria-label="View settings">
+        <div class="toolbar-controls" role="group" aria-label="Script actions and view settings">
           <button id="undo" type="button" disabled>↶ Undo</button>
+          <button id="open-footage" type="button" aria-controls="footage-panel" aria-expanded="false" aria-keyshortcuts="Control+Shift+F Meta+Shift+F">Footage</button>
+          <button id="open-stash" type="button" aria-controls="stash-panel" aria-expanded="false">Stash</button>
           <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
+          <button id="open-prompter" class="prompter-trigger" type="button" disabled>Export prompter…</button>
           <label class="range-control range-control--authoring">
             <span class="range-control__mark" aria-hidden="true">Aa</span>
             <input id="authoring-size" type="range" min="80" max="150" step="5" value="100" aria-label="Authoring size">
@@ -62,8 +65,91 @@
             <input id="thumbnail-size" type="range" min="0" max="100" step="1" value="22" aria-label="Thumbnail size">
             <output id="thumbnail-size-value" for="thumbnail-size">22%</output>
           </label>
+          <button id="open-sorting" type="button" aria-controls="sorting-view" aria-expanded="false" disabled>Sort rows</button>
         </div>
       </header>
+
+      <aside id="footage-panel" class="footage-panel" aria-label="Research footage" hidden>
+        <div class="footage-panel__heading">
+          <h2 data-footage-heading>Footage</h2>
+          <button type="button" data-footage-close aria-label="Close footage">Close</button>
+        </div>
+        <label for="footage-project">Research project</label>
+        <select id="footage-project" data-footage-project><option value="">Choose project…</option></select>
+        <label for="footage-search">Search title or transcript</label>
+        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search logged footage">
+        <div class="footage-panel__filters">
+          <label for="footage-sort">Sort</label>
+          <select id="footage-sort" data-footage-sort><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title</option></select>
+          <label class="footage-panel__checkbox"><input type="checkbox" data-footage-used> Show used</label>
+        </div>
+        <p data-footage-status role="status" aria-live="polite"></p>
+        <div data-footage-results class="footage-panel__results" aria-label="Logged clips"></div>
+        <section data-footage-preview class="footage-panel__preview" aria-label="Saved footage preview" hidden>
+          <div class="footage-panel__preview-heading">
+            <h3 data-footage-preview-title></h3>
+            <button type="button" data-footage-preview-close aria-label="Close preview">Close preview</button>
+          </div>
+          <p data-footage-preview-range class="footage-panel__hint"></p>
+          <div data-footage-player-mount class="footage-panel__player-mount"></div>
+          <p data-footage-player-status class="footage-panel__hint" role="status" aria-live="polite"></p>
+          <div class="footage-panel__player-controls">
+            <button type="button" data-footage-play>Play saved range</button>
+            <button type="button" data-footage-replay hidden>Replay from start</button>
+          </div>
+        </section>
+        <div data-footage-placement class="footage-panel__placement" hidden>
+          <h3 data-footage-selected>Place footage</h3>
+          <label><input data-footage-gap-choice type="radio" name="footage-destination" checked> Place in script gap</label>
+          <select data-footage-gaps aria-label="Destination gap"></select>
+          <label><input type="radio" name="footage-destination"> Add unattached to narration</label>
+          <select data-footage-rows aria-label="Destination narration row" disabled></select>
+          <div class="footage-panel__placement-buttons">
+            <button type="button" data-footage-place>Place in script</button>
+            <button type="button" data-footage-cancel>Cancel choice</button>
+          </div>
+        </div>
+        <p class="footage-panel__hint">Preview uses the clip's saved export range. Drag a clip to a narration row or a + Add row gap.</p>
+      </aside>
+
+      <aside id="stash-panel" class="stash-panel" aria-labelledby="stash-heading" hidden>
+        <div class="stash-panel__heading">
+          <h2 id="stash-heading">Stash <span data-stash-count></span></h2>
+          <button type="button" data-stash-close aria-label="Close Stash">Close</button>
+        </div>
+        <form data-stash-form>
+          <label for="stash-note">Add note</label>
+          <textarea id="stash-note" rows="2" required></textarea>
+          <label for="stash-section">Section</label>
+          <select id="stash-section"></select>
+          <button type="submit">Add note</button>
+        </form>
+        <p data-stash-status role="status" aria-live="polite"></p>
+        <div data-stash-entries></div>
+        <form data-stash-place hidden>
+          <label for="stash-destination">Insert note before word</label>
+          <select id="stash-destination" required></select>
+          <button type="submit">Insert note</button>
+          <button type="button" data-stash-cancel>Cancel</button>
+        </form>
+      </aside>
+
+      <aside id="research-still-panel" class="research-still-panel" role="dialog" aria-modal="false"
+        aria-label="Saved Research still picker" hidden>
+        <div class="research-still-panel__heading">
+          <h2>Choose saved Research still</h2>
+          <button type="button" data-research-still-close aria-label="Close saved Research still picker">Close</button>
+        </div>
+        <label for="research-still-project">Research project</label>
+        <select id="research-still-project" data-research-still-project>
+          <option value="">Choose project…</option>
+        </select>
+        <p data-research-still-status role="status" aria-live="polite" aria-atomic="true"></p>
+        <div data-research-still-results class="research-still-panel__results" role="list"
+          aria-label="Saved Research stills"></div>
+        <button type="button" data-research-still-load-more hidden>Load more saved stills</button>
+        <p class="research-still-panel__hint">Only kept Research stills are shown. Choose one to add it to the selected spoken words.</p>
+      </aside>
 
       <main class="script-stage">
         <div class="save-feedback">
@@ -89,10 +175,41 @@
           <ul id="music-warning-list"></ul>
         </section>
 
+        <section id="sorting-view" class="sorting-view" aria-labelledby="sorting-heading" hidden>
+          <h2 id="sorting-heading" tabindex="-1">Sorting</h2>
+          <p>Try a different row order without changing the saved Draft.</p>
+          <div class="sorting-actions">
+            <button id="sorting-accept" type="button">Accept</button>
+            <button id="sorting-discard" type="button">Discard all</button>
+          </div>
+          <p id="sorting-status" role="status" aria-live="polite"></p>
+          <div id="sorting-rows"></div>
+        </section>
         <section class="script-paper" aria-label="Script">
           <div id="script-rows" class="script-rows"></div>
         </section>
       </main>
+
+      <dialog id="prompter-dialog" class="prompter-dialog" aria-labelledby="prompter-heading">
+        <div class="prompter-dialog__heading">
+          <h2 id="prompter-heading">Export prompter</h2>
+          <button id="close-prompter" type="button" aria-label="Close prompter export">✕</button>
+        </div>
+        <p>Prepare the current saved script as spoken text and a matching performance-beat sidecar. Directions and Stash content are excluded.</p>
+        <label class="prompter-option"><input id="prompter-sections" type="checkbox"> Include section navigation</label>
+        <label class="prompter-option"><input id="prompter-beats" type="checkbox"> Include beat numbers</label>
+        <button id="prepare-prompter" class="prompter-primary" type="button">Prepare saved script</button>
+        <p id="prompter-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div id="prompter-ready" class="prompter-result" hidden>
+          <p id="prompter-snapshot"></p>
+          <p>Text SHA-256: <code id="prompter-text-hash"></code></p>
+          <p>Sidecar SHA-256: <code id="prompter-sidecar-hash"></code></p>
+          <div class="prompter-downloads">
+            <button id="download-prompter-text" type="button">Download text (.txt)</button>
+            <button id="download-prompter-sidecar" type="button">Download beat sidecar (.json)</button>
+          </div>
+        </div>
+      </dialog>
     </div>
   </body>
 </html>

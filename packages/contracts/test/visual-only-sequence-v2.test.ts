@@ -68,6 +68,26 @@ function musicCue(cueId: number, rowId: string): RowAudioSpanIntentV2 {
 }
 
 describe("#585 visuals-only ordered cards", () => {
+  it("#621 appends independent four-second placeholders, keeps order across save/reload and one-step Undo", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const session = createRowEditSessionV2(document);
+    const beforeCount = row.additionalVisuals!.length;
+    const result = session.apply({ kind: "add_visual_to_wordless_row", rowId: row.id,
+      payloadId: id(94111), slotId: id(94112), visualType: "onscreen_placeholder" });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(session.undoDepth).toBe(1);
+    const actual = result.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(actual.additionalVisuals).toHaveLength(beforeCount + 1);
+    expect(actual.additionalVisuals!.at(-1)!.visualOnlyTiming.durationOverrideMs).toBe(4000);
+    const copy = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(copy).toEqual({ ok: true, document: result.document });
+    expect(session.undo().document.activeDraft.blocks[0]).toEqual(row);
+    const bad = createRowEditSessionV2(document).apply({ kind: "add_visual_to_wordless_row", rowId: row.id,
+      payloadId: row.payload.payloadId, slotId: id(94113), visualType: "onscreen_placeholder" });
+    expect(bad.ok).toBe(false);
+    expect(bad.diagnostics.map((item) => item.code)).toContain("VISUAL_ID_DUPLICATE");
+  });
   it("stores an explicit selected music cue, keeps the fixed hold, and makes it read-only", () => {
     const { document } = sequence();
     const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
@@ -281,6 +301,41 @@ describe("#585 visuals-only ordered cards", () => {
     const undone = session.undo();
     expect(undone.ok).toBe(true);
     expect(undone.document.activeDraft.blocks[0]).toEqual(before);
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("#621 compiles reordered six-second holds as contiguous manifest records and preserves one Undo per edit", () => {
+    const { document, dependencies } = sequence();
+    const session = createRowEditSessionV2(document);
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const changedHold = session.apply({ kind: "set_visual_only_hold", rowId: row.id, payloadId: id(31), holdSeconds: 6 });
+    expect(changedHold.ok, JSON.stringify(changedHold.diagnostics)).toBe(true);
+    const refused = session.apply({ kind: "set_visual_only_hold", rowId: row.id, payloadId: id(31), holdSeconds: -2 });
+    expect(refused.ok).toBe(false);
+    expect(session.undoDepth).toBe(1);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming.durationOverrideMs).toBe(6000);
+    const order = [id(3102), id(31), id(3101)];
+    const reordered = session.apply({ kind: "reorder_visual_only", rowId: row.id, payloadIds: order });
+    expect(reordered.ok, JSON.stringify(reordered.diagnostics)).toBe(true);
+    expect(session.undoDepth).toBe(2);
+    const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document));
+    expect(saved).toEqual({ ok: true, document: session.document });
+    const built = compileTimelineV2(session.document, dependencies);
+    expect(built.ok, JSON.stringify(built)).toBe(true);
+    if (built.ok) {
+      expect(built.manifest.events.filter((event) => event.kind === "primary_visual")
+        .map((event) => ({ id: event.provenance.payloadId, range: event.recordRange }))).toEqual([
+          { id: id(3102), range: { startFrame: 0, endFrame: 63 } },
+          { id: id(31), range: { startFrame: 63, endFrame: 213 } },
+          { id: id(3101), range: { startFrame: 213, endFrame: 263 } },
+        ]);
+      expect(built.manifest.timeline.durationFrames).toBe(263);
+    }
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.payloadId).toBe(id(31));
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming.durationOverrideMs).toBe(6000);
+    expect(session.undo().ok).toBe(true);
+    expect(session.document.activeDraft.blocks[0]).toEqual(row);
     expect(session.undoDepth).toBe(0);
   });
 

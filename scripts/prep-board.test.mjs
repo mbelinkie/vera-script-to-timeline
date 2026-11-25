@@ -124,6 +124,31 @@ test("summary reports progress, code lines and the next milestone", () => {
   assert.equal(summary.percent, 10);
   assert.equal(summary.productionLines, 2000);
   assert.deepEqual(summary.nextMilestone, { name: "M1", done: 1, total: 3, left: 2 });
+  assert.equal(summary.releaseTargets.R1.cutoff, 50);
+  assert.equal(summary.releaseTargets.R1.left, 8, "all queued unfinished issues count, even without an R1 label");
+  assert.equal(summary.releaseTargets.R2.cutoff, 200);
+});
+
+test("release gates use Queue Order across projects, not milestone tags or incomplete authoring features", () => {
+  const timeline = model("VERA Script-to-Timeline Roadmap", [
+    issue(TL, 64, { status: "Done", queue: 150, milestone: "R2" }),
+    issue(TL, 80, { status: "In progress", queue: 190, milestone: "Something else" }),
+    issue(TL, 77, { status: "Blocked", queue: 250, milestone: "R2" }),
+    issue(TL, 90, { type: "goal", status: "Done", queue: 180 }),
+  ]);
+  const research = model("VERA Research Roadmap", [
+    issue(RS, 49, { status: "Done", queue: 21, milestone: "R1" }),
+    issue(RS, 52, { status: "Ready", queue: 35 }),
+    issue(RS, 48, { status: "Blocked", queue: 49 }),
+  ]);
+  const refs = [url(TL, 80), url(TL, 77), url(RS, 52), url(RS, 48)];
+  const board = buildBoard([timeline, research], { verified: refs, dependencies: Object.fromEntries(refs.map((ref) => [ref, []])) }, {});
+  assert.deepEqual(board.summary.releaseTargets.R1, {
+    name: "R1 — Shared Research (Q50)", cutoff: 50, done: 1, total: 3, left: 2,
+  });
+  assert.deepEqual(board.summary.releaseTargets.R2, {
+    name: "R2 — Authoring + Shared Research alpha (Q200)", cutoff: 200, done: 3, total: 6, left: 3,
+  });
 });
 
 test("the next prepped ticket is the first ready, unstarted one", () => {

@@ -202,6 +202,26 @@ export function buildBoard(models, dependencies, pulls, templates = {}) {
   const done = projects.reduce((sum, p) => sum + p.done, 0);
   const total = projects.reduce((sum, p) => sum + p.total, 0);
   const next = roadmap.milestones.find((milestone) => milestone.done < milestone.total) ?? null;
+  // Release gates are queue checkpoints, not Program Milestone labels. Include
+  // completed baseline/design implementation, but count each cross-board issue
+  // once and exclude historical placeholders with no live issue.
+  const releaseIssues = new Map();
+  for (const model of models) {
+    for (const item of [...(model.goals ?? []), ...(model.workItems ?? [])]) {
+      const location = locate(item.url);
+      if (!location || item.type === "historical" || !Number.isFinite(item.queueOrder)) continue;
+      releaseIssues.set(`${location.repo}#${location.number}`, item);
+    }
+  }
+  const releaseTarget = (name, cutoff) => {
+    const issues = [...releaseIssues.values()].filter((item) => item.queueOrder < cutoff);
+    const done = issues.filter((item) => item.status === "Done").length;
+    return { name, cutoff, done, total: issues.length, left: issues.length - done };
+  };
+  const releaseTargets = {
+    R1: releaseTarget("R1 — Shared Research (Q50)", 50),
+    R2: releaseTarget("R2 — Authoring + Shared Research alpha (Q200)", 200),
+  };
   return {
     rows,
     summary: {
@@ -212,6 +232,7 @@ export function buildBoard(models, dependencies, pulls, templates = {}) {
       projects,
       productionLines: projects.every((p) => p.productionLines === null) ? null : projects.reduce((sum, p) => sum + (p.productionLines ?? 0), 0),
       nextMilestone: next && { name: next.name, done: next.done, total: next.total, left: next.total - next.done },
+      releaseTargets,
       milestones: roadmap.milestones.map((milestone) => ({ name: milestone.name, done: milestone.done, total: milestone.total })),
     },
     nextPrepped: nextPrepped(rows),

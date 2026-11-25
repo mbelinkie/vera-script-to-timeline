@@ -304,6 +304,8 @@ export type VisualSequenceEditCommandV2 =
       blockId: string;
       slotId: string;
       destinationBlockId: string;
+      /** Mandatory when receiving into a true visuals-only row; guards its independent revision. */
+      expectedDestinationRowVersion?: number;
     }
   | {
       /** Add one source-free visual on selected spoken words, with all range changes in one Undo step (D94). */
@@ -449,6 +451,11 @@ export {
   type FrameIntervalV2,
 } from "./authoring-v2-research-snapshot.js";
 export {
+  insertResearchClipBrowserV2,
+  type ResearchClipBrowserDestinationV2,
+  type ResearchClipBrowserInsertV2,
+} from "./research-clip-browser-insert.js";
+export {
   indexResearchClipUsageV2,
   type ResearchClipLocationKindV2,
   type ResearchClipUseLocationV2,
@@ -467,6 +474,14 @@ export {
   type NarrationTextSpliceResultV2,
 } from "./authoring-v2-narration-text.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export {
+  prepareResearchQuotePlacementV2,
+  placeResearchQuoteV2,
+  type AuthorizedResearchQuoteV2,
+  type ResearchQuoteBackgroundV2,
+  type ResearchQuotePlacementV2,
+  type PreparedResearchQuotePlacementV2,
+} from "./research-quote-placement.js";
 export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {
   applyStageDirectionEditV2,

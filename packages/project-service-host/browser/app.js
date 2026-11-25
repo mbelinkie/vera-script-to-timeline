@@ -1,6 +1,12 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
-import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
+import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
+import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
+import { mountResearchStillPanel } from "./research-still-panel.js";
+import { createStashActions } from "./stash-actions.js";
+import { mountStashPanel } from "./stash-panel.js";
+import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -14,12 +20,17 @@ const projectTitle = element("project-title");
 const saveStatus = element("save-status");
 const retrySave = element("retry-save");
 const openSaved = element("conflict-open-saved");
+const prompterDialog = element("prompter-dialog");
+const prompterStatus = element("prompter-status");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
   "set_visual_range", "set_on_camera_framing",
+  "move_visual_to_row", "attach_visual_to_words",
 ]);
+const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
+  "reorder_visual_only", "set_visual_only_hold"]);
 let project;
 let activeProjectId;
 let scriptDocument;
@@ -27,13 +38,16 @@ let flashVisualIds = new Set();
 let visualFeedback = "";
 let cardFocus = null;
 let documentRevision;
+let documentDigest;
 let pendingDocument;
+let documentSaveFailure;
 let documentSaving = false;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
 let visualProjection = null;
 let activeReselect = null;
+let activeAttach = null;
 let projectionGeneration = 0;
 let projectionTimer;
 let editRefused = false;
@@ -50,6 +64,7 @@ let narrationCleanup = [];
 let structuralFocus = null;
 let lastSplit = null;
 let pendingName;
+let nameSaveFailure;
 let pendingCreate;
 let saveTimer;
 let saving = false;
@@ -58,6 +73,13 @@ let conflicted = false;
 const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
 const sessionKey = "vera.authoring.sessionProof";
 let sessionProof = "";
+let prompterGeneration = 0;
+let prompterPreparing = false;
+let preparedPrompter = null;
+let researchPanel;
+let researchStillPanel;
+let sortingTrial = null;
+let stashPanel;
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -68,16 +90,151 @@ async function api(path, method = "GET", data) {
     method, headers, body: data && JSON.stringify(data),
     signal: AbortSignal.timeout(12_000),
   });
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => null));
   return await response.json();
 }
 
 class ApiError extends Error {
-  constructor(status) {
+  constructor(status, body) {
     super("Project request failed.");
     this.status = status;
+    this.body = body;
   }
 }
+
+const savedDigestPattern = /^sha256:[0-9a-f]{64}$/u;
+
+function prompterReady() {
+  return Boolean(project && activeProjectId === project.projectId && scriptDocument &&
+    Number.isSafeInteger(documentRevision) && savedDigestPattern.test(documentDigest ?? "") &&
+    !opening && !saving && !pendingName && !pendingCreate && !conflicted && !editRefused &&
+    !documentSaving && !documentDirty && !pendingDocument && !commandsPending &&
+    !composingRows.size && !sortingTrial && projectTitle.value.trim() === project.title);
+}
+
+function currentPrompterPair() {
+  return preparedPrompter && prompterReady() &&
+    preparedPrompter.projectId === activeProjectId &&
+    preparedPrompter.revision === documentRevision &&
+    preparedPrompter.digest === documentDigest ? preparedPrompter : null;
+}
+
+function updatePrompterControls() {
+  const ready = prompterReady();
+  element("open-sorting").disabled = sortingTrial ? sortingTrial.busy : !ready;
+  element("open-prompter").disabled = !ready;
+  element("open-prompter").title = ready ? "Export the saved script" : "Save your script before exporting";
+  element("prepare-prompter").disabled = !ready || prompterPreparing;
+  const pair = currentPrompterPair();
+  element("download-prompter-text").disabled = !pair;
+  element("download-prompter-sidecar").disabled = !pair;
+  element("prompter-ready").hidden = !pair;
+}
+
+function clearPreparedPrompter(message = "") {
+  ++prompterGeneration;
+  preparedPrompter = null;
+  prompterStatus.textContent = message;
+  updatePrompterControls();
+}
+
+function prompterDiagnostics(error) {
+  if (error?.status === 409) return "The saved script changed. Reload the script, finish saving and prepare again.";
+  if (error?.status === 422) {
+    const diagnostics = error.body?.diagnostics;
+    if (Array.isArray(diagnostics) && diagnostics.length) {
+      return `Prompter validation failed: ${diagnostics.map((item) =>
+        typeof item?.message === "string" ? item.message : String(item?.code ?? "Invalid script")).join("; ")}`;
+    }
+    return "Prompter validation failed. Resolve the incomplete or conflicting narration and try again.";
+  }
+  if (error?.status === 401 || error?.status === 403) return "Access to this saved script was refused. Reconnect your browser or check permissions.";
+  if (error?.status === 404) return "The saved script is no longer available. Reload to check its status.";
+  return "Couldn’t prepare the prompter files. Check the saved script and the local service, then try again.";
+}
+
+async function preparePrompter() {
+  if (prompterPreparing) return;
+  clearPreparedPrompter();
+  // Queued edits and their saves must settle before we pin a saved head;
+  // never fall back to the current, potentially unsaved, browser document.
+  await commandQueue;
+  if (!prompterReady() || !prompterDialog.open) {
+    prompterStatus.textContent = "Save your script before preparing an export.";
+    return;
+  }
+  const projectId = activeProjectId;
+  const revision = documentRevision;
+  const digest = documentDigest;
+  const generation = prompterGeneration;
+  prompterPreparing = true;
+  prompterStatus.textContent = `Preparing saved revision ${revision}…`;
+  updatePrompterControls();
+  const current = () => generation === prompterGeneration && prompterDialog.open &&
+    prompterReady() && activeProjectId === projectId &&
+    documentRevision === revision && documentDigest === digest;
+  try {
+    const pair = await api(`/${projectId}/prompter-export`, "POST", {
+      expectedRevision: revision, expectedDigest: digest,
+      settings: {
+        includeSectionNavigation: element("prompter-sections").checked,
+        includeBeatNumbers: element("prompter-beats").checked,
+      },
+    });
+    if (!current()) return;
+    if (pair.projectId !== projectId || pair.revision !== revision || pair.digest !== digest ||
+        typeof pair.text !== "string" || typeof pair.sidecarJson !== "string" ||
+        !savedDigestPattern.test(pair.textSha256) || !savedDigestPattern.test(pair.sidecarSha256)) {
+      throw new Error("Invalid saved prompter export response");
+    }
+    preparedPrompter = Object.freeze({ projectId, revision, digest,
+      text: pair.text, sidecarJson: pair.sidecarJson,
+      textSha256: pair.textSha256, sidecarSha256: pair.sidecarSha256 });
+    element("prompter-snapshot").textContent = `Saved revision ${revision} · ${digest}`;
+    element("prompter-text-hash").textContent = pair.textSha256;
+    element("prompter-sidecar-hash").textContent = pair.sidecarSha256;
+    prompterStatus.textContent = pair.text ? "Both files are ready to download separately." :
+      "This saved script has no spoken narration. The empty text and matching sidecar are ready.";
+  } catch (error) {
+    if (current()) prompterStatus.textContent = prompterDiagnostics(error);
+  } finally {
+    prompterPreparing = false;
+    updatePrompterControls();
+  }
+}
+
+function downloadPrompter(kind) {
+  const pair = currentPrompterPair();
+  if (!pair) return;
+  const content = kind === "text" ? pair.text : pair.sidecarJson;
+  const file = kind === "text" ? "txt" : "beats.json";
+  const objectUrl = URL.createObjectURL(new Blob([content], { type: kind === "text" ?
+    "text/plain;charset=utf-8" : "application/json;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = `vera-prompter-r${pair.revision}.${file}`;
+  link.click();
+  // Chrome must have time to take the blob before its object URL is revoked.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+element("open-prompter").addEventListener("click", () => {
+  if (!prompterReady()) return;
+  clearPreparedPrompter();
+  prompterDialog.showModal();
+  element("prepare-prompter").focus();
+});
+element("close-prompter").addEventListener("click", () => prompterDialog.close());
+prompterDialog.addEventListener("close", () => {
+  clearPreparedPrompter();
+  element("open-prompter").focus();
+});
+for (const name of ["prompter-sections", "prompter-beats"]) {
+  element(name).addEventListener("change", () => clearPreparedPrompter("Settings changed. Prepare again to download the new files."));
+}
+element("prepare-prompter").addEventListener("click", () => { void preparePrompter(); });
+element("download-prompter-text").addEventListener("click", () => downloadPrompter("text"));
+element("download-prompter-sidecar").addEventListener("click", () => downloadPrompter("sidecar"));
 
 function viewPreference(id, property, defaultValue) {
   const input = element(id);
@@ -120,6 +277,10 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  sortingTrial = null;
+  setSortingMode(false);
+  clearPreparedPrompter();
+  if (prompterDialog.open) prompterDialog.close();
   const [{ project: savedProject }, savedScript] = await Promise.all([
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
@@ -127,6 +288,7 @@ async function showScript(projectId) {
   flashVisualIds = new Set();
   visualFeedback = "";
   documentRevision = savedScript.revision;
+  documentDigest = savedScript.digest;
   // Finish the initial projection before exposing editable rows. Otherwise a
   // late projection response remounts the entire row list just as the user
   // selects words, composes text or reaches for an Add row control.
@@ -146,6 +308,10 @@ async function showScript(projectId) {
   lastSplit = null;
   structuralFocus = null;
   activeReselect = null;
+  activeAttach = null;
+  researchPanel?.close();
+  researchStillPanel?.close();
+  stashPanel?.close(false, true);
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -211,12 +377,15 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderEditor() {
+  stashPanel?.update();
   const root = element("script-rows");
   const requestedFocus = structuralFocus;
   structuralFocus = null;
   const requestedCardFocus = cardFocus;
   cardFocus = null;
   const active = document.activeElement;
+  const focusedCard = active?.matches("[data-footage-use]") ? active.closest("[data-footage-placement]") : null;
+  const highlightedCard = root.querySelector(".visual-card--footage-use-target");
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   const framingFocus = active?.matches("[data-visual-framing]") ? {
     rowId: active.closest("[data-row-id]")?.dataset.rowId,
@@ -245,11 +414,17 @@ function renderEditor() {
   narrationCleanup = [];
   renderRows(root, scriptDocument, {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+    attach: beginAttach, attaching: activeAttach,
+    addWordless: addWordlessVisual,
     flashIds: flashVisualIds,
   });
+  renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
+  narrationCleanup.push(mountVisualCardDragging(root));
+  narrationCleanup.push(mountResearchDragging(root));
+  narrationCleanup.push(mountWordlessControls(root));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -262,11 +437,27 @@ function renderEditor() {
       cancelReselect,
       commitReselect,
       previewReselect,
+      attaching: activeAttach?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeAttach : null,
+      finishAttach, cancelAttach,
       compositionChange(rowId, active) {
-        if (active) composingRows.add(rowId);
+        if (active) { composingRows.add(rowId); clearPreparedPrompter("Save your script before exporting."); }
         else { composingRows.delete(rowId); scheduleRender(); }
+        updatePrompterControls();
       },
       requestRender: scheduleRender,
+      chooseFootage: openFootageForWords,
+      chooseStill: openStillForWords,
+      stashWords(rowId, selection, displayedText) {
+        const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+        if (row?.text !== displayedText) {
+          setSaveStatus("Finish saving the current narration before stashing words.");
+          return;
+        }
+        const projectId = activeProjectId;
+        void stashActions.stashWords(rowId, selection).then((ok) => {
+          if (ok && activeProjectId === projectId) stashPanel.open();
+        });
+      },
     }));
   });
   if (requestedCardFocus) {
@@ -314,6 +505,254 @@ function renderEditor() {
   if (reselectFocus) focusReselectOpener(reselectFocus);
 }
 
+function beginAttach(rowId, slotId) {
+  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  if (row?.type !== "narration" || !row.unattachedVisuals?.some((item) => item.slotId === slotId)) {
+    setSaveStatus("The visual is no longer waiting for words.");
+    return;
+  }
+  activeReselect = null;
+  activeAttach = { rowId, slotId, projectId: activeProjectId };
+  renderEditor();
+  const editor = [...element("script-rows").querySelectorAll("[data-narration-editor]")]
+    .find((item) => item.closest("[data-row-id]")?.dataset.rowId === rowId);
+  editor?.focus();
+  setSaveStatus("Select the spoken words for this visual, then choose Attach visual. Esc cancels.");
+}
+
+function cancelAttach() {
+  if (!activeAttach) return;
+  activeAttach = null;
+  renderEditor();
+  setSaveStatus("Attach cancelled. The visual is still waiting for words.");
+}
+
+function finishAttach(state) {
+  if (activeAttach !== state) return;
+  activeAttach = null;
+  renderEditor();
+}
+
+function addWordlessVisual(rowId, visualType) {
+  const projectId = activeProjectId;
+  const payloadId = crypto.randomUUID();
+  const slotId = crypto.randomUUID();
+  void queueCommand((latest) => {
+    if (projectId !== activeProjectId) throw new Error("The project changed before adding the picture.");
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "visual_only" &&
+        !(row?.type === "narration" && row.text === "" && row.tokens.length === 0 && !row.plainDirection)) {
+      throw new Error("Add pictures only to rows without narration.");
+    }
+    return { kind: "add_visual_to_wordless_row", rowId, payloadId, slotId, visualType };
+  }, "Add visual", { structural: true });
+}
+
+function mountWordlessControls(root) {
+  const commitHold = (input) => {
+    if (input.dataset.holdCommitting) return;
+    const rowId = input.closest("[data-row-id]")?.dataset.rowId;
+    const payloadId = input.dataset.visualHold;
+    if (!rowId || !payloadId) return;
+    const seconds = parseHoldSeconds(input.value);
+    if (seconds === null) {
+      input.value = input.dataset.savedSeconds;
+      setSaveStatus(`Hold must be a positive number of seconds (up to three decimal places). Kept ${input.dataset.savedSeconds} s.`);
+      return;
+    }
+    if (seconds === Number(input.dataset.savedSeconds)) {
+      input.value = input.dataset.savedSeconds;
+      return;
+    }
+    input.dataset.holdCommitting = "true";
+    const projectId = activeProjectId;
+    void queueCommand((latest) => {
+      if (projectId !== activeProjectId) throw new Error("The project changed before saving the hold.");
+      const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+      if (!visualOnlyIds(row)?.includes(payloadId)) throw new Error("The picture is no longer in the row.");
+      return { kind: "set_visual_only_hold", rowId, payloadId, holdSeconds: seconds };
+    }, "Set visual hold", { structural: true }).then((ok) => {
+      if (input.isConnected) {
+        delete input.dataset.holdCommitting;
+        if (!ok) input.value = input.dataset.savedSeconds;
+      }
+    });
+  };
+  const onKeydown = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input && event.key === "Enter") {
+      event.preventDefault();
+      commitHold(input);
+    } else if (input && event.key === "Escape") {
+      event.preventDefault();
+      input.value = input.dataset.savedSeconds;
+      input.blur();
+    } else if (event.key === "Escape") {
+      const menu = event.target.closest(".visuals-wordless-choices");
+      if (menu && !menu.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        menu.hidden = true;
+        const trigger = menu.previousElementSibling;
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.focus();
+      }
+    }
+  };
+  const onBlur = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input) commitHold(input);
+  };
+  root.addEventListener("keydown", onKeydown);
+  root.addEventListener("focusout", onBlur);
+  return () => {
+    root.removeEventListener("keydown", onKeydown);
+    root.removeEventListener("focusout", onBlur);
+  };
+}
+
+// Native picture dragging is deliberately independent of rows-editor's row
+// handle and gap drag state. No model edit occurs before a valid cross-row drop.
+function mountVisualCardDragging(root) {
+  let dragging = null;
+  let target = null;
+  let reorderMarker = null;
+  const clear = () => {
+    target?.classList.remove("script-row--visual-drop-target");
+    reorderMarker?.classList.remove("visual-card--reorder-before");
+    root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
+    dragging = null;
+    target = null;
+    reorderMarker = null;
+  };
+  const rowFor = (id, doc = scriptDocument) => doc?.activeDraft.blocks.find((row) => row.id === id);
+  const onStart = (event) => {
+    if (event.target.closest("button, input, [contenteditable]")) return;
+    const card = event.target.closest("[data-visual-drag]");
+    const rowId = card?.closest("[data-row-id]")?.dataset.rowId;
+    const row = rowFor(rowId);
+    if (!card || !event.dataTransfer || !row || row.type !== "narration" && row.type !== "visual_only") return;
+    const slotId = card.dataset.slotId;
+    const payloadId = card.dataset.payloadId;
+    const content = row.type === "narration" && (row.primaryVisualSequence?.slots.some((slot) =>
+      slot.kind === "content" && slot.id === slotId && slot.payload.kind === "visual") ||
+      row.unattachedVisuals?.some((item) => item.slotId === slotId && item.payload.kind === "visual"));
+    if (row.type === "narration" && !content || row.type === "visual_only" &&
+      (!payloadId || !visualOnlyIds(row)?.includes(payloadId))) return;
+    dragging = { rowId, slotId, payloadId, projectId: activeProjectId, sourceType: row.type };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-vera-visual", "picture");
+    card.classList.add("visual-card--dragging");
+  };
+  const destination = (event) => {
+    const row = event.target.closest(".script-row");
+    const id = row?.dataset.rowId;
+    const model = rowFor(id);
+    return dragging && id && (id !== dragging.rowId || dragging.sourceType === "visual_only") &&
+      (model?.type === "narration" || model?.type === "visual_only") ? row : null;
+  };
+  const reorderBefore = (event, row) => {
+    const card = event.target.closest(".visual-card[data-payload-id]");
+    if (!card || !row.contains(card)) return null;
+    const box = card.getBoundingClientRect();
+    if (event.clientY <= box.top + box.height / 2) return card.dataset.payloadId;
+    return card.nextElementSibling?.matches(".visual-card[data-payload-id]")
+      ? card.nextElementSibling.dataset.payloadId : null;
+  };
+  const onOver = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    reorderMarker?.classList.remove("visual-card--reorder-before");
+    reorderMarker = null;
+    if (target !== next) {
+      target?.classList.remove("script-row--visual-drop-target");
+      target = next;
+      target?.classList.add("script-row--visual-drop-target");
+    }
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (next.dataset.rowId === dragging.rowId) {
+      const before = reorderBefore(event, next);
+      reorderMarker = before ? [...next.querySelectorAll(".visual-card[data-payload-id]")]
+        .find((card) => card.dataset.payloadId === before) : null;
+      reorderMarker?.classList.add("visual-card--reorder-before");
+    }
+    event.dataTransfer.dropEffect = "move";
+  };
+  const onDrop = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    const from = dragging;
+    const before = next && next.dataset.rowId === from.rowId ? reorderBefore(event, next) : null;
+    clear();
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const destinationId = next.dataset.rowId;
+    if (destinationId === from.rowId) {
+      // A drop back in its original position is cancellation, not a refused
+      // model edit or a new Undo entry.
+      if (!planVisualOnlyReorder(rowFor(from.rowId), from.payloadId, before)) return;
+      const projectId = from.projectId;
+      void queueCommand((latest) => {
+        if (activeProjectId !== projectId) throw new Error("The project changed during the reorder.");
+        const source = rowFor(from.rowId, latest);
+        const plan = planVisualOnlyReorder(source, from.payloadId, before);
+        if (!plan) throw new Error("The visual order was unchanged or is no longer available.");
+        return plan;
+      }, "Reorder visuals", { structural: true });
+      return;
+    }
+    const freshSlotId = crypto.randomUUID();
+    const replacementPayloadId = crypto.randomUUID();
+    const intent = (latest) => {
+      if (activeProjectId !== from.projectId) throw new Error("The script changed while dragging the visual.");
+      const source = rowFor(from.rowId, latest);
+      const dest = rowFor(destinationId, latest);
+      if (source?.type !== from.sourceType || !dest ||
+          dest.type !== "narration" && dest.type !== "visual_only") {
+        throw new Error("The source or destination row changed during the drag.");
+      }
+      if (source.type === "narration") return {
+        kind: "move_visual_to_row", blockId: from.rowId, slotId: from.slotId,
+        destinationBlockId: destinationId,
+        ...(dest.type === "visual_only" ? { expectedDestinationRowVersion: dest.version } : {}),
+      };
+      const ids = visualOnlyIds(source);
+      if (!ids?.includes(from.payloadId)) throw new Error("The dragged picture is no longer in its source row.");
+      const mapped = source.clearedNarration?.slots.some((item) => item.visualId === from.payloadId);
+      return { kind: "move_wordless_visual", sourceRowId: from.rowId, payloadId: from.payloadId,
+        destinationRowId: destinationId,
+        ...(ids.length === 1 ? { replacementPayloadId } : {}),
+        ...(!mapped && (dest.type === "narration" || dest.clearedNarration) ? { destinationSlotId: freshSlotId } : {}),
+        ...(dest.type === "narration" ? { expectedDestinationSequenceVersion: dest.primaryVisualSequence?.version } : {}),
+      };
+    };
+    void queueCommand(intent, "Move visual", { structural: true });
+  };
+  const onKey = (event) => {
+    if (event.key !== "Escape" || !dragging) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clear();
+    setSaveStatus("Visual move cancelled.");
+  };
+  root.addEventListener("dragstart", onStart);
+  root.addEventListener("dragover", onOver);
+  root.addEventListener("drop", onDrop);
+  root.addEventListener("dragend", clear);
+  root.addEventListener("keydown", onKey, true);
+  return () => {
+    clear();
+    root.removeEventListener("dragstart", onStart);
+    root.removeEventListener("dragover", onOver);
+    root.removeEventListener("drop", onDrop);
+    root.removeEventListener("dragend", clear);
+    root.removeEventListener("keydown", onKey, true);
+  };
+}
+
 function reselectOpener(state) {
   return [...element("script-rows").querySelectorAll("[data-reselect-open]")].find((button) =>
     button.dataset.reselectOpen === state.opener &&
@@ -337,6 +776,7 @@ function beginReselect(rowId, slotId, opener) {
     setSaveStatus("That visual's word range is not available to reselect.");
     return;
   }
+  activeAttach = null;
   activeReselect = { rowId, slotId, opener, version: row.primaryVisualSequence?.version, text: row.text };
   renderEditor();
 }
@@ -439,33 +879,39 @@ document.addEventListener("selectionchange", () => {
 
 async function saveDocument() {
   if (!project || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+  clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
     documentDirty = false;
   }
   documentSaving = true;
-  setSaveStatus("Saving…");
+  setSaveStatus();
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
+    documentDigest = receipt.digest;
     void refreshMusicWarnings();
     pendingDocument = undefined;
+    documentSaveFailure = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
-      setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
-    } else setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
+      documentSaveFailure = { message: "A newer script was saved elsewhere. Your unsaved changes are still here.", action: "conflict" };
+    } else documentSaveFailure = { message: "Couldn’t save the script. Your unsaved changes are still here.", action: "retry" };
     return;
-  } finally { documentSaving = false; }
+  } finally {
+    documentSaving = false;
+    setSaveStatus();
+  }
   if (documentDirty) void saveDocument();
-  else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
 async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
   const response = await fetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
-      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }) }),
+      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }),
+      ...(wordlessCommandKinds.has(command.kind) ? { expectedRowEditRevision: document.rowEditRevision ?? 0 } : {}) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();
@@ -487,6 +933,209 @@ async function authoringVisualPost(path, body) {
     throw new Error(result.diagnostics?.[0]?.message || result.error || "Visual edit could not be applied.");
   }
   return result;
+}
+
+/** The browser never connects to Research's port or receives its bearer. */
+export async function researchCatalogGet(researchProjectId, clipId) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") ||
+      (researchProjectId !== undefined && !uuid.test(researchProjectId)) ||
+      (clipId !== undefined && (!researchProjectId || !uuid.test(clipId)))) {
+    throw new Error("Choose a current script and Research project.");
+  }
+  await connecting;
+  const path = `/authoring/research/${timelineId}/projects` +
+    (researchProjectId ? `/${researchProjectId}/clips${clipId ? `/${clipId}` : ""}` : "");
+  const response = await fetch(path, {
+    headers: { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
+  if (!response.ok) {
+    const error = new Error("Research footage is unavailable or no longer authorized.");
+    error.status = response.status;
+    throw error;
+  }
+  const catalog = await response.json();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
+  return catalog;
+}
+
+class ResearchStillApiError extends Error {
+  constructor(status, body) {
+    super("Saved Research still request failed.");
+    this.status = status;
+    this.body = body;
+  }
+}
+
+function researchStillRequestHeaders() {
+  try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep the current proof. */ }
+  return { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
+}
+
+async function researchStillRequest(path) {
+  await connecting;
+  const response = await fetch(path, {
+    headers: researchStillRequestHeaders(),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) {
+    throw new ResearchStillApiError(response.status, await response.json().catch(() => null));
+  }
+  return response;
+}
+
+/** The browser never connects to Research's port or receives its bearer. */
+export async function researchStillCatalogGet(researchProjectId, offset = 0) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error("Choose a current script and Research project.");
+  }
+  const path = `/authoring/research/${timelineId}/projects/${researchProjectId}/stills?offset=${offset}`;
+  const response = await researchStillRequest(path);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  const page = await response.json();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  return page;
+}
+
+/** Fetch a kept thumbnail through the same-origin authoring session. */
+export async function researchStillThumbnailGet(researchProjectId, itemId, itemVersion) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !uuid.test(itemId ?? "") || !Number.isSafeInteger(itemVersion) || itemVersion < 1) {
+    throw new Error("Choose a current script and saved Research still.");
+  }
+  const query = new URLSearchParams({ version: String(itemVersion) });
+  const response = await researchStillRequest(
+    `/authoring/research/${timelineId}/projects/${researchProjectId}/stills/${itemId}/thumbnail?${query}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  const bytes = await response.arrayBuffer();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  return {
+    mimeType: response.headers.get("content-type")?.split(";", 1)[0] || "application/octet-stream",
+    bytes,
+  };
+}
+
+/** Resolves placement only after earlier typing has produced actual current token IDs. */
+export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => ({ researchProjectId, clipId, clipVersion,
+    placement: typeof placement === "function" ? placement(latest) : placement,
+  }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
+}
+
+/** Resolves selected words only after earlier typing has produced current IDs. */
+export function queueResearchStillInsert({ researchProjectId, itemId, itemVersion, placement }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => ({ researchProjectId, itemId, itemVersion,
+    placement: typeof placement === "function" ? placement(latest) : placement,
+  }), "Add still", { structural: true, researchStill: true, expectedProjectId: projectId });
+}
+
+function openFootageForWords({ rowId, text, selection, seed, from }) {
+  stashPanel.close(false);
+  void researchPanel.open({ quick: true, seed, from, placement: (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "narration" || row.text !== text) {
+      throw new Error("The selected narration changed. Choose the words again.");
+    }
+    const words = selectedSpokenWords(row, selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", rowId, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version,
+      startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  } });
+}
+
+function openStillForWords({ rowId, text, selection, from }) {
+  stashPanel.close(false);
+  void researchStillPanel.open({ from, placement: (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "narration" || row.text !== text) {
+      throw new Error("The selected narration changed. Choose the words again.");
+    }
+    const words = selectedSpokenWords(row, selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", rowId, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version,
+      startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  } });
+}
+
+function availableGaps() {
+  const blocks = scriptDocument?.activeDraft?.blocks ?? [];
+  return rowGaps(blocks).map((destination, index) => ({
+    destination, label: `Gap ${index + 1} · ${destination.afterRowId ? "after row" : "section start"}`,
+  }));
+}
+
+function availableNarrationRows() {
+  return (scriptDocument?.activeDraft?.blocks ?? []).filter((row) => row.type === "narration")
+    .map((row, index) => ({ rowId: row.id, label: `Row ${index + 1}: ${(row.text || "Blank narration").slice(0, 45)}` }));
+}
+
+function mountResearchDragging(root) {
+  let target = null;
+  const clear = () => { target?.classList.remove("script-row--footage-target", "row-divider--footage-target"); target = null; };
+  const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
+  const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
+  const over = (event) => {
+    if (!draggingFootage(event)) return;
+    const next = destinationNode(event);
+    clear();
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    target = next;
+    target.classList.add(next.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  };
+  const drop = (event) => {
+    if (!draggingFootage(event)) return;
+    const next = destinationNode(event);
+    const clip = researchPanel.dropClip(event.dataTransfer?.getData("application/x-vera-research-clip"));
+    clear();
+    if (!next || !clip) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const currentProject = activeProjectId;
+    const targetRowId = next.dataset.rowId;
+    const expected = targetRowId ? scriptDocument.activeDraft.blocks.find((row) => row.id === targetRowId) : null;
+    const gap = targetRowId ? null : {
+      sectionId: next.dataset.sectionId || null,
+      afterRowId: next.dataset.afterRowId || null, beforeRowId: next.dataset.beforeRowId || null,
+    };
+    void queueResearchClipInsert({ researchProjectId: clip.projectId, clipId: clip.id, clipVersion: clip.version,
+      placement: (latest) => {
+        if (currentProject !== activeProjectId) throw new Error("The open script changed during the drag.");
+        if (gap) {
+          if (!rowGaps(latest.activeDraft.blocks).some((candidate) =>
+            candidate.sectionId === gap.sectionId && candidate.afterRowId === gap.afterRowId &&
+            candidate.beforeRowId === gap.beforeRowId)) throw new Error("The script gap moved during the drag.");
+          return { kind: "gap", destination: gap };
+        }
+        const row = latest.activeDraft.blocks.find((item) => item.id === targetRowId);
+        if (row?.type !== "narration" || row.version !== expected?.version) {
+          throw new Error("The destination narration changed during the drag.");
+        }
+        return { kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
+          expectedSequenceVersion: row.primaryVisualSequence.version };
+      },
+    }).then((success) => { if (success) researchPanel.update(); });
+  };
+  root.addEventListener("dragover", over, true);
+  root.addEventListener("drop", drop, true);
+  root.addEventListener("dragend", clear, true);
+  return () => {
+    clear();
+    root.removeEventListener("dragover", over, true);
+    root.removeEventListener("drop", drop, true);
+    root.removeEventListener("dragend", clear, true);
+  };
 }
 
 // Projection is derived, never saved. In-flight responses are tied to the
@@ -526,6 +1175,7 @@ function changedCueIds(before, after) {
     row.cards.forEach((card, index) => {
       if (card.kind !== "on_camera" && !card.compact) {
         previous.set(`${row.blockId}:${card.slotId}`, { index, start: card.startTokenIndex });
+        previous.set(`slot:${card.slotId}`, { rowId: row.blockId });
       }
     });
   }
@@ -533,7 +1183,9 @@ function changedCueIds(before, after) {
   for (const row of after.rows) {
     row.cards.forEach((card, index) => {
       const prior = previous.get(`${row.blockId}:${card.slotId}`);
-      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex)) moved.add(card.slotId);
+      const former = previous.get(`slot:${card.slotId}`);
+      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex) ||
+          former && former.rowId !== row.blockId) moved.add(card.slotId);
     });
   }
   return moved;
@@ -633,12 +1285,234 @@ async function applyPlainPaste(document, intent) {
   return { document: working, focusAfter: { rowId: currentRowId, offset: Math.max(0, caret) } };
 }
 
+// Sorting is a separate, in-memory working view of a pinned saved head.
+export function currentSortingTrial() {
+  return sortingTrial && {
+    document: sortingTrial.document, movedRowIds: [...sortingTrial.movedRowIds],
+    busy: sortingTrial.busy,
+  };
+}
+
+export function beginSortingTrial() {
+  if (!prompterReady()) return false;
+  sortingTrial = {
+    projectId: activeProjectId, revision: documentRevision, digest: documentDigest,
+    baseline: scriptDocument, document: structuredClone(scriptDocument), moves: [], movedRowIds: [], busy: false,
+  };
+  typingGroup = null;
+  clearPreparedPrompter();
+  return true;
+}
+
+function sortingBaselineCurrent(trial) {
+  return sortingTrial === trial && activeProjectId === trial.projectId &&
+    scriptDocument === trial.baseline && documentRevision === trial.revision &&
+    documentDigest === trial.digest && !conflicted && !editRefused &&
+    !documentSaving && !documentDirty && !pendingDocument && !commandsPending;
+}
+
+async function sortingRequest(trial, moves, action) {
+  try {
+    const result = await api(`/${trial.projectId}/sorting-trial`, "POST", {
+      expectedRevision: trial.revision, expectedDigest: trial.digest, moves, action,
+    });
+    if (!result.ok) throw new Error(result.diagnostics?.[0]?.message || "Sorting could not be applied.");
+    return result;
+  } catch (error) {
+    throw new Error(error.body?.diagnostics?.[0]?.message || error.message || "Sorting could not be applied.");
+  }
+}
+
+export async function moveSortingTrial(command) {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || command?.kind !== "move_rows" || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const moves = [...trial.moves, structuredClone(command)];
+    const result = await sortingRequest(trial, moves, "preview");
+    if (!sortingBaselineCurrent(trial)) return false;
+    trial.moves = moves;
+    trial.document = result.document;
+    trial.movedRowIds = result.movedRowIds;
+    return true;
+  } finally { trial.busy = false; }
+}
+
+export function discardSortingTrial() {
+  if (!sortingTrial) return false;
+  sortingTrial = null;
+  updatePrompterControls();
+  return true;
+}
+
+export async function acceptSortingTrial() {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const result = await sortingRequest(trial, trial.moves, "accept");
+    if (!sortingBaselineCurrent(trial)) return false;
+    sortingTrial = null;
+    if (result.changed) {
+      undoStack.push({ document: scriptDocument, label: "Sort rows" });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      invalidateProjection(false);
+      updateUndo();
+      documentDirty = true;
+      // documentRevision still equals the original baseline. The existing
+      // save queue enforces CAS even if another writer saves after projection.
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+    }
+    updatePrompterControls();
+    return true;
+  } finally { trial.busy = false; }
+}
+
+// A separate read-only outline: normal Draft controls never edit a trial.
+function setSortingMode(active) {
+  authoring.classList.toggle("sorting-mode", active);
+  element("sorting-view").hidden = !active;
+  element("script-rows").closest(".script-paper").hidden = active;
+  projectTitle.readOnly = active;
+  for (const id of ["undo", "open-footage", "open-prompter"]) element(id).hidden = active;
+  element("undo").parentElement.querySelector(".undo-menu").hidden = active;
+  const toggle = element("open-sorting");
+  toggle.textContent = active ? "← Back to script" : "Sort rows";
+  toggle.setAttribute("aria-expanded", String(active));
+  if (!active) element("sorting-rows").replaceChildren();
+}
+
+function leaveSorting() {
+  if (!sortingTrial || sortingTrial.busy) return;
+  if (sortingTrial.moves.length && !window.confirm("Discard this Sorting trial and return to the script?")) return;
+  finishSorting(false);
+}
+
+function finishSorting(accepted) {
+  if (!accepted) discardSortingTrial();
+  setSortingMode(false);
+  if (accepted) renderEditor();
+  stashPanel?.close(false);
+  updatePrompterControls();
+  // Accept may start a save, so focus the script heading while the toggle is disabled.
+  (element("open-sorting").disabled ? element("script-title") : element("open-sorting")).focus();
+}
+
+function sortingStatus(message) {
+  element("sorting-status").textContent = message;
+}
+
+function sortingButton(label, text) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = text;
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+function renderSorting(focusRowId, direction) {
+  const trial = currentSortingTrial();
+  if (!trial) return;
+  const blocks = trial.document.activeDraft.blocks;
+  const gaps = rowGaps(blocks);
+  const root = element("sorting-rows");
+  root.replaceChildren();
+  for (const section of rowSections(blocks)) {
+    if (!section.rows.length && !section.sectionId) continue;
+    const group = document.createElement("section");
+    const heading = document.createElement("h3");
+    heading.textContent = blocks.find((block) => block.id === section.sectionId)?.title ?? "Unsectioned";
+    group.append(heading);
+    const list = document.createElement("ol");
+    for (const row of section.rows) {
+      const item = document.createElement("li");
+      item.dataset.sortingRowId = row.id;
+      const label = document.createElement("span");
+      label.textContent = rowLabel(row);
+      if (trial.movedRowIds.includes(row.id)) item.classList.add("sorting-row--moved");
+      item.append(label);
+      const before = gaps.findIndex((gap) => gap.beforeRowId === row.id);
+      const after = gaps.findIndex((gap) => gap.afterRowId === row.id);
+      for (const [step, destination] of [["up", gaps[before - 1]], ["down", gaps[after + 1]]]) {
+        const button = sortingButton(`Move ${rowLabel(row)} ${step}`, step === "up" ? "↑" : "↓");
+        button.dataset.sortingMove = step;
+        button.disabled = !destination || trial.busy;
+        button.addEventListener("click", () => {
+          void runSortingAction(() => moveSortingTrial({ kind: "move_rows", rowIds: [row.id], destination }), row.id, step);
+        });
+        item.append(button);
+      }
+      list.append(item);
+    }
+    group.append(list);
+    root.append(group);
+  }
+  element("sorting-accept").disabled = trial.busy || !sortingTrial.moves.length;
+  element("sorting-discard").disabled = trial.busy;
+  updatePrompterControls();
+  if (focusRowId) {
+    const row = [...root.querySelectorAll("[data-sorting-row-id]")].find((item) => item.dataset.sortingRowId === focusRowId);
+    const buttons = [...(row?.querySelectorAll("button:not(:disabled)") ?? [])];
+    (buttons.find((button) => button.dataset.sortingMove === direction) ?? buttons[0] ?? element("sorting-discard")).focus();
+  }
+}
+
+async function runSortingAction(action, rowId, direction) {
+  const trial = sortingTrial;
+  if (!trial || trial.busy) return;
+  const pending = action();
+  renderSorting();
+  sortingStatus("Checking trial…");
+  try {
+    if (!await pending) sortingStatus("The saved script changed. Discard this trial and reload before sorting again.");
+    else if (!sortingTrial) { finishSorting(true); return; }
+    else sortingStatus("Trial only. Accept to save this order, or discard to keep the original.");
+  } catch (error) { sortingStatus(error.message); }
+  if (sortingTrial === trial) {
+    renderSorting(rowId, direction);
+    if (!rowId) element("sorting-accept").focus();
+  }
+}
+
+element("open-sorting").addEventListener("click", () => {
+  if (sortingTrial) { leaveSorting(); return; }
+  if (!beginSortingTrial()) return;
+  researchPanel?.close();
+  researchStillPanel?.close();
+  stashPanel?.close(false);
+  activeAttach = null;
+  activeReselect = null;
+  setSortingMode(true);
+  sortingStatus("Trial only. Your saved Draft is unchanged.");
+  renderSorting();
+  element("sorting-heading").focus();
+});
+element("sorting-discard").addEventListener("click", () => finishSorting(false));
+element("sorting-accept").addEventListener("click", () => { void runSortingAction(acceptSortingTrial); });
+
 function queueCommand(command, label, options = {}) {
-  if (options.structural && composingRows.size) return Promise.resolve(false);
+  if (sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
   const inputAt = performance.now();
   commandsPending += 1;
+  clearPreparedPrompter("Save your script before exporting.");
+  setSaveStatus();
+  let commandError;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
+    // Input arriving during a Tab split occupies its normal place in this
+    // queue, but must be resolved against the accepted destination row.
+    if (options.prepareSplitInput) {
+      const next = options.prepareSplitInput(scriptDocument);
+      if (!next) return true;
+      ({ command, label, options } = next);
+    }
+    if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
+        scriptDocument?.projectId !== options.expectedProjectId)) {
+      throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
+    }
     if (options.expectedRow) {
       const expected = options.expectedRow;
       const row = scriptDocument.activeDraft.blocks.find((item) => item.id === expected.id);
@@ -653,6 +1527,31 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.research || options.researchStill) {
+      typingGroup = null;
+      const prior = scriptDocument;
+      const result = await authoringVisualPost(options.researchStill ? "research-still-insert" : "research-insert", {
+        timelineProjectId: options.expectedProjectId, document: prior,
+        expectedDocumentRevision: prior.rowEditRevision ?? 0, ...resolved,
+      });
+      if (activeProjectId !== options.expectedProjectId || scriptDocument !== prior) {
+        throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
+      }
+      if (JSON.stringify(result.document) === JSON.stringify(prior)) {
+        throw new Error(`${options.researchStill ? "Still" : "Footage"} insertion did not change the script.`);
+      }
+      undoStack.push({ document: prior, label });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      researchPanel?.update();
+      researchStillPanel?.update();
+      lastSplit = null;
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      return true;
+    }
     if (options.visual) {
       typingGroup = null;
       const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved?.blockId);
@@ -690,6 +1589,7 @@ function queueCommand(command, label, options = {}) {
       typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
       if (result.document === scriptDocument) {
+        options.onSplitApplied?.(scriptDocument, structuralFocus);
         scheduleRender(true);
         return true;
       }
@@ -699,6 +1599,7 @@ function queueCommand(command, label, options = {}) {
       invalidateProjection(false);
       lastSplit = null;
       structuralFocus = result.focusAfter;
+      options.onSplitApplied?.(scriptDocument, structuralFocus);
       updateUndo();
       documentDirty = true;
       void saveDocument();
@@ -712,6 +1613,7 @@ function queueCommand(command, label, options = {}) {
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
     const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
+    if (resolved.kind === "move_visual_to_row" || resolved.kind === "move_wordless_visual") activeAttach = null;
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
     // at the same caret are eligible; a changed cursor/session breaks the run.
@@ -747,24 +1649,27 @@ function queueCommand(command, label, options = {}) {
     else if (previous?.type === "narration") structuralFocus = replay
       ? { rowId: replay.originalRowId, offset: replay.caret }
       : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
+    options.onSplitApplied?.(scriptDocument, structuralFocus);
     if (options.cardFocus) cardFocus = options.cardFocus;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, options.structural, previousProjection);
+    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied), previousProjection);
     return true;
   }).catch((error) => {
     typingGroup = null;
+    options.onSplitRefused?.(error);
     if (options.expectedRow && (!options.structural || options.paste)) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
       element("discard-edit").hidden = false;
       element("discard-edit").disabled = true;
     }
-    setSaveStatus(refusedMessage || error.message || "Edit could not be applied.");
+    commandError = refusedMessage || error.message || "Edit could not be applied.";
     return false;
   }).finally(() => {
     commandsPending -= 1;
+    setSaveStatus(commandError);
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
@@ -791,9 +1696,12 @@ function updateUndo() {
 }
 
 function undo() {
-  if (composingRows.size) return;
+  if (sortingTrial || prompterDialog.open || composingRows.size) return;
+  clearPreparedPrompter("Save your script before exporting.");
+  activeAttach = null;
   typingGroup = null;
   commandsPending += 1;
+  setSaveStatus();
   commandQueue = commandQueue.then(() => {
     // Earlier requests may have completed after Undo was queued, restoring
     // a typing group. Undo is a history boundary at *execution* as well.
@@ -801,6 +1709,7 @@ function undo() {
     if (conflicted || editRefused || !undoStack.length) return;
     const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
+    researchPanel?.update();
     invalidateProjection(false);
     visualFeedback = "";
     lastSplit = null;
@@ -811,15 +1720,53 @@ function undo() {
     void refreshProjection(scriptDocument, true, previousProjection);
   }).finally(() => {
     commandsPending -= 1;
+    setSaveStatus();
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
+  // A modal export must not dispatch (or swallow) editor shortcuts behind it.
+  if (prompterDialog.open) return;
+  if (sortingTrial) {
+    if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+      event.preventDefault();
+      if (!sortingTrial.busy) leaveSorting();
+    }
+    return;
+  }
+  if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
+    event.preventDefault();
+    cancelAttach();
+    return;
+  }
   if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();
+  }
+  if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    if (!activeProjectId) return;
+    const selection = document.getSelection();
+    const text = selection && !selection.isCollapsed ? selection.toString().trim() : "";
+    const editor = selection?.anchorNode?.parentElement?.closest?.("[data-narration-editor]");
+    if (text && editor && editor.contains(selection.focusNode)) {
+      const range = selection.getRangeAt(0);
+      const prefix = range.cloneRange();
+      prefix.selectNodeContents(editor);
+      prefix.setEnd(range.startContainer, range.startOffset);
+      const rowId = editor.closest("[data-row-id]")?.dataset.rowId;
+      const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+      if (row?.type === "narration") {
+        openFootageForWords({ rowId, text: row.text, selection: {
+          start: prefix.toString().length, end: prefix.toString().length + range.toString().length,
+        }, seed: text, from: editor });
+        return;
+      }
+    }
+    stashPanel.close(false);
+    void researchPanel.open({ from: document.activeElement });
   }
 });
 
@@ -838,7 +1785,7 @@ async function openScript(projectId) {
   opening = true;
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
-  finally { opening = false; }
+  finally { opening = false; updatePrompterControls(); }
 }
 
 function newScript(title) {
@@ -878,6 +1825,7 @@ newForm.addEventListener("submit", async (event) => {
   } finally {
     newTitle.readOnly = false;
     opening = false;
+    updatePrompterControls();
   }
 });
 
@@ -888,12 +1836,25 @@ openForm.addEventListener("submit", (event) => {
   else homeStatus.textContent = "Enter a saved script link or project ID.";
 });
 
-function setSaveStatus(message, action) {
-  if (editRefused) message = refusedMessage;
-  else if (message === "Saved" && visualFeedback) message = `Saved · ${visualFeedback}`;
+function setSaveStatus(message = "Saved") {
+  // A failure belongs to its outstanding mutation, not the last UI event.
+  // A conflict prevents either retry; otherwise document Retry takes priority.
+  const failure = [documentSaveFailure, nameSaveFailure].find((item) => item?.action === "conflict") ??
+    documentSaveFailure ?? nameSaveFailure;
+  let action;
+  if (failure) ({ message, action } = failure);
+  else if (editRefused) message = refusedMessage;
+  else if (message === "Saved") {
+    if (documentSaving || saving || commandsPending) message = "Saving…";
+    else if (project && !projectTitle.value.trim()) message = "Project name is required. Your change is unsaved.";
+    else if (pendingDocument || documentDirty || pendingName || composingRows.size ||
+        (project && projectTitle.value.trim() !== project.title)) message = "Unsaved changes";
+    else if (visualFeedback) message = `Saved · ${visualFeedback}`;
+  }
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
+  updatePrompterControls();
 }
 
 element("discard-edit").addEventListener("click", () => {
@@ -904,9 +1865,7 @@ element("discard-edit").addEventListener("click", () => {
   forceRender = false;
   renderRequested = false;
   renderEditor();
-  if (conflicted) setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
-  else if (pendingDocument || documentDirty) setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
-  else setSaveStatus("Saved");
+  setSaveStatus();
 });
 
 async function saveName() {
@@ -915,11 +1874,11 @@ async function saveName() {
   const title = projectTitle.value.trim();
   if (!pendingName) {
     if (!title) {
-      setSaveStatus("Project name is required. Your change is unsaved.");
+      setSaveStatus();
       return;
     }
     if (title === project.title) {
-      setSaveStatus("Saved");
+      setSaveStatus();
       return;
     }
     pendingName = {
@@ -927,31 +1886,35 @@ async function saveName() {
     };
   }
   saving = true;
-  setSaveStatus("Saving…");
+  setSaveStatus();
   try {
     ({ project } = await api(`/${project.projectId}`, "PATCH", pendingName));
     pendingName = undefined;
+    nameSaveFailure = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
-      setSaveStatus("A newer project name was saved elsewhere. Your unsaved name is still here.", "conflict");
+      nameSaveFailure = { message: "A newer project name was saved elsewhere. Your unsaved name is still here.", action: "conflict" };
     } else if (error instanceof ApiError && error.status === 401) {
-      setSaveStatus("Your unsaved name is still here. Open the private VERA launch link in another tab, then retry here.", "retry");
+      nameSaveFailure = { message: "Your unsaved name is still here. Open the private VERA launch link in another tab, then retry here.", action: "retry" };
     } else {
-      setSaveStatus("Couldn’t save the project name. Your unsaved name is still here.", "retry");
+      nameSaveFailure = { message: "Couldn’t save the project name. Your unsaved name is still here.", action: "retry" };
     }
     return;
-  } finally { saving = false; }
+  } finally {
+    saving = false;
+    setSaveStatus();
+  }
   // Replay the same receipt after a failed request. Any newer typing is saved
   // only after that request confirms the next project version.
   if (projectTitle.value.trim() !== project.title) void saveName();
-  else setSaveStatus("Saved");
 }
 
 projectTitle.addEventListener("input", () => {
+  clearPreparedPrompter("Save your script before exporting.");
   if (saving || conflicted || pendingName) return;
   clearTimeout(saveTimer);
-  setSaveStatus("Unsaved changes");
+  setSaveStatus();
   saveTimer = setTimeout(() => { void saveName(); }, 350);
 });
 projectTitle.addEventListener("blur", () => {
@@ -963,7 +1926,10 @@ projectTitle.addEventListener("keydown", (event) => {
     projectTitle.blur();
   }
 });
-retrySave.addEventListener("click", () => { if (pendingDocument || documentDirty) void saveDocument(); else void saveName(); });
+retrySave.addEventListener("click", () => {
+  if (documentSaveFailure) void saveDocument();
+  else if (nameSaveFailure) void saveName();
+});
 
 function protectDraft(event) {
   if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
@@ -993,6 +1959,41 @@ async function connectBrowser() {
 }
 
 const connecting = connectBrowser();
+const stashActions = createStashActions((command, label, options) => {
+  const projectId = activeProjectId;
+  return queueCommand((current) => {
+    if (current.projectId !== projectId) throw new Error("The open script changed.");
+    return command(current);
+  }, label, options);
+}, () => scriptDocument);
+stashPanel = mountStashPanel({
+  root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
+  getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial), onOpen: () => {
+    if (!element("footage-panel").hidden) researchPanel.close();
+    if (!element("research-still-panel").hidden) researchStillPanel.close();
+  },
+});
+element("open-footage").addEventListener("click", () => stashPanel.close(false));
+researchPanel = mountResearchPanel({
+  root: element("footage-panel"),
+  catalog: researchCatalogGet,
+  getDocument: () => scriptDocument,
+  insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
+    clipId: clip.id, clipVersion: clip.version, placement }),
+  gapChoices: availableGaps, rowChoices: availableNarrationRows,
+  onStatus: (message) => setSaveStatus(message),
+});
+researchStillPanel = mountResearchStillPanel({
+  root: element("research-still-panel"),
+  catalog: async (researchProjectId, offset) => researchProjectId === undefined
+    ? await researchCatalogGet() : await researchStillCatalogGet(researchProjectId, offset),
+  thumbnail: researchStillThumbnailGet,
+  insert: (still, placement, researchProjectId) => queueResearchStillInsert({
+    researchProjectId,
+    itemId: still.itemId, itemVersion: still.itemVersion, placement,
+  }),
+  onStatus: (message) => setSaveStatus(message),
+});
 const initialProject = new URLSearchParams(location.search).get("project");
 if (initialProject !== null) {
   openLink.value = initialProject;

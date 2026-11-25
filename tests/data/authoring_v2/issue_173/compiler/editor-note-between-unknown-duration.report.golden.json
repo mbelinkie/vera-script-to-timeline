@@ -65,6 +65,18 @@
     },
     {
       "disposition": "placed",
+      "eventId": "5761b8a0-4f55-57f8-8eba-67bd7f574290",
+      "kind": "script_marker",
+      "message": "Undurationed spacer",
+      "recordRange": {
+        "endFrame": 97,
+        "startFrame": 96
+      },
+      "sourceId": null,
+      "trackId": "markers"
+    },
+    {
+      "disposition": "placed",
       "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
       "kind": "placeholder",
       "message": "Intentional picture slate: Intentional slate",
@@ -88,7 +100,7 @@
     }
   ],
   "manifest": {
-    "contentHash": "sha256:031328a38f2c9998ccadc9eed09999229166e57e6d03bbbc8ca5c26b5df5d142",
+    "contentHash": "sha256:7cf8cace0758d9bdc1e83d7b9698badc1e43a8ae8723d1882256f0a8451c9527",
     "id": "00000000-0000-4000-8000-000000000004"
   },
   "manualCompletionItems": [],
@@ -161,9 +173,9 @@
   "summary": {
     "blockedCount": 0,
     "diagnosticCount": 1,
-    "eventCount": 3,
+    "eventCount": 4,
     "manualCompletionCount": 0,
-    "placedCount": 3,
+    "placedCount": 4,
     "placeholderCount": 0,
     "recoveryActionCount": 2,
     "sourceCount": 2,
