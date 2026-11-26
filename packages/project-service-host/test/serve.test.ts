@@ -158,7 +158,8 @@ describe("browser Sorting trial HTTP boundary", () => {
       expect(request.headers.get("authorization")).toBe(`Bearer ${privateToken}`);
       return Promise.resolve(Response.json(head));
     });
-    return { head, body, move, projects, original, reordered, path: `projects/${head.projectId}/sorting-trial` };
+    return { head, body, move, projects, original, reordered, source, narrated, blank,
+      path: `projects/${head.projectId}/sorting-trial` };
   }
 
   it("isolates a reorder preview; discarding commands leaves the saved Draft exactly intact; acceptance projects only order", async () => {
@@ -218,6 +219,94 @@ describe("browser Sorting trial HTTP boundary", () => {
     const { authorized } = await authoringRequests(projects);
     expect((await authorized(f.path, f.body)).status).toBe(403);
     expect(projects).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays mixed row and visual commands, exposes a fresh projection, and composes each acceptance outcome", async () => {
+    const f = fixture();
+    const source = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    const visualRow = f.head.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    if (source?.type !== "narration" || visualRow?.type !== "narration") throw new Error("fixture rows are missing");
+    const onCamera = visualRow.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && slot.payload.kind === "on_camera");
+    if (onCamera?.kind !== "content") throw new Error("fixture has no On Camera card");
+    const baseline = structuredClone(f.head.document);
+    const narration = (document: ScriptDocumentV2, rowId: string) => {
+      const row = document.activeDraft.blocks.find((block) => block.id === rowId);
+      if (!row || row.type !== "narration") throw new Error(`narration row ${rowId} is missing`);
+      return row;
+    };
+    const framing = (document: ScriptDocumentV2) => {
+      const slot = narration(document, visualRow.id).primaryVisualSequence?.slots.find((item) => item.id === onCamera.id);
+      if (slot?.kind !== "content" || slot.payload.kind !== "on_camera") throw new Error("On Camera card is missing");
+      return slot.payload.framing;
+    };
+    const operations = [
+      { kind: "command", command: f.move },
+      { kind: "batch", operations: [
+        { kind: "command", command: { kind: "edit_narration_text", rowId: source.id,
+          startOffset: source.text.length, endOffset: source.text.length, insertedText: " again", editId: randomUUID() } },
+        { kind: "visual", command: { kind: "set_on_camera_framing", blockId: visualRow.id,
+          slotId: onCamera.id, framing: "tight" }, expectedSequenceVersion: visualRow.primaryVisualSequence!.version },
+      ] },
+    ];
+    const requestBody = (action: "preview" | "accept", outcome?: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action,
+      ...(outcome ? { outcome } : {}),
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const preview = await (await authorized(f.path, requestBody("preview"))).json() as CommandResult & {
+      movedRowIds: string[]; undoDepth: number; projection: { rows: Array<{ blockId: string }> };
+    };
+    expect(preview.ok, JSON.stringify(preview.diagnostics)).toBe(true);
+    expect(preview.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(narration(preview.document, source.id).text).toBe(`${source.text} again`);
+    expect(framing(preview.document)).toBe("tight");
+    expect(preview.projection.rows.map((row) => row.blockId)).toContain(visualRow.id);
+    expect(preview.undoDepth).toBe(3);
+    expect(f.head.document).toEqual(baseline);
+
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody("accept", outcome))).json() as CommandResult & { changed: boolean };
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+    expect(narration(edits.document, source.id).text).toBe(`${source.text} again`);
+    expect(framing(edits.document)).toBe("tight");
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(narration(sorting.document, source.id).text).toBe(source.text);
+    expect(framing(sorting.document)).toBe("wide");
+    const all = await accept("all");
+    expect(all.ok, JSON.stringify(all.diagnostics)).toBe(true);
+    expect(all.changed).toBe(true);
+    expect(all.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(f.head.document).toEqual(baseline);
+  });
+
+  it("replays Undo without saving and rejects arbitrary replacement, malformed operations, stale visual versions, and invalid outcomes", async () => {
+    const f = fixture();
+    const { authorized } = await authoringRequests(f.projects);
+    const body = { expectedRevision: f.head.revision, expectedDigest: f.head.digest,
+      action: "preview", operations: [{ kind: "command", command: f.move }, { kind: "undo" }] };
+    const undone = await authorized(f.path, body);
+    expect(undone.status).toBe(200);
+    expect(await undone.json()).toMatchObject({ ok: true, document: f.head.document, movedRowIds: [] });
+    expect(f.head.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+
+    const arbitrary = await authorized(f.path, { ...body, document: f.head.document });
+    expect(arbitrary.status).toBe(400);
+    const malformed = await authorized(f.path, { ...body, operations: [{ kind: "command",
+      command: { ...f.move, injected: true } }] });
+    expect(malformed.status).toBe(200);
+    expect(await malformed.json()).toMatchObject({ ok: false, diagnostics: [{ code: "SORTING_COMMAND_INVALID" }] });
+    const staleVisual = await authorized(f.path, { ...body, operations: [{ kind: "visual",
+      command: { kind: "set_on_camera_framing", blockId: f.narrated.id, slotId: randomUUID(), framing: "tight" },
+      expectedSequenceVersion: 999 }] });
+    expect(staleVisual.status).toBe(200);
+    expect(await staleVisual.json()).toMatchObject({ ok: false, diagnostics: [{ code: "SEQUENCE_VERSION_STALE" }] });
+    const invalidOutcome = await authorized(f.path, { ...body, action: "accept", outcome: "replace_document" });
+    expect(invalidOutcome.status).toBe(400);
+    expect(f.head.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
   });
 });
 

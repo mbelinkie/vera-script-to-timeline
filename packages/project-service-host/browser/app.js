@@ -4,7 +4,7 @@ import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
-import { createStashActions } from "./stash-actions.js";
+import { captureWholeRowStash, createStashActions } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
 import { selectedSpokenWords } from "./visual-selection.js";
 
@@ -435,13 +435,15 @@ function renderEditor() {
   renderRows(root, model, {
     projection: editorProjection(), visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
-    addWordless: addWordlessVisual, projectVisualHoldMs,
+    addWordless: addWordlessVisual, projectVisualHoldMs, allowStash: true,
     flashIds: flashVisualIds,
   });
   if (!sortingTrial) renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard });
   flashVisualIds = new Set();
-  narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
-    queueCommand(command, label, { structural: true, cardFocus: focus })));
+  narrationCleanup.push(mountVisualCardMenus(root,
+    (command, label, focus) => queueCommand(command, label, { structural: true, cardFocus: focus }),
+    stashVisual));
+
   narrationCleanup.push(mountVisualCardDragging(root));
   narrationCleanup.push(mountResearchDragging(root));
   narrationCleanup.push(mountWordlessControls(root));
@@ -453,6 +455,7 @@ function renderEditor() {
       if (ok) stashPanel.open();
       return ok;
     },
+    stashGroup,
     onRowDrag(rowIds) {
       stashScriptDrag = rowIds ? { kind: "rows", rowIds, snapshot: model } : null;
     },
@@ -488,13 +491,7 @@ function renderEditor() {
       },
     }));
   });
-  if (sortingTrial) {
-    decorateSortingRows(root, model);
-    for (const row of root.querySelectorAll(".script-row")) {
-      const block = model.activeDraft.blocks.find((item) => item.id === row.dataset.rowId);
-      if (block?.type === "narration") narrationCleanup.push(mountVisualConnectors(row, block));
-    }
-  }
+  if (sortingTrial) decorateSortingRows(root, model);
   if (requestedCardFocus) {
     const row = [...root.querySelectorAll("[data-row-id]")]
       .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
@@ -538,6 +535,30 @@ function renderEditor() {
     handle?.focus();
   }
   if (reselectFocus) focusReselectOpener(reselectFocus);
+}
+
+async function stashGroup(rowIds) {
+  const expected = captureWholeRowStash(editorDocument(), rowIds);
+  if (!expected) return false;
+  const ok = await queueCommand((current) => {
+    if (JSON.stringify(captureWholeRowStash(current, rowIds)) !== JSON.stringify(expected)) {
+      throw new Error("The selected rows or their Stash location changed.");
+    }
+    return { kind: "stash_group_rows", rowIds, bundleId: crypto.randomUUID(),
+      groupId: crypto.randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+  }, "Stash group", { structural: true });
+  if (ok && expected.projectId === activeProjectId) stashPanel.open();
+  return ok;
+}
+
+async function stashVisual(rowId, slotId) {
+  const expected = editorDocument();
+  const ok = await queueCommand((current) => {
+    if (current !== expected) throw new Error("The visual or its Stash location changed.");
+    return { kind: "stash_visual", rowId, slotId, bundleId: crypto.randomUUID(),
+      stashRowId: crypto.randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+  }, "Stash visual", { structural: true });
+  if (ok && expected.projectId === activeProjectId) stashPanel.open();
 }
 
 function beginAttach(rowId, slotId) {
@@ -1510,7 +1531,7 @@ function setSortingMode(active) {
   toggle.textContent = preview ? "Return to Sorting" : active ? "← Back to script" : "Sort rows";
   toggle.setAttribute("aria-expanded", String(active));
   if (!active) {
-    element("sorting-outcome").value = "all";
+    showSortingChoices(false);
     element("sorting-accept").textContent = "Accept";
   }
 }
@@ -1550,7 +1571,8 @@ function updateSortingControls() {
   element("open-sorting").disabled = waiting;
   element("sorting-accept").disabled = waiting || !operations.length;
   element("sorting-accept").textContent = sortingTrial.acceptance ? "Retry acceptance" : "Accept";
-  element("sorting-outcome").disabled = waiting || !operations.length || !!sortingTrial.acceptance;
+  element("sorting-outcomes").disabled = waiting || !operations.length || !!sortingTrial.acceptance;
+  if (element("sorting-outcomes").disabled) showSortingChoices(false);
   element("sorting-discard").disabled = waiting || !!sortingTrial.acceptance;
   element("sorting-undo").disabled = waiting || preview || !operations.length || !!sortingTrial.acceptance;
 }
@@ -1564,6 +1586,12 @@ function decorateSortingRows(root, model) {
     item.dataset.sortingRowId = row.id;
     const expanded = trial.expanded.has(row.id);
     item.classList.toggle("sorting-row--collapsed", !expanded);
+    let cleanConnectors;
+    const mountConnectors = () => {
+      if (row.type !== "narration" || cleanConnectors) return;
+      cleanConnectors = mountVisualConnectors(item, row);
+      narrationCleanup.push(cleanConnectors);
+    };
     item.classList.toggle("sorting-row--moved", trial.movedRowIds.includes(row.id));
     const controls = document.createElement("div");
     controls.className = "sorting-row-controls";
@@ -1578,6 +1606,7 @@ function decorateSortingRows(root, model) {
       } else {
         trial.expanded.add(row.id);
         item.classList.remove("sorting-row--collapsed");
+        mountConnectors();
         expand.textContent = "▾";
       }
       expand.setAttribute("aria-expanded", String(trial.expanded.has(row.id)));
@@ -1599,6 +1628,7 @@ function decorateSortingRows(root, model) {
       controls.append(button);
     }
     item.prepend(controls);
+    if (expanded) mountConnectors();
   }
 }
 
@@ -1652,9 +1682,27 @@ element("open-sorting").addEventListener("click", () => {
   renderSorting();
   element("sorting-heading").focus();
 });
-element("sorting-discard").addEventListener("click", () => finishSorting(false));
-element("sorting-accept").addEventListener("click", () => {
-  void runSortingAction(() => acceptSortingTrial(element("sorting-outcome").value));
+element("sorting-discard").addEventListener("click", leaveSorting);
+element("sorting-accept").addEventListener("click", () => { void runSortingAction(acceptSortingTrial); });
+
+function showSortingChoices(open) {
+  const choices = element("sorting-choices");
+  choices.hidden = !open;
+  element("sorting-outcomes").setAttribute("aria-expanded", String(open));
+  if (open) choices.querySelector("button").focus();
+}
+element("sorting-outcomes").addEventListener("click", () => {
+  showSortingChoices(element("sorting-choices").hidden);
+});
+element("sorting-choices").addEventListener("click", (event) => {
+  const outcome = event.target.closest("[data-sorting-outcome]")?.dataset.sortingOutcome;
+  if (outcome) void runSortingAction(() => acceptSortingTrial(outcome));
+});
+element("sorting-choices").addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  showSortingChoices(false);
+  element("sorting-outcomes").focus();
 });
 function undoSorting() {
   const trial = sortingTrial;

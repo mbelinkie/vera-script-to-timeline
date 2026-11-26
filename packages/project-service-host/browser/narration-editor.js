@@ -1781,12 +1781,13 @@ export function mountVisualConnectors(row, block) {
     const step = Math.min(8, (gutter - 24) / Math.max(1, links.length - 1));
     let previousTop = 0;
     for (const [index, { lane, card }] of links.entries()) {
-      const token = [REDACTED]
-      if (!token) { lane.hidden = true; continue; }
-      const point = pointAtTextOffset(editor, token.startOffset);
+      const cueWord = spoken[Number(card.dataset.cueStart)];
+      if (!cueWord) { lane.hidden = true; continue; }
+      const start = pointAtTextOffset(editor, cueWord.startOffset);
+      const finish = pointAtTextOffset(editor, cueWord.endOffset);
       const range = doc.createRange();
-      range.setStart(point.node, point.offset);
-      range.collapse(true);
+      range.setStart(start.node, start.offset);
+      range.setEnd(finish.node, finish.offset);
       const word = range.getBoundingClientRect();
       const target = card.getBoundingClientRect();
       if (!word.height || !target.height) { lane.hidden = true; continue; }

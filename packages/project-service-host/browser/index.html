@@ -197,13 +197,16 @@
           <h2 id="sorting-heading" tabindex="-1">Sorting</h2>
           <div class="sorting-actions">
             <button id="sorting-undo" type="button" disabled>Undo trial action</button>
-            <select id="sorting-outcome" aria-label="Changes to accept">
-              <option value="all">All changes</option>
-              <option value="edits_only">Edits only</option>
-              <option value="sorting_only">Sorting only</option>
-            </select>
-            <button id="sorting-accept" type="button">Accept</button>
             <button id="sorting-discard" type="button">Discard all</button>
+            <div class="sorting-acceptance">
+              <button id="sorting-accept" type="button">Accept</button>
+              <button id="sorting-outcomes" type="button" aria-label="Acceptance options"
+                aria-controls="sorting-choices" aria-expanded="false">▾</button>
+              <div id="sorting-choices" role="group" aria-label="Changes to accept" hidden>
+                <button type="button" data-sorting-outcome="edits_only">Keep edits, undo sorting</button>
+                <button type="button" data-sorting-outcome="sorting_only">Keep sorting, undo edits</button>
+              </div>
+            </div>
           </div>
           <p id="sorting-status" role="status" aria-live="polite"></p>
         </section>

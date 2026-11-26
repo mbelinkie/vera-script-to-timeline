@@ -54,10 +54,18 @@ export interface StashSectionView {
   title: string;
   entries: Array<{ rowId: string; kind: string; sectionId: string | null;
     parentRowId: string | null; row: NonNullable<ScriptDocumentV2["stash"]>[number]["rows"][number];
-    bundleId: string; originalDraft: OriginalDraftLocation; hasDescendants: boolean; groupRestricted: boolean }>;
+    bundleId: string; originalDraft: OriginalDraftLocation; hasDescendants: boolean; groupRestricted: boolean;
+    group?: { id: string; index: number; size: number } }>;
 }
 export type StashEditorQueue = (command: (document: ScriptDocumentV2) => RowEditCommandV2,
   label: string, options: { structural: true }) => Promise<boolean>;
+export type StashExtrasQueue = (command: (document: ScriptDocumentV2) => RowEditCommandV2,
+  label: string) => Promise<boolean>;
+export interface StashOutlineDestination {
+  sectionId: string | null;
+  parentRowId: string | null;
+  afterRowId: string | null;
+}
 
 export function projectStash(document: ScriptDocumentV2): StashSectionView[];
 export function originalDraftLocation(document: ScriptDocumentV2,
@@ -83,12 +91,29 @@ export function captureStashNoteDrop(document: ScriptDocumentV2, noteRowId: stri
 export function insertStashNoteCommand(document: ScriptDocumentV2,
   intent: StashDropIntent): Extract<RowEditCommandV2, { kind: "insert_stash_note_words" }>;
 export function createStashActions(queue: StashEditorQueue, getDocument: () => ScriptDocumentV2,
-  makeId?: () => string, queueExtras?: (command: (document: ScriptDocumentV2) =>
-    Extract<RowEditCommandV2, { kind: "stash_rows" }> | SavedPlacementCommand, label: string) => Promise<boolean>): {
+  makeId?: () => string, queueExtras?: StashExtrasQueue): {
     view: () => StashSectionView[];
     stashRow: (rowId: string) => Promise<boolean>;
     placeSaved: (intent: SavedPlacementIntent) => Promise<boolean>;
     addNote: (text: string, location?: StashLocation) => Promise<boolean>;
     stashWords: (rowId: string, selection: StashWordSelection) => Promise<boolean>;
     dropNote: (noteRowId: string, rowId: string, beforeTokenId: string) => Promise<boolean>;
+    createSection: (title: string) => Promise<boolean>;
+    renameSection: (sectionId: string, title: string) => Promise<boolean>;
+    deleteSection: (sectionId: string) => Promise<boolean>;
+    setCompletion: (rowId: string, completed: boolean) => Promise<boolean>;
+    editNote: (rowId: string, text: string) => Promise<boolean>;
+    moveOutline: (rowId: string, destination: StashOutlineDestination) => Promise<boolean>;
+    stashRows: (rowIds: readonly string[], destination?: StashOutlineDestination | null,
+      expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+    stashVisual: (rowId: string, slotId: string, destination?: StashOutlineDestination | null,
+      expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+    insertStashVisual: (stashRowId: string, destinationRowId: string, destinationSlotId: string,
+      expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+    attachFootage: (noteRowId: string, clipRowId: string, replace?: boolean) => Promise<boolean>;
+    detachFootage: (noteRowId: string) => Promise<boolean>;
+    stashGroup: (rowIds: readonly string[], sectionId?: string | null,
+      parentRowId?: string | null, afterRowId?: string | null) => Promise<boolean>;
+    saveMembers: (members: Array<NonNullable<ScriptDocumentV2["stash"]>[number]["rows"][number]>,
+      metadata: { groupId: string | null; expectedRevision: number; expectedRowIds: string[] }) => Promise<boolean>;
   };

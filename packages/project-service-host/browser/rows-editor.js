@@ -373,6 +373,11 @@ function updateRangeState(state) {
     );
     deleteButton.dataset.rowRangeDelete = "true";
     toolbar.append(deleteButton);
+    if (isGroup && state.stashGroup) {
+      const stash = button(state.root.ownerDocument, "", "Stash selected rows", "Stash group");
+      stash.dataset.rowRangeStash = "true";
+      toolbar.append(stash);
+    }
   }
   const cancelButton = button(state.root.ownerDocument, "row-range-toolbar__cancel", "Cancel row range", "Cancel");
   cancelButton.dataset.rowRangeCancel = "true";
@@ -653,6 +658,17 @@ function handleClick(state, event) {
     return;
   }
 
+  if (target.closest("[data-row-range-stash]")) {
+    const ids = currentRangeIds(state);
+    if (ids.length > 1 && !state.busy) {
+      state.busy = true;
+      void Promise.resolve(state.stashGroup(ids)).then((ok) => {
+        if (ok) clearRange(state);
+      }).finally(() => { state.busy = false; });
+    }
+    return;
+  }
+
   const groupDelete = target.closest("[data-row-range-delete], [data-row-range-action='delete-group']");
   if (groupDelete) {
     const ids = currentRangeIds(state);
@@ -677,6 +693,7 @@ function handleKeydown(state, event) {
   if (event.key === "Escape") {
     if (state.range) {
       event.preventDefault();
+      clearDrag(state);
       clearRange(state);
     } else if (eventElement(event)?.closest("[data-row-action-menu], [data-section-action-menu], [data-row-gap-menu]")) {
       event.preventDefault();
@@ -818,6 +835,7 @@ export function mountRowsEditor(root, scriptDocument, options = {}) {
       scriptDocument,
       command: options.command,
       stashRow: options.stashRow,
+      stashGroup: options.stashGroup,
       onRowDrag: options.onRowDrag,
       createBlankRow: options.createBlankRow,
       confirmDelete: options.confirmDelete,

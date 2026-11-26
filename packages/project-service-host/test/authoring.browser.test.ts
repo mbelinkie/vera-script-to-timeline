@@ -614,8 +614,17 @@ describe("browser authoring over the local project service", () => {
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
-    await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
+    const startup = new Promise<never>((_resolve, reject) => {
+      page.once("pageerror", reject);
+      page.on("response", (response) => {
+        const pathname = new URL(response.url()).pathname;
+        if (pathname.endsWith(".js") && !response.ok()) reject(new Error(`${pathname}: HTTP ${response.status()}`));
+      });
+    });
+    await Promise.race([startup, (async () => {
+      await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
+      await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
+    })()]);
     expect(new URL(page.url()).hash).toBe("");
     await page.close();
   }, 180_000);
@@ -5067,6 +5076,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Return to Sorting" }).click();
     expect(await trialOrder()).toEqual(reordered);
     expect(await saved()).toEqual(baseline);
+    page.once("dialog", async (dialog) => await dialog.accept());
     await page.locator("#sorting-discard").click();
     expect(await page.locator("#open-sorting").evaluate((el) => el === document.activeElement)).toBe(true);
     await page.reload();
@@ -5123,6 +5133,7 @@ describe("browser authoring over the local project service", () => {
     expect(await page.locator("#sorting-view").isVisible()).toBe(true);
     expect(puts).toBe(0);
     expect((await appRequest(page, path)).body).toEqual(newer);
+    page.once("dialog", async (dialog) => await dialog.accept());
     await page.locator("#sorting-discard").click();
     await page.reload();
     await page.locator("#script-rows").waitFor({ state: "visible" });
@@ -5132,6 +5143,117 @@ describe("browser authoring over the local project service", () => {
     await other.close();
     await page.close();
   }, 90_000);
+
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#616 edits a nested saved group and restores it through reload at $width × $height", async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, "Saved Stash group");
+        const fixture = multiNarrationDocumentFixture(projectId, ["Group opening", "Group ending", "Keep in script"]);
+        const [first, second, remaining] = fixture.rowIds as [string, string, string];
+        const noteId = randomUUID();
+        const groupId = randomUUID();
+        const sectionId = randomUUID();
+        const noteText = "[keep] these takes";
+        const blank = fixture.document.activeDraft.blocks.find((row) => row.id === first);
+        if (blank?.type !== "narration") throw new Error("Missing Stash note template");
+        const note = { ...structuredClone(blank), id: noteId, text: noteText, tokens: narrationWords(noteText) };
+        note.primaryVisualSequence = {
+          id: randomUUID(), version: 1, slots: [{
+            kind: "content", id: randomUUID(), version: 1, relation: { kind: "base" },
+            boundaryBefore: { kind: "row_start" }, playoutPolicy: "match_structural_interval",
+            payload: { kind: "on_camera", payloadId: randomUUID(), framing: "wide" },
+          }],
+        };
+        const withSection = applyRowEditV2(fixture.document, fixture.document.rowEditRevision ?? 0,
+          { kind: "create_stash_section", sectionId, title: "Alternate takes" });
+        expect(withSection.ok).toBe(true);
+        const withNote = applyRowEditV2(withSection.document, withSection.document.rowEditRevision!,
+          { kind: "create_stash_note", row: note, bundleId: randomUUID(), sectionId,
+            parentRowId: null, afterRowId: null });
+        expect(withNote.ok).toBe(true);
+        const withGroup = applyRowEditV2(withNote.document, withNote.document.rowEditRevision!,
+          { kind: "stash_group_rows", rowIds: [first, second], groupId, bundleId: randomUUID(),
+            sectionId, parentRowId: noteId, afterRowId: null });
+        expect(withGroup.ok).toBe(true);
+        await saveDocumentFixture(page, projectId, withGroup.document);
+        const path = `/authoring/projects/${projectId}/document`;
+        const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+        const baseline = await saved();
+        await page.reload();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        const stash = page.locator("#stash-panel");
+        const group = stash.locator(`[data-stash-group-id="${groupId}"]`);
+        expect(await group.isVisible()).toBe(true);
+        const edit = group.getByRole("button", { name: /^(Open|Edit)/u }).first();
+        await edit.click();
+        const dialog = page.locator(".stash-row-editor");
+        const firstEditor = dialog.locator(`[data-row-id="${first}"] [data-narration-editor]`);
+        await firstEditor.press("End");
+        await firstEditor.press("!");
+        await dialog.getByRole("button", { name: "Close saved row editor" }).click();
+        await dialog.getByRole("button", { name: "Keep editing" }).click();
+        expect(await saved()).toEqual(baseline);
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        expect(await saved()).toEqual(baseline);
+        await edit.click();
+        await firstEditor.press("End");
+        await firstEditor.press("!");
+        await dialog.getByRole("button", { name: "Save", exact: true }).click();
+        await expect.poll(async () => (await saved()).revision).toBe(baseline.revision + 1);
+        await page.getByRole("button", { name: "Undo Save Stash group" }).click();
+        await expect.poll(async () => (await saved()).document.stash).toEqual(baseline.document.stash);
+        await page.reload();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        expect(await group.isVisible()).toBe(true);
+        expect(await page.locator(`#script-rows [data-row-id="${remaining}"]`).isVisible()).toBe(true);
+        expect(await page.locator(`#script-rows [data-row-id="${first}"]`).count()).toBe(0);
+      } finally { await page.close(); }
+    }, 60_000,
+  );
+
+  it("#616 keeps the pending order when the saved head changes during acceptance", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const other = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Sorting save race");
+      const fixture = multiNarrationDocumentFixture(projectId, ["First words", "Second words"]);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      await page.getByRole("button", { name: "Move Second words up" }).click();
+      await expect.poll(() => page.locator("#sorting-accept").isEnabled()).toBe(true);
+      const path = `/authoring/projects/${projectId}/document`;
+      await other.goto(`${origin}/?project=${projectId}`);
+      const baseline = (await appRequest(other, path)).body as SavedDocument;
+      let competingStatus = 0;
+      await page.route(`**${path}`, async (route) => {
+        if (route.request().method() === "PUT") {
+          const result = await appRequest(other, path, "PUT", {
+            expectedRevision: baseline.revision, clientMutationId: randomUUID(),
+            document: { ...baseline.document, title: "Saved elsewhere while accepting" },
+          });
+          competingStatus = result.status;
+        }
+        await route.continue();
+      });
+      await page.getByRole("button", { name: "Accept", exact: true }).click();
+      await expect.poll(() => page.locator("#sorting-status").textContent()).toContain("saved script changed");
+      expect(competingStatus).toBe(200);
+      const saved = (await appRequest(other, path)).body as SavedDocument;
+      expect(saved.document.title).toBe("Saved elsewhere while accepting");
+      expect(saved.document.activeDraft.blocks).toEqual(baseline.document.activeDraft.blocks);
+      expect(await page.locator("[data-sorting-row-id]").first().getAttribute("data-sorting-row-id")).toBe(fixture.rowIds[1]);
+      page.once("dialog", async (dialog) => await dialog.accept());
+      await page.getByRole("button", { name: "Discard all" }).click();
+    } finally {
+      await other.close();
+      await page.close();
+    }
+  });
 
   it.each([
     { width: 1280, height: 800, outcome: "all", keepsEdits: true, keepsOrder: true },
@@ -5143,6 +5265,8 @@ describe("browser authoring over the local project service", () => {
   }) => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
+    const browserErrors: string[] = [];
+    page.on("pageerror", (error) => browserErrors.push(error.message));
     try {
       await page.setViewportSize({ width, height });
       const projectId = await createProject(page, origin, "Editable Sorting");
@@ -5157,9 +5281,11 @@ describe("browser authoring over the local project service", () => {
       await first.getByRole("button", { name: /^Expand one two/u }).click();
       const lanes = first.locator("[data-lane]");
       await expect.poll(() => lanes.count()).toBe(2);
-      const x = await lanes.evaluateAll((items) =>
-        items.map((item) => item.querySelector(".sorting-connector__vertical")?.getBoundingClientRect().left));
-      expect(x[0]).toBeGreaterThan(x[1]!);
+      expect(browserErrors).toEqual([]);
+      await expect.poll(() => lanes.evaluateAll((items) => {
+        const x = items.map((item) => item.querySelector(".sorting-connector__vertical")!.getBoundingClientRect().left);
+        return x[0]! - x[1]!;
+      })).toBeGreaterThan(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       const editor = first.locator("[data-narration-editor]");
       await editor.press("End");
@@ -5183,10 +5309,15 @@ describe("browser authoring over the local project service", () => {
       expect(await page.locator("#stash-panel").isVisible()).toBe(true);
       expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
       await page.locator("[data-stash-close]").click();
-      if (outcome === "discard") await page.getByRole("button", { name: "Discard all" }).click();
-      else {
-        await page.getByLabel("Changes to accept").selectOption(outcome);
+      if (outcome === "discard") {
+        page.once("dialog", async (dialog) => await dialog.accept());
+        await page.getByRole("button", { name: "Discard all" }).click();
+      } else if (outcome === "all") {
         await page.getByRole("button", { name: "Accept", exact: true }).click();
+      } else {
+        await page.getByRole("button", { name: "Acceptance options" }).click();
+        await page.getByRole("button", { name: outcome === "edits_only"
+          ? "Keep edits, undo sorting" : "Keep sorting, undo edits" }).click();
       }
       await page.getByRole("button", { name: "Sort rows", exact: true }).waitFor();
       const accepted = await saved();

@@ -1268,7 +1268,7 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .stash-panel [data-stash-saved-description] { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }
 .stash-entry-text { font-size: calc(1em * var(--stash-text-scale, 1)); white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
 #open-stash[aria-expanded="true"] { outline: 2px solid #c89b45; }
-.sorting-actions #sorting-accept { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+.sorting-actions :is(#sorting-accept, #sorting-outcomes) { background: var(--gold); color: var(--ink); border-color: var(--gold); }
 .stash-drop-cursor { position: fixed; width: 3px; background: #c89b45; z-index: 40; pointer-events: none; }
 @media (min-width: 1000px) {
   .authoring-view:has(.stash-panel:not([hidden])) .script-stage { margin-right: 20rem; }
@@ -1351,3 +1351,20 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .sorting-connector__end { top: var(--to); left: var(--track); width: calc(var(--port) - var(--track)); height: 1px; }
 .sorting-connector--active > span { opacity: 1; }
 .sorting-connected-card { outline: 2px solid var(--gold); }
+
+.sorting-acceptance { position: relative; display: flex; }
+.sorting-acceptance #sorting-accept { border-radius: 0.3rem 0 0 0.3rem; }
+.sorting-acceptance #sorting-outcomes { border-radius: 0 0.3rem 0.3rem 0; border-left-color: #ab7e32; padding-inline: 0.45rem; }
+#sorting-choices {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  right: 0;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: white;
+}
+#sorting-choices button { width: 100%; border: 0; text-align: left; white-space: nowrap; }
+#sorting-choices button:hover,
+#sorting-choices button:focus-visible { background: #fff1cf; }
