@@ -5501,7 +5501,7 @@ describe("browser authoring over the local project service", () => {
       await page.getByRole("checkbox", { name: "Hide completed" }).check();
       expect(await parentEntry.isVisible()).toBe(true);
       expect(await childEntry.isVisible()).toBe(true);
-      await checkbox(childEntry).check();
+      await checkbox(childEntry).click();
       await expect.poll(() => parentEntry.count()).toBe(0);
       expect(await page.locator("[data-stash-count]").innerText()).toBe(beforeCount);
       await page.getByRole("checkbox", { name: "Hide completed" }).uncheck();
