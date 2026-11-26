@@ -2206,6 +2206,27 @@ describe("browser authoring over the local project service", () => {
       await page.reload();
       await expect.poll(() => page.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
       await expect.poll(() => page.locator("[data-quote-picture-media] img").count()).toBe(1);
+
+      const savedRows = await narrationRowsFromApi(page, projectId);
+      const first = page.locator(`#script-rows [data-row-id="${savedRows[0]!.id}"]`);
+      const second = page.locator(`#script-rows [data-row-id="${savedRows[1]!.id}"]`);
+      await first.hover();
+      await first.locator("[data-row-action-trigger]").click();
+      await first.getByRole("menuitem", { name: "Select range" }).click();
+      await second.locator(".narration-cell").click();
+      await page.getByRole("button", { name: "Stash selected rows" }).click();
+      const group = page.locator("#stash-panel [data-stash-group-id]");
+      await group.waitFor({ state: "visible" });
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(0);
+      await group.locator(".stash-entry-text").dragTo(page.locator("#script-rows [data-row-gap] [data-row-add]").first());
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((item) => ({
+        id: item.id, text: item.text, sequence: item.primaryVisualSequence, overlays: item.overlayEvents,
+      }))).toEqual(savedRows.map((item) => ({
+        id: item.id, text: item.text, sequence: item.primaryVisualSequence, overlays: item.overlayEvents,
+      })));
+      await page.reload();
+      await expect.poll(() => page.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
+      await expect.poll(() => page.locator("[data-quote-picture-media] img").count()).toBe(1);
       await page.close();
     },
   120_000);
