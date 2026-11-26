@@ -56,7 +56,7 @@ function request(
   row: ReturnType<typeof fixture>["row"],
   still = stillSnapshot(),
   revision = 0,
-): ResearchStillBrowserInsertV2 {
+): ResearchStillBrowserInsertV2 & { placement: Extract<ResearchStillBrowserInsertV2["placement"], { kind: "selected_words" }> } {
   return {
     expectedDocumentRevision: revision,
     researchProjectId: still.researchProjectId,
@@ -112,6 +112,28 @@ describe("Research still browser insertion: one atomic selected-words edit", () 
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
     expect(doc).toEqual(before);
     expect(still).toEqual(savedStill);
+  });
+
+  it("adds an unattached kept image without modifying narration and advances both versions", () => {
+    const { doc, row } = fixture();
+    const still = stillSnapshot();
+    const intent: ResearchStillBrowserInsertV2 = request(row, still);
+    intent.placement = { kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence!.version };
+    const result = insertResearchStillBrowserV2(doc, still, intent);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const updated = result.document.activeDraft.blocks[0];
+    if (updated?.type !== "narration") throw new Error("Expected narration");
+    expect(updated.text).toBe(row.text);
+    expect(updated.tokens).toEqual(row.tokens);
+    expect(updated.version).toBe(row.version + 1);
+    expect(updated.primaryVisualSequence).toEqual({ ...row.primaryVisualSequence,
+      version: row.primaryVisualSequence!.version + 1 });
+    expect(updated.unattachedVisuals).toHaveLength(1);
+    expect(updated.unattachedVisuals?.[0]?.payload).toMatchObject({ kind: "visual", pictureKind: "image", researchStill: still });
+    expect(result.document.rowEditRevision).toBe(1);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    expect(insertResearchStillBrowserV2(result.document, still, intent).ok).toBe(false);
   });
 
   it("keeps repeated uses independent and refuses wordless conversion", () => {

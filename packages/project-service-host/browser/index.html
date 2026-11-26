@@ -81,9 +81,10 @@
           <button type="button" data-footage-kind="all" aria-pressed="true">All</button>
           <button type="button" data-footage-kind="footage" aria-pressed="false">Footage</button>
           <button type="button" data-footage-kind="quotes" aria-pressed="false">Quotes</button>
+          <button type="button" data-footage-kind="stills" aria-pressed="false">Stills</button>
         </div>
         <label for="footage-search">Search Library</label>
-        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search footage and quotes">
+        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search footage, quotes and stills">
         <div class="footage-panel__filters">
           <label for="footage-sort">Sort</label>
           <select id="footage-sort" data-footage-sort><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title</option></select>
@@ -98,6 +99,7 @@
         <p data-footage-status role="status" aria-live="polite"></p>
         <div data-footage-results class="footage-panel__results" aria-label="Logged clips"></div>
         <button type="button" data-footage-load-more hidden>Load more quotes</button>
+        <button type="button" data-still-load-more hidden>Load more stills</button>
         <section data-footage-preview class="footage-panel__preview" aria-label="Saved footage preview" hidden>
           <div class="footage-panel__preview-heading">
             <h3 data-footage-preview-title></h3>
@@ -131,7 +133,16 @@
             <button type="button" data-quote-cancel>Cancel choice</button>
           </div>
         </section>
-        <p class="footage-panel__hint">Preview plays a clip’s saved range. Drag footage to a narration row or row gap. Drag a quote to insert it, or drop it on words to attach it without changing the narration.</p>
+        <section data-still-placement class="footage-panel__placement" aria-label="Still placement" hidden>
+          <h3 data-still-selected>Place still</h3>
+          <label for="still-rows">Add unattached to narration</label>
+          <select id="still-rows" data-still-rows aria-label="Narration row for still"></select>
+          <div class="footage-panel__placement-buttons">
+            <button type="button" data-still-place>Place still</button>
+            <button type="button" data-still-cancel>Cancel choice</button>
+          </div>
+        </section>
+        <p class="footage-panel__hint">Preview plays a clip’s saved range. Drag footage to a narration row or row gap. Drag a quote to insert it, or drop it on words to attach it without changing the narration. Drag a still onto words or a narration row.</p>
       </aside>
 
       <aside id="stash-panel" class="stash-panel" aria-labelledby="stash-heading" hidden>

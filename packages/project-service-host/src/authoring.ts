@@ -258,8 +258,11 @@ function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
     (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
     !record(value.placement)) return null;
   const p = value.placement;
-  if (!exact(p, ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
-      p.kind !== "selected_words" || !uuid(p.rowId) || !uuid(p.startTokenId) || !uuid(p.endTokenId) ||
+  const keys = ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"];
+  if (p.kind === "selected_words") {
+    if (!exact(p, [...keys, "startTokenId", "endTokenId"]) || !uuid(p.startTokenId) || !uuid(p.endTokenId)) return null;
+  } else if (p.kind !== "unattached" || !exact(p, keys)) return null;
+  if (!uuid(p.rowId) ||
       !Number.isSafeInteger(p.expectedRowVersion) || (p.expectedRowVersion as number) < 0 ||
       !Number.isSafeInteger(p.expectedSequenceVersion) || (p.expectedSequenceVersion as number) < 0) return null;
   return value as unknown as NonNullable<ReturnType<typeof stillInsertRequest>>;

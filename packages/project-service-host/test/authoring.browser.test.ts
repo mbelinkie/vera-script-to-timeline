@@ -2068,6 +2068,62 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("places kept stills from mixed Library search, quick picker and row drag without changing narration", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Mixed Library stills");
+    const text = "alpha beta gamma delta";
+    const seeded = editableDocumentFixture(projectId, text);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const library = page.getByRole("button", { name: "Library", exact: true });
+    const action = page.getByRole("button", { name: `Place still ${loggedStill.title} in script` });
+    await library.click();
+    await expect.poll(() => page.locator(".footage-item--still img").evaluateAll((images) =>
+      images.some((img) => (img as HTMLImageElement).naturalWidth > 0 && (img as HTMLImageElement).src.startsWith("blob:")))).toBe(true);
+    expect(await page.locator(".footage-item--clip").count()).toBeGreaterThan(0);
+    expect(await page.locator(".footage-item--quote").count()).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Stills", exact: true }).click();
+    expect(await page.locator(".footage-item--clip").count()).toBe(0);
+    await page.getByRole("searchbox", { name: "Search Library" }).fill(loggedStill.credit);
+    await action.click();
+    await page.getByRole("button", { name: "Place still", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+    expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(text);
+    await page.getByRole("button", { name: "Undo Add still" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length ?? 0).toBe(0);
+    await action.dragTo(row.locator(".visuals-cell"));
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+    await page.getByRole("button", { name: "Undo Add still" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length ?? 0).toBe(0);
+    await page.getByRole("button", { name: "Close Library" }).click();
+    // A filtered/empty first page is not the end of the kept catalog.
+    await page.route("**/stills?offset=0", (route) => route.fulfill({
+      status: 200, json: { stills: [], nextOffset: 20 },
+    }));
+    await library.click();
+    await expect.poll(() => page.getByRole("button", { name: /more stills/i }).isVisible()).toBe(true);
+    await page.getByRole("button", { name: /more stills/i }).click();
+    await action.waitFor({ state: "visible" });
+    await page.unroute("**/stills?offset=0");
+    await page.getByRole("button", { name: "Close Library" }).click();
+    await selectText(editor, 0, 5);
+    await page.keyboard.press("Control+Shift+F");
+    await page.getByRole("button", { name: "Stills", exact: true }).click();
+    await action.click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.slots
+      .some((slot) => slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId)).toBe(true);
+    const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(saved?.text).toBe(text);
+    await page.reload();
+    await expect.poll(() => page.getByLabel(`Still image: ${loggedStill.title}`).isVisible()).toBe(true);
+    expect(await narrationRowFromApi(page, projectId, seeded.rowId)).toEqual(saved);
+    await page.close();
+  }, 90_000);
+
   it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
