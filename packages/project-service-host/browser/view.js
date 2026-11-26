@@ -78,6 +78,42 @@ function appendVisualImage(document, target, src, label, artKind) {
   target.append(image);
 }
 
+function loadQuotePicture(media, payloadId, label, artKind, loader) {
+  media.dataset.quotePictureMedia = "";
+  let active = true;
+  let objectUrl = null;
+  const cleanup = () => {
+    active = false;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+  };
+  media.__veraQuotePictureCleanup = cleanup;
+  void Promise.resolve().then(() => loader(payloadId)).then((asset) => {
+    if (!active || !asset || !/^image\/(?:png|jpeg|webp)$/u.test(asset.mimeType)) return;
+    const image = media.ownerDocument.createElement("img");
+    image.alt = "";
+    image.loading = "lazy";
+    image.decoding = "async";
+    objectUrl = URL.createObjectURL(new Blob([asset.bytes], { type: asset.mimeType }));
+    image.src = objectUrl;
+    image.addEventListener("error", () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+      if (active) {
+        image.replaceWith(makePlaceholderArt(media.ownerDocument, label, artKind));
+      }
+    }, { once: true });
+    if (active) media.replaceChildren(image);
+    else URL.revokeObjectURL(objectUrl);
+  }).catch(() => undefined);
+}
+
+function releaseQuotePictures(root) {
+  for (const media of root.querySelectorAll("[data-quote-picture-media]")) {
+    media.__veraQuotePictureCleanup?.();
+  }
+}
+
 function makePlaceholderArt(document, label, artKind) {
   const art = makeElement(document, "div", "visual-art visual-art--" + artKind);
   art.setAttribute("aria-hidden", "true");
@@ -129,6 +165,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   card.dataset.previewable = String(previewable);
   card.dataset.slotId = options.slotId ?? "";
   if (options.payloadId) card.dataset.payloadId = options.payloadId;
+  if (options.overlayId) card.dataset.overlayId = options.overlayId;
   if (researchClip && options.footagePlacementId) card.dataset.footagePlacement = options.footagePlacementId;
   if (options.draggable && payload?.kind === "visual") {
     card.draggable = true;
@@ -143,6 +180,9 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   const media = makeElement(document, "div", "visual-card__image");
   media.setAttribute("aria-hidden", "true");
   appendVisualImage(document, media, imageSource, label, definition.art);
+  if (!imageSource && payload?.researchQuotePicture && typeof options.quotePicture === "function") {
+    loadQuotePicture(media, payload.payloadId, label, definition.art, options.quotePicture);
+  }
   card.append(media);
 
   const meta = makeElement(document, "figcaption", "visual-card__meta");
@@ -164,6 +204,9 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     } else citation.textContent = source;
     if (source) meta.append(citation);
     meta.append(makeElement(document, "span", "visual-card__quote-template", "EV24 Quote Box"));
+    if (options.quoteRangeLabel) {
+      meta.append(makeElement(document, "span", "visual-card__quote-range", options.quoteRangeLabel));
+    }
     if (typeof options.quoteBoxEdit === "function" && options.rowId && options.overlayId) {
       const editor = makeElement(document, "details", "visual-card__quote-editor");
       editor.append(makeElement(document, "summary", "", "Edit quote box"));
@@ -196,6 +239,18 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
           edit: { citationText: citationInput.value } });
       });
       editor.append(displayLabel, displaySave, citationLabel, citationSave);
+      if (typeof options.quoteBoxRangeEdit === "function") {
+        const rangeHint = makeElement(document, "p", "visual-card__quote-range-hint",
+          "Select spoken words in the narration, then set this box’s range.");
+        const rangeButton = makeElement(document, "button", "visual-card__quote-range-edit", "Set range to selected words");
+        rangeButton.type = "button";
+        rangeButton.dataset.quoteBoxRangeEdit = "";
+        rangeButton.addEventListener("click", () => {
+          void options.quoteBoxRangeEdit({ rowId: options.rowId, overlayId: options.overlayId,
+            expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion });
+        });
+        editor.append(rangeHint, rangeButton);
+      }
       meta.append(editor);
       const remove = makeElement(document, "button", "visual-card__quote-delete", "Delete quote box");
       remove.type = "button";
@@ -369,7 +424,16 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit) {
+function quoteBoxRangeLabel(row, event) {
+  const spoken = (row.tokens ?? []).filter((token) => token?.spoken !== false);
+  const startId = event.timing?.start?.anchor?.tokenId;
+  const endId = event.timing?.end?.anchor?.tokenId;
+  const start = spoken.findIndex((token) => token.id === startId);
+  const end = spoken.findIndex((token) => token.id === endId);
+  return start >= 0 && end >= start ? `Range · words ${start + 1}–${end + 1}` : "Range · words need review";
+}
+
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -394,7 +458,8 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         if (event) list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
           footagePlacementId: entry.overlay.overlayEventId, quoteBox: event.quoteBox,
           rowId: block.id, rowVersion: block.version, overlayId: event.id,
-          overlayVersion: event.version, quoteBoxEdit,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
         }));
         continue;
       }
@@ -451,7 +516,8 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
           footagePlacementId: event.id, quoteBox: event.quoteBox,
           rowId: block.id, rowVersion: block.version, overlayId: event.id,
-          overlayVersion: event.version, quoteBoxEdit,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
         }));
       }
       for (const { slotId, payload } of block.unattachedVisuals ?? []) {
@@ -550,7 +616,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -575,11 +641,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, quoteBoxEdit } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, quoteBoxEdit, quoteBoxRangeEdit, quotePicture } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -587,6 +653,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
     : [];
   const projectedRows = new Map((projection?.rows ?? []).map((row) => [row.blockId, row]));
 
+  releaseQuotePictures(root);
   root.replaceChildren();
   let rowCount = 0;
 
@@ -600,7 +667,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
       rowCount += 1;
     }
   }

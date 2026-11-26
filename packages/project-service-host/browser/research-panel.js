@@ -136,7 +136,10 @@ export function researchQuoteUsage(model, fallbackProjectId = "") {
     }
     for (const event of row.overlayEvents ?? []) {
       const quote = event.quoteBox;
-      if (quote) add(quote.researchProjectId, quote.researchQuoteId, quote.researchQuoteUseId, row.id);
+      if (quote) add(quote.researchProjectId || row.tokens?.find((token) =>
+        token.researchQuoteProvenance?.researchQuoteId === quote.researchQuoteId &&
+        token.researchQuoteProvenance?.useId === quote.researchQuoteUseId)?.researchQuoteProvenance?.researchProjectId,
+      quote.researchQuoteId, quote.researchQuoteUseId, row.id);
     }
   }
   const entries = new Map();
@@ -190,7 +193,10 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   let clipLoadError = false;
   let accessDenied = false;
   let quoteLoadKey = null;
+  let quoteLoading = false;
   let quoteSearchGeneration = 0;
+  let quoteSearchPages = 0;
+  let searchTimer = null;
   let chosen = null;
   let chosenQuote = null;
   let quoteOpenerId = "";
@@ -228,6 +234,8 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const denyResearchAccess = () => {
     ++generation;
     ++quoteSearchGeneration;
+    quoteLoading = false;
+    quoteSearchPages = 0;
     quoteLoadKey = null;
     releaseQuotePreview();
     player.hide();
@@ -256,7 +264,10 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     clipLoadError = false;
     accessDenied = false;
     ++quoteSearchGeneration;
+    quoteLoading = false;
     quoteLoadKey = null;
+    clearTimeout(searchTimer);
+    quoteSearchPages = 0;
     chosen = null;
     clearQuoteChoice();
     selection = null;
@@ -572,12 +583,16 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
         status.textContent = "Saved footage is unavailable. Quotes may still be available.";
       } else if (currentKind() === "quotes" && quoteLoadError) {
         status.textContent = "Saved quotes are temporarily unavailable. Footage can still be used.";
-      } else if (currentKind() === "all" && quoteLoadError && clips.length === 0) {
-        status.textContent = "Quotes are temporarily unavailable. Choose Footage to retry saved clips.";
+      } else if (currentKind() === "all" && quoteLoadError && clipLoadError) {
+        status.textContent = "The footage and quote catalogs are temporarily unavailable.";
+      } else if (currentKind() === "all" && quoteLoadError) {
+        status.textContent = "Quotes are temporarily unavailable. Saved footage remains available when present.";
       } else if (clips.length === 0 && quotes.length === 0) {
         status.textContent = currentKind() === "quotes" ? "No saved quotes in this Research project."
           : currentKind() === "footage" ? "No saved footage in this Research project."
             : "No saved footage or quotes in this Research project.";
+      } else if (quoteLoadKey === quoteSearchKey() && quoteLoading) {
+        status.textContent = `Searching older quotes after ${quotes.length} loaded…`;
       } else if (hasQuoteSearch() && quotesNextOffset !== null && quoteCount === 0) {
         status.textContent = `No matches in the ${quotes.length} loaded quotes. Search more quotes to include older items.`;
       } else if (all.length && !search.value.trim() && !logger.value && !topic.value && !showUsed.checked) {
@@ -585,9 +600,11 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       } else status.textContent = "No Library items match these filters.";
     }
     loadMore.hidden = quotesNextOffset === null || quoteLoadError || currentKind() === "footage";
-    const loadingQuotes = quoteLoadKey === quoteSearchKey();
+    const loadingQuotes = quoteLoading && (!quoteLoadKey || quoteLoadKey === quoteSearchKey());
     loadMore.disabled = committing || loadingQuotes;
-    loadMore.textContent = loadingQuotes ? "Searching quotes…" : hasQuoteSearch() ? "Search more quotes" : "Load more quotes";
+    loadMore.textContent = loadingQuotes
+      ? quoteLoadKey ? "Searching quotes…" : "Loading quotes…"
+      : hasQuoteSearch() ? "Search more quotes" : "Load more quotes";
     if (quoteLoadError && currentKind() !== "quotes" && currentKind() !== "footage") {
       status.textContent += " · Quotes temporarily unavailable";
     } else if (hasQuoteSearch() && quotesNextOffset !== null && !loadingQuotes && found.length) {
@@ -622,38 +639,64 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     topic.value = [...topic.options].some((option) => option.value.toLowerCase() === previousTopic.toLowerCase())
       ? previousTopic : "";
   };
-  const loadMoreQuotes = async () => {
-    if (quotesNextOffset === null || loadMore.dataset.loading === "true") return;
-    const request = generation;
+  const loadMoreQuotes = async ({ auto = false, searchRequest = null } = {}) => {
+    if (quotesNextOffset === null || quoteLoading) return;
     const projectId = projects.value;
-    const offset = quotesNextOffset;
-    loadMore.dataset.loading = "true";
+    const searchKey = hasQuoteSearch() ? quoteSearchKey() : null;
+    const activeSearchRequest = searchRequest ?? ++quoteSearchGeneration;
+    quoteLoadKey = searchKey;
+    quoteLoading = true;
+    const pageBudget = auto
+      ? Math.min(5, Math.max(0, 25 - quoteSearchPages))
+      : searchKey ? 5 : 1;
     render();
-    try {
-      const response = await quotesCatalog(projectId, offset);
-      if (request !== generation || !visible || projectId !== projects.value) return;
-      const seen = new Set(quotes.map((quote) => quote.itemId.toLowerCase()));
-      quotes.push(...(Array.isArray(response.quotes) ? response.quotes : [])
-        .filter((quote) => !seen.has(String(quote.itemId).toLowerCase())));
-      quotesNextOffset = Number.isSafeInteger(response.nextOffset) && response.nextOffset > offset
-        ? response.nextOffset : null;
-      populateFilters();
-      render();
-    } catch {
-      if (request !== generation || !visible || projectId !== projects.value) return;
-      clips = [];
-      quotes = [];
-      quotesNextOffset = null;
-      quoteLoadError = true;
-      results.replaceChildren();
-      render();
-    } finally {
-      loadMore.dataset.loading = "false";
-      render();
+    for (let page = 0; page < pageBudget && quotesNextOffset !== null; page += 1) {
+      const request = generation;
+      const offset = quotesNextOffset;
+      try {
+        const response = await quotesCatalog(projectId, offset);
+        if (request !== generation || activeSearchRequest !== quoteSearchGeneration || !visible ||
+            projectId !== projects.value || (searchKey !== null && searchKey !== quoteSearchKey())) return;
+        const seen = new Set(quotes.map((quote) => quote.itemId.toLowerCase()));
+        quotes.push(...(Array.isArray(response.quotes) ? response.quotes : [])
+          .filter((quote) => !seen.has(String(quote.itemId).toLowerCase())));
+        quotesNextOffset = Number.isSafeInteger(response.nextOffset) && response.nextOffset > offset
+          ? response.nextOffset : null;
+        if (auto) quoteSearchPages += 1;
+        populateFilters();
+        quoteLoadError = false;
+        if (auto) status.textContent = `Searching older quotes after ${quotes.length} loaded…`;
+      } catch (error) {
+        if (request !== generation || activeSearchRequest !== quoteSearchGeneration || !visible || projectId !== projects.value) return;
+        if (isDenied(error)) denyResearchAccess();
+        else {
+          quoteLoadError = true;
+          render();
+        }
+        break;
+      }
+    }
+    if (activeSearchRequest === quoteSearchGeneration) {
+      quoteLoadKey = null;
+      quoteLoading = false;
+    }
+    render();
+    if (auto && activeSearchRequest === quoteSearchGeneration && searchKey && quotesNextOffset !== null &&
+        quoteSearchPages < 25 && !quoteLoadError) {
+      searchTimer = setTimeout(() => {
+        if (activeSearchRequest === quoteSearchGeneration && searchKey === quoteSearchKey() && visible) {
+          void loadMoreQuotes({ auto: true, searchRequest: activeSearchRequest });
+        }
+      }, 180);
     }
   };
   const loadProject = async () => {
     const request = ++generation;
+    ++quoteSearchGeneration;
+    quoteLoading = false;
+    quoteSearchPages = 0;
+    quoteLoadKey = null;
+    clearTimeout(searchTimer);
     releaseQuotePreview();
     player.hide();
     const projectId = projects.value;
@@ -661,32 +704,43 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     quotes = [];
     quotesNextOffset = null;
     quoteLoadError = false;
+    clipLoadError = false;
+    accessDenied = false;
     chosen = null;
     chooser.hidden = true;
     clearQuoteChoice();
     results.replaceChildren();
     status.textContent = "Loading authorized Library items…";
     if (!projectId) { render(); return; }
-    try {
-      const [clipResponse, quoteResponse] = await Promise.all([
-        catalog(projectId), quotesCatalog(projectId, 0),
-      ]);
-      if (request !== generation || !visible || projectId !== projects.value) return;
-      clips = Array.isArray(clipResponse.clips) ? clipResponse.clips : [];
-      quotes = Array.isArray(quoteResponse.quotes) ? quoteResponse.quotes : [];
-      quotesNextOffset = Number.isSafeInteger(quoteResponse.nextOffset) && quoteResponse.nextOffset > 0
-        ? quoteResponse.nextOffset : null;
-      populateFilters();
-      render();
-    } catch {
-      if (request !== generation || !visible || projectId !== projects.value) return;
-      clips = [];
-      quotes = [];
-      quotesNextOffset = null;
-      quoteLoadError = true;
-      results.replaceChildren();
-      render();
-    }
+    const [clipResult, quoteResult] = await Promise.allSettled([
+      catalog(projectId), quotesCatalog(projectId, 0),
+    ]);
+    if (request !== generation || !visible || projectId !== projects.value) return;
+    const errors = [clipResult, quoteResult].filter((result) => result.status === "rejected")
+      .map((result) => result.reason);
+    if (errors.some(isDenied)) { denyResearchAccess(); return; }
+    if (clipResult.status === "fulfilled") {
+      clips = Array.isArray(clipResult.value.clips) ? clipResult.value.clips : [];
+    } else clipLoadError = true;
+    if (quoteResult.status === "fulfilled") {
+      quotes = Array.isArray(quoteResult.value.quotes) ? quoteResult.value.quotes : [];
+      quotesNextOffset = Number.isSafeInteger(quoteResult.value.nextOffset) && quoteResult.value.nextOffset > 0
+        ? quoteResult.value.nextOffset : null;
+    } else quoteLoadError = true;
+    populateFilters();
+    render();
+  };
+  const scheduleQuoteSearch = () => {
+    ++quoteSearchGeneration;
+    quoteSearchPages = 0;
+    quoteLoading = false;
+    quoteLoadKey = null;
+    clearTimeout(searchTimer);
+    render();
+    if (!hasQuoteSearch() || currentKind() === "footage" || quoteLoadError || quotesNextOffset === null) return;
+    searchTimer = setTimeout(() => {
+      if (visible && quotesNextOffset !== null) void loadMoreQuotes({ auto: true, searchRequest: quoteSearchGeneration });
+    }, 180);
   };
   const open = async ({ quick = false, placement = null, seed = "", from = openButton } = {}) => {
     player.hide();
@@ -718,8 +772,9 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       if (projects.value) await loadProject();
       else render();
       if (visible) search.focus();
-    } catch {
-      if (request === generation && visible) status.textContent = "Research projects could not be loaded. Close and retry.";
+    } catch (error) {
+      if (request === generation && visible && isDenied(error)) denyResearchAccess();
+      else if (request === generation && visible) status.textContent = "Research projects could not be loaded. Close and retry.";
     }
   };
   const refresh = () => projects.value ? loadProject() : Promise.resolve();
@@ -733,14 +788,14 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   cancel.addEventListener("click", () => { chosen = null; chooser.hidden = true; player.hide(); search.focus(); });
   quoteCancel.addEventListener("click", () => clearQuoteChoice(true));
   projects.addEventListener("change", () => { void loadProject(); });
-  search.addEventListener("input", render);
+  search.addEventListener("input", scheduleQuoteSearch);
   sort.addEventListener("change", render);
-  logger.addEventListener("change", render);
-  topic.addEventListener("change", render);
-  showUsed.addEventListener("change", render);
+  logger.addEventListener("change", scheduleQuoteSearch);
+  topic.addEventListener("change", scheduleQuoteSearch);
+  showUsed.addEventListener("change", scheduleQuoteSearch);
   kindButtons.forEach((button) => button.addEventListener("click", () => {
     setKind(button.dataset.footageKind);
-    render();
+    scheduleQuoteSearch();
   }));
   loadMore.addEventListener("click", () => { void loadMoreQuotes(); });
   root.querySelectorAll('[name="footage-destination"]').forEach((radio) => radio.addEventListener("change", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { researchQuoteUsage } from "../browser/research-panel.js";
 import { filterLoggedResearchClips, filterResearchLibraryItems, libraryFilterOptions } from "../browser/research-search.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -72,7 +73,7 @@ describe("mixed authorized Library filtering", () => {
   });
 
   it("applies use, logger, topic, sort and seed ranking consistently across kinds", () => {
-    const usage = [{ kind: "quote", researchProjectId: projectId, itemId: "q1", scriptCount: 2 }];
+    const usage = [{ kind: "quote" as const, researchProjectId: projectId, itemId: "q1", scriptCount: 2 }];
     expect(filterResearchLibraryItems([], quotes, usage, { projectId }).map((row) => row.item.itemId))
       .toEqual(["q2"]);
     expect(filterResearchLibraryItems([], quotes, usage, { projectId, showUsed: true }).map((row) => row.item.itemId))
@@ -85,5 +86,26 @@ describe("mixed authorized Library filtering", () => {
       loggers: [["dana", "Dana"], ["logger-a", "logger-a"], ["logger-b", "logger-b"]],
       topics: ["Science", "Transport"],
     });
+  });
+
+  it("counts inserted quote provenance once and retains use after card deletion", () => {
+    const inserted = {
+      id: "row", type: "narration", tokens: [
+        { researchQuoteProvenance: { researchProjectId: projectId, researchQuoteId: "quote", useId: "use-1" } },
+        { researchQuoteProvenance: { researchProjectId: projectId, researchQuoteId: "quote", useId: "use-1" } },
+      ],
+      overlayEvents: [{ quoteBox: { researchProjectId: projectId, researchQuoteId: "quote", researchQuoteUseId: "use-1" } }],
+    };
+    expect(researchQuoteUsage({ activeDraft: { blocks: [inserted] } })).toEqual([{
+      kind: "quote", researchProjectId: projectId, itemId: "quote", scriptCount: 1, scriptUses: [
+        { rowId: "row", useId: "use-1" },
+      ],
+    }]);
+    const withoutCards = { activeDraft: { blocks: [{ ...inserted, overlayEvents: [] }] } };
+    expect(researchQuoteUsage(withoutCards)[0]?.scriptCount).toBe(1);
+    const attached = { activeDraft: { blocks: [{ ...inserted, tokens: [], overlayEvents: [
+      { id: "overlay-2", quoteBox: { researchProjectId: projectId, researchQuoteId: "quote", researchQuoteUseId: "use-2" } },
+    ] }] } };
+    expect(researchQuoteUsage(attached)[0]?.scriptCount).toBe(1);
   });
 });

@@ -17,7 +17,7 @@ import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, QaStartupRefusal, type QaRunningServer } from "../src/serve.js";
 import { createAuthoringHandler } from "../src/authoring.js";
-import { retainResearchQuotePicture } from "../src/research-quote-picture-cache.js";
+import { readRetainedResearchQuotePicture, retainResearchQuotePicture } from "../src/research-quote-picture-cache.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
 
 const dirs: string[] = [];
@@ -514,6 +514,7 @@ function fakeResearchCatalog() {
       (await client.readQuotePicture(projectId, quote))?.picture ?? null,
     quoteThumbnail: (projectId: string, quote: Awaited<ReturnType<typeof client.quote>>) =>
       client.readQuotePicture(projectId, quote, true),
+    retainedQuotePicture: vi.fn(() => Promise.resolve(thumbnailBytes)),
   }, state, calls };
 }
 
@@ -923,6 +924,28 @@ describe("protected Research quote placement", () => {
     expect(await place()).not.toContain(RESEARCH_QUOTE_PICTURE);
   });
 
+  it("reads a placed picture by its saved payload and checks Research access again", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteImage = "valid";
+    const response = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    const { document } = await response.json() as CommandResult;
+    const row = document.activeDraft.blocks[0] as NarrationBlockV2;
+    const slot = row.primaryVisualSequence?.slots.find((entry) =>
+      entry.kind === "content" && entry.payload.kind === "visual" && entry.payload.researchQuotePicture);
+    if (slot?.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected a verified picture.");
+    const route = `research/${TIMELINE_PROJECT}/quote-pictures/${slot.payload.payloadId}`;
+    const head = { projectId: TIMELINE_PROJECT, document };
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    const image = await h.read(route);
+    expect(image.status).toBe(200);
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(thumbnailBytes);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledWith(slot.payload.researchQuotePicture);
+    h.fake.state.visible = false;
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    expect((await h.read(route)).status).toBe(403);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledTimes(1);
+  });
+
   it("updates the Library default from the exact saved box and uses the fresh Research version", async () => {
     const h = await researchBrowserRequests();
     const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
@@ -962,6 +985,9 @@ describe("protected Research quote placement", () => {
     const path = join(home, ".local", "state", "vera", "research-quote-pictures", RESEARCH_PROJECT, revisionId,
       picture.original.sha256);
     expect(await readFile(path)).toEqual(thumbnailBytes);
+    expect(await readRetainedResearchQuotePicture(picture, home)).toEqual(thumbnailBytes);
+    await writeFile(path, Buffer.alloc(thumbnailBytes.length));
+    expect(await readRetainedResearchQuotePicture(picture, home)).toBeNull();
   });
 });
 

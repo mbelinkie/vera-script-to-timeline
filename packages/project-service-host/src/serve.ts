@@ -22,7 +22,7 @@ import { applyQaMigrations } from "./migrate.js";
 import { createQaPgPool, type QaPgPool } from "./pg-pool.js";
 import { createAuthoringHandler, DEFAULT_AUTHORING_PORT,
   type AuthoringResearchCatalog } from "./authoring.js";
-import { retainResearchQuotePicture } from "./research-quote-picture-cache.js";
+import { readRetainedResearchQuotePicture, retainResearchQuotePicture } from "./research-quote-picture-cache.js";
 
 export class QaStartupRefusal extends Error {
   override readonly name = "QaStartupRefusal";
@@ -212,6 +212,7 @@ export async function serveQaFromEnvironment(
             return retained.picture;
           },
           quoteThumbnail: (projectId, quote) => client.readQuotePicture(projectId, quote, true),
+          retainedQuotePicture: readRetainedResearchQuotePicture,
         };
       } catch {
         // An unavailable Research service must not prevent local authoring.

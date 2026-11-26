@@ -510,6 +510,34 @@ export type TimelineEventV2 = {
     | (StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2)
     | null;
   quoteBox?: QuoteBoxV2;
+  /**
+   * Row-local ownership of one continuous Research quote still.
+   *
+   * @minItems 2
+   */
+  quoteBackgroundParts?: [
+    {
+      blockId: string;
+      sequenceId: string;
+      slotId: string;
+      payloadId: string;
+      recordRange: FrameRangeV2;
+    },
+    {
+      blockId: string;
+      sequenceId: string;
+      slotId: string;
+      payloadId: string;
+      recordRange: FrameRangeV2;
+    },
+    ...{
+      blockId: string;
+      sequenceId: string;
+      slotId: string;
+      payloadId: string;
+      recordRange: FrameRangeV2;
+    }[],
+  ];
   marker?: ScriptMarkerTreatmentV2;
 };
 export type SourceAudioEventV2 = {

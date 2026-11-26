@@ -43,6 +43,7 @@ let documentDigest;
 let pendingDocument;
 let documentSaveFailure;
 let documentSaving = false;
+let documentSaveTask = null;
 let pendingExtras;
 let extrasRunning = false;
 let extrasFailure;
@@ -423,7 +424,8 @@ function renderEditor() {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
     addWordless: addWordlessVisual, projectVisualHoldMs,
-    quoteBoxEdit: queueResearchQuoteBoxEdit,
+    quoteBoxEdit: queueResearchQuoteBoxEdit, quoteBoxRangeEdit: queueQuoteBoxRangeEdit,
+    quotePicture: researchPlacedQuotePictureGet,
     flashIds: flashVisualIds,
   });
   renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
@@ -888,8 +890,9 @@ document.addEventListener("selectionchange", () => {
   if (renderRequested) scheduleRender();
 });
 
-async function saveDocument() {
-  if (!project || pendingExtras || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+function saveDocument() {
+  if (documentSaveTask) return documentSaveTask;
+  if (!project || pendingExtras || conflicted || (!documentDirty && !pendingDocument)) return;
   clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
@@ -897,39 +900,32 @@ async function saveDocument() {
   }
   documentSaving = true;
   setSaveStatus();
-  try {
-    const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
+  documentSaveTask = api(`/${project.projectId}/document`, "PUT", pendingDocument).then((receipt) => {
     documentRevision = receipt.revision;
     documentDigest = receipt.digest;
     void refreshMusicWarnings();
     pendingDocument = undefined;
     documentSaveFailure = undefined;
-  } catch (error) {
+  }).catch((error) => {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
       documentSaveFailure = { message: "A newer script was saved elsewhere. Your unsaved changes are still here.", action: "conflict" };
     } else documentSaveFailure = { message: "Couldn’t save the script. Your unsaved changes are still here.", action: "retry" };
-    return;
-  } finally {
+  }).finally(() => {
     documentSaving = false;
+    documentSaveTask = null;
     setSaveStatus();
-  }
-  if (documentDirty) void saveDocument();
+    if (!documentSaveFailure && documentDirty) void saveDocument();
+  });
+  return documentSaveTask;
 }
 
 async function waitForDocumentSave() {
-  while (true) {
-    if (documentSaveFailure || conflicted || pendingExtras) return false;
-    if (documentSaving) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      continue;
-    }
-    if (documentDirty || pendingDocument) {
-      await saveDocument();
-      continue;
-    }
-    return true;
+  while (project && !documentSaveFailure && !conflicted && !pendingExtras) {
+    if (!documentSaving && !documentDirty && !pendingDocument) return true;
+    await saveDocument();
   }
+  return false;
 }
 
 async function updateQuoteDisplayDefaultAfterSave({ projectId, rowId, overlayId, displayText }) {
@@ -1099,6 +1095,26 @@ export async function researchQuoteThumbnailGet(quote) {
   };
 }
 
+/** Reads a placed quote picture through the host, which resolves the exact saved Research pin. */
+export async function researchPlacedQuotePictureGet(payloadId) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(payloadId ?? "")) {
+    throw new Error("Choose a current script and retained quote picture.");
+  }
+  if (!await waitForDocumentSave() || timelineId !== activeProjectId) {
+    throw new Error("Save the quote picture before loading its thumbnail.");
+  }
+  const pin = (scriptDocument?.activeDraft?.blocks ?? []).flatMap((row) => row.type === "narration"
+    ? (row.primaryVisualSequence?.slots ?? []).flatMap((slot) => slot.kind === "content" ? [slot.payload] : [])
+    : []).find((payload) => payload.payloadId === payloadId)?.researchQuotePicture;
+  if (!pin) throw new Error("The retained quote picture is no longer in the saved script.");
+  const response = await researchStillRequest(`/authoring/research/${timelineId}/quote-pictures/${payloadId}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  const bytes = await response.arrayBuffer();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  return { mimeType: response.headers.get("content-type")?.split(";", 1)[0] || pin.original.mimeType, bytes };
+}
+
 /** Resolves placement only after earlier typing has produced actual current token IDs. */
 export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
   const projectId = activeProjectId;
@@ -1139,8 +1155,7 @@ export function queueResearchQuoteBoxEdit({ rowId, overlayId, expectedRowVersion
   { structural: true, researchQuoteBox: true, expectedProjectId: projectId });
 }
 
-function queueQuoteBoxRangeEdit({ rowId, overlayId, expectedRowVersion, expectedOverlayVersion,
-  currentRange, edge }) {
+function queueQuoteBoxRangeEdit({ rowId, overlayId, expectedRowVersion, expectedOverlayVersion }) {
   const projectId = activeProjectId;
   const target = selectedNarrationTarget() ?? lastQuoteTarget;
   if (!target?.selected || target.rowId !== rowId) {
@@ -1157,9 +1172,8 @@ function queueQuoteBoxRangeEdit({ rowId, overlayId, expectedRowVersion, expected
     const selected = selectedSpokenWords(row, target.selection, true);
     if (!selected) throw new Error("Select current spoken words for the quote box range.");
     return { rowId, expectedRowVersion: row.version, overlayId, expectedOverlayVersion: overlay.version,
-      edit: { range: { startTokenId: edge === "start" ? selected.startTokenId : currentRange.startTokenId,
-        endTokenId: edge === "end" ? selected.endTokenId : currentRange.endTokenId } } };
-  }, `Adjust quote box ${edge}`, { structural: true, researchQuoteBox: true, expectedProjectId: projectId });
+      edit: { range: { startTokenId: selected.startTokenId, endTokenId: selected.endTokenId } } };
+  }, "Adjust quote box range", { structural: true, researchQuoteBox: true, expectedProjectId: projectId });
 }
 
 function openFootageForWords({ rowId, text, selection, seed, from }) {
@@ -1426,6 +1440,7 @@ function mountResearchDragging(root) {
   };
   const rememberQuoteTarget = (event) => {
     const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
+    if (targetNode?.closest?.(".visual-card__quote-editor, [data-quote-box-range-edit]")) return;
     const target = targetNode?.closest?.("#open-footage, #footage-panel, [data-narration-editor]");
     if (target?.matches("#open-footage")) {
       lastQuoteTarget = selectedNarrationTarget();

@@ -48,6 +48,7 @@ const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/pr
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const RESEARCH_QUOTES = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quotes(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
+const RESEARCH_QUOTE_PICTURE = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quote-pictures\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/iu;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
 const SORTING_TRIAL = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/sorting-trial$/u;
 const SAVED_DIGEST = /^sha256:[0-9a-f]{64}$/u;
@@ -334,6 +335,7 @@ type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
   Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText"> & {
     quotePicture(projectId: string, quote: ResearchQuoteRecord): Promise<ResearchQuotePictureV2 | null>;
+    retainedQuotePicture(picture: ResearchQuotePictureV2): Promise<Uint8Array | null>;
     quoteThumbnail(projectId: string, quote: ResearchQuoteRecord): Promise<{
       bytes: Uint8Array; mimeType: ResearchQuotePictureV2["original"]["mimeType"];
     } | null>;
@@ -452,7 +454,8 @@ export function createAuthoringHandler(
     const visualHoldDefault = request.method === "GET" ? VISUAL_HOLD_DEFAULT.exec(path) : null;
     const stillRoute = RESEARCH_STILLS.exec(path);
     const quoteRoute = RESEARCH_QUOTES.exec(path);
-    const researchRoute = stillRoute ?? quoteRoute ?? RESEARCH.exec(path);
+    const quotePictureRoute = RESEARCH_QUOTE_PICTURE.exec(path);
+    const researchRoute = stillRoute ?? quoteRoute ?? quotePictureRoute ?? RESEARCH.exec(path);
     const researchNumber = stillRoute || quoteRoute
       ? researchReadNumber(url.searchParams, Boolean(stillRoute?.[3] || quoteRoute?.[3]))
       : null;
@@ -626,6 +629,34 @@ export function createAuthoringHandler(
         // Independently recheck Research visibility on EVERY catalog/clip read;
         // neither a UUID supplied by the browser nor a previous list is proof.
         const visible = await research.catalog.projects();
+        if (quotePictureRoute) {
+          if (!research.catalog.retainedQuotePicture) return researchResponse(503, { error: "research_unavailable" });
+          const saved = await projects(new Request(`${origin}/v1/projects/${timelineProjectId.toLowerCase()}/document`, {
+            headers: { authorization },
+          }));
+          if (!saved.ok) return researchResponse(404, { error: "research_quote_picture_unavailable" });
+          const head: unknown = await saved.json();
+          if (!record(head) || !validateScriptDocumentV2(head.document).valid) {
+            return researchResponse(503, { error: "saved_script_unavailable" });
+          }
+          const doc = head.document as ScriptDocumentV2;
+          if (doc.projectId !== timelineProjectId.toLowerCase()) return researchResponse(404, { error: "not_found" });
+          const payloadId = quotePictureRoute[2]!.toLowerCase();
+          const picture = doc.activeDraft.blocks.flatMap((row) => {
+            if (row.type !== "narration" || row.state !== "active") return [];
+            return (row.primaryVisualSequence?.slots ?? []).flatMap((slot) =>
+              slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.payloadId === payloadId &&
+              slot.payload.researchQuotePicture ? [slot.payload.researchQuotePicture] : []);
+          })[0];
+          if (!picture) return researchResponse(404, { error: "research_quote_picture_unavailable" });
+          if (!visible.some(({ id }) => id.toLowerCase() === picture.researchProjectId.toLowerCase())) {
+            return researchResponse(403, { error: "research_project_forbidden" });
+          }
+          const bytes = await research.catalog.retainedQuotePicture(picture);
+          if (!bytes) return researchResponse(404, { error: "research_quote_picture_unavailable" });
+          return new Response(Buffer.from(bytes), { headers: { ...RESEARCH_HEADERS,
+            "Content-Type": picture.original.mimeType, "Cross-Origin-Resource-Policy": "same-origin" } });
+        }
         if (!researchProjectId) {
           return researchResponse(200, { projects: visible.map(({ id, name }) => ({ id, name })) });
         }
@@ -673,7 +704,7 @@ export function createAuthoringHandler(
           .map(publicResearchClip) });
       } catch (error) {
         // Research's errors and headers can contain user data or credentials.
-        if (quoteRoute) return researchQuoteError(error);
+        if (quoteRoute || quotePictureRoute) return researchQuoteError(error);
         return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
       }
     }

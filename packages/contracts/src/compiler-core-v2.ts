@@ -748,6 +748,83 @@ interface ResolvedPlan {
   durationFrames: number;
 }
 
+/** One held image can span two row-local quote ranges without restarting its motion. */
+function joinAdjacentQuoteBackgrounds(document: ScriptDocumentV2, plan: ResolvedPlan): Set<string> {
+  const spans = new Map<string, TimelineEventV2>();
+  const joined = new Set<string>();
+  const joinedSources = new Set<string>();
+  const eventsByPayload = new Map(plan.events.filter((event) =>
+    event.kind === "primary_visual" && event.trackRole === "primary_root" &&
+    event.pictureTreatment?.kind === "still_frame" && event.pictureTreatment.pictureKind === "image" &&
+    event.provenance.payloadId && event.provenance.deliveredSourceHash,
+  ).map((event) => [event.provenance.payloadId!, event]));
+  const transitionRows = new Set((document.rowTransitions ?? [])
+    .filter((pair) => pair.state === "active").flatMap(({ fromRowId, toRowId }) => [fromRowId, toRowId]));
+
+  function quoteEdge(block: ScriptDocumentV2["activeDraft"]["blocks"][number] | undefined, edge: "start" | "end") {
+    if (block?.type !== "narration" || block.state !== "active") return null;
+    const words = spokenTokensV2(block);
+    const wordId = words.at(edge === "start" ? 0 : -1)?.id;
+    if (!wordId) return null;
+    const matches = block.overlayEvents.flatMap((overlay) => {
+      const box = overlay.quoteBox;
+      const anchor = overlay.timing[edge];
+      return box?.researchProjectId && box.researchSourceId &&
+        (anchor?.kind === "word" || anchor?.kind === "audible_word_end") &&
+        anchor.anchor.tokenId === wordId ? [box] : [];
+    });
+    const box = matches.length === 1 ? matches[0] : undefined;
+    if (!box) return null;
+    const slot = block.primaryVisualSequence?.slots.find((candidate) =>
+      candidate.kind === "content" && candidate.payload.kind === "visual" &&
+      candidate.payload.payloadId === box.backgroundPayloadId);
+    if (slot?.kind !== "content" || slot.payload.kind !== "visual" || !slot.payload.researchQuotePicture) return null;
+    const event = eventsByPayload.get(box.backgroundPayloadId);
+    const { sequenceId, slotId, payloadId } = event?.provenance ?? {};
+    if (!event || !sequenceId || !slotId || !payloadId) return null;
+    return { event, box, pin: slot.payload.researchQuotePicture, part: {
+      blockId: block.id, sequenceId, slotId, payloadId, recordRange: { ...event.recordRange },
+    } };
+  }
+
+  const blocks = document.activeDraft.blocks;
+  for (let index = 1; index < blocks.length; index++) {
+    const left = quoteEdge(blocks[index - 1], "end");
+    const right = quoteEdge(blocks[index], "start");
+    if (!left || !right || transitionRows.has(left.part.blockId) || transitionRows.has(right.part.blockId)) continue;
+    const previous = spans.get(left.event.eventId) ?? left.event;
+    const next = right.event;
+    if (previous.recordRange.endFrame !== next.recordRange.startFrame ||
+        left.box.researchProjectId !== right.box.researchProjectId || left.box.researchSourceId !== right.box.researchSourceId ||
+        !sameAuthoringJsonV2(left.pin, right.pin) ||
+        previous.provenance.deliveredSourceHash !== next.provenance.deliveredSourceHash ||
+        !sameAuthoringJsonV2(previous.sourceRange, next.sourceRange) ||
+        !sameAuthoringJsonV2(previous.pictureTreatment, next.pictureTreatment) ||
+        !sameAuthoringJsonV2(previous.encodedBars, next.encodedBars)) continue;
+    // Preserve cuts to child visuals and any explicitly authored transition.
+    if (plan.events.some((event) => event.trackRole === "child" &&
+        event.recordRange.startFrame < right.part.recordRange.endFrame &&
+        event.recordRange.endFrame > left.part.recordRange.startFrame)) continue;
+
+    if (previous.quoteBackgroundParts) previous.quoteBackgroundParts.push(right.part);
+    else previous.quoteBackgroundParts = [left.part, right.part];
+    previous.recordRange = { startFrame: previous.recordRange.startFrame, endFrame: next.recordRange.endFrame };
+    spans.set(next.eventId, previous);
+    joined.add(next.eventId);
+    if (next.provenance.sourceId) joinedSources.add(next.provenance.sourceId);
+  }
+  if (joined.size === 0) return joinedSources;
+  plan.events = plan.events.filter(({ eventId }) => !joined.has(eventId));
+  for (const event of plan.events) if (event.provenance.sourceId) joinedSources.delete(event.provenance.sourceId);
+  for (const item of plan.sequenceResolutions) {
+    item.eventIds = item.eventIds.map((eventId) => spans.get(eventId)?.eventId ?? eventId);
+    for (const appearance of item.topmostAppearances) {
+      appearance.eventId = spans.get(appearance.eventId)?.eventId ?? appearance.eventId;
+    }
+  }
+  return joinedSources;
+}
+
 interface FrozenTransitionPair {
   pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number];
   fromPayloadId: string;
@@ -2266,6 +2343,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     }
     resolved.diagnostics.push(...supporting.diagnostics);
     const transitionPlans = emittedTransitionPlans(frozenTransitions.pairs, resolved, dependencies);
+    for (const sourceId of joinAdjacentQuoteBackgrounds(document, resolved)) sourcesById.delete(sourceId);
     for (const plan of transitionPlans) if (plan.disposition === "cut_insufficient_handles") {
       resolved.diagnostics.push(diagnostic("ROW_TRANSITION_CUT_SHORT_HANDLES", plan.reason!, entity("row_transition", plan.id, `rowTransitions/${plan.id}`),
         { kind: "details", message: plan.reason! }, ["none"], "warning"));

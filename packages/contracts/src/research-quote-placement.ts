@@ -98,10 +98,14 @@ function validQuotePicture(picture: ResearchQuotePictureV2, projectId: string): 
     original.width * original.height <= 16_777_216;
 }
 
-function validBackground(background: ResearchQuoteBackgroundV2, projectId: string): boolean {
+function validBackground(background: ResearchQuoteBackgroundV2, quote: AuthorizedResearchQuoteV2): boolean {
   if (background === null) return true;
-  return !!background && background.kind === "still_image" && validQuotePicture(background.picture, projectId) &&
-    (background.displayName === undefined || safeText(background.displayName, false));
+  if (!background || background.kind !== "still_image" || !validQuotePicture(background.picture, quote.researchProjectId)) return false;
+  if (background.picture.ownerKind === "source" &&
+      background.picture.ownerId.toLowerCase() !== quote.researchSourceId.toLowerCase()) return false;
+  if (background.picture.ownerKind === "quote" &&
+      background.picture.ownerId.toLowerCase() !== quote.researchQuoteId.toLowerCase()) return false;
+  return background.displayName === undefined || safeText(background.displayName, false);
 }
 
 function validGap(destination: Extract<ResearchQuotePlacementV2["destination"], { kind: "gap" }>): boolean {
@@ -349,7 +353,7 @@ export function prepareResearchQuotePlacementV2(
       !safeText(quote.speakerName, false) || !safeText(quote.speakerTitle, false) ||
       !safeText(quote.citationText, false) || !safeText(quote.templateRevision, true) ||
       (quote.citationOverridden !== undefined && quote.citationOverridden !== true) ||
-      !validBackground(background, quote.researchProjectId)) {
+      !validBackground(background, quote)) {
     return refusal("RESEARCH_QUOTE_INVALID", "Provide a current authorized quote and its resolved picture or missing-picture choice.");
   }
   if (!Number.isSafeInteger(request.expectedDocumentRevision) ||
