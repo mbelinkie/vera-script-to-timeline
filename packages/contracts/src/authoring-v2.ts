@@ -473,6 +473,7 @@ export {
   type NarrationTextIdentityV2,
   type NarrationTextSpliceResultV2,
 } from "./authoring-v2-narration-text.js";
+export { LEGACY_VISUAL_HOLD_MS } from "./authoring-v2-wordless.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export {
   prepareResearchQuotePlacementV2,
