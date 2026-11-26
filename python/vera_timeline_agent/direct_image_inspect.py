@@ -3,6 +3,7 @@
 import io
 import json
 import re
+import struct
 import sys
 
 from PIL import Image
@@ -95,7 +96,13 @@ def inspect(bytes_: bytes) -> dict[str, int | str]:
 def main() -> int:
     try:
         result = inspect(sys.stdin.buffer.read(MAX_BYTES + 1))
-    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+    except (
+        OSError,
+        ValueError,
+        SyntaxError,
+        struct.error,
+        Image.DecompressionBombError,
+    ):
         return 2
     print(json.dumps(result))
     return 0

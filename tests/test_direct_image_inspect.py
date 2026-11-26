@@ -1,4 +1,6 @@
 import io
+import subprocess
+import sys
 
 import pytest
 from PIL import Image
@@ -27,6 +29,18 @@ def test_decodes_display_dimensions_and_exif_orientation(format_: str) -> None:
 
 def test_accepts_progressive_jpeg() -> None:
     assert inspect(encoded("JPEG", progressive=True))["width"] == 4
+
+
+def test_cli_refuses_jpeg_with_truncated_exif() -> None:
+    incomplete_exif = Image.Exif().tobytes()[:11]
+    result = subprocess.run(
+        [sys.executable, "-I", "-m", "vera_timeline_agent.direct_image_inspect"],
+        input=encoded("JPEG", dpi=(72, 72), exif=incomplete_exif),
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert result.stdout == b""
 
 
 @pytest.mark.parametrize("format_", ["PNG", "JPEG"])
