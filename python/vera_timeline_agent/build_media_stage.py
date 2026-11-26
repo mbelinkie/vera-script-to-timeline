@@ -137,7 +137,9 @@ class MediaStagePort:
         freeze_quote_box_inputs(
             json.loads(snapshot.file("document").read_bytes()), result
         )
-        freeze_still_credit_inputs(json.loads(snapshot.file("document").read_bytes()), result)
+        freeze_still_credit_inputs(
+            json.loads(snapshot.file("document").read_bytes()), result
+        )
         result["narrationTimingMaps"] = self._narration_maps(context, snapshot)
         if result.get("compiler", {}).get("version") == "compiler/v2-speech-cuts":
             path = (

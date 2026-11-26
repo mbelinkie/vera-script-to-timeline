@@ -39,8 +39,8 @@ from .prep_media_research_still import (
     materialize_research_still,
 )
 from .quote_box_inputs import freeze_quote_box_inputs
-from .still_credit import freeze_still_credit_inputs
 from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
+from .still_credit import freeze_still_credit_inputs
 from .v2_package import _compiler_hash
 
 Json = dict[str, Any]
