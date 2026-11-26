@@ -674,6 +674,23 @@
         "quoteBox": {
           "$ref": "script-document-v2.schema.json#/$defs/QuoteBoxV2"
         },
+        "quoteBackgroundParts": {
+          "description": "Row-local ownership of one continuous Research quote still.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["blockId", "sequenceId", "slotId", "payloadId", "recordRange"],
+            "properties": {
+              "blockId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+              "sequenceId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+              "slotId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+              "payloadId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+              "recordRange": { "$ref": "#/$defs/FrameRangeV2" }
+            }
+          }
+        },
         "marker": {
           "$ref": "#/$defs/ScriptMarkerTreatmentV2"
         }

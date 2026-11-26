@@ -1,3 +1,4 @@
+import { insertResearchStillBrowserV2 } from "../src/research-still-browser-insert.js";
 import { createResearchClipOccurrenceV2, type ResearchLoggedCandidateInputV2 } from "../src/authoring-v2-research-snapshot.js";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 
@@ -118,4 +119,34 @@ export function researchStashFixture(resolved = true) {
     ],
   };
   return { doc, anchor, note, clip };
+}
+
+/** Synthetic saved still placed through the normal browser insertion path. */
+export function researchStillFixture(n: number, projectId = researchId(710002), itemId = researchId(n + 20)) {
+  const doc = researchStashFixture(false).doc;
+  const row = researchNote(n);
+  delete row.plainDirection;
+  row.tokens.forEach((token) => { token.spoken = true; });
+  doc.activeDraft.blocks = [row];
+  const still = {
+    researchProjectId: projectId, itemId, itemVersion: 1, sourceId: researchId(710090),
+    title: "Saved synthetic still", credit: "Synthetic credit", licence: "CC BY",
+    provenance: { kind: "url" as const, sourceUrl: "https://example.com/image.jpg", inputSha256: "a".repeat(64) },
+    original: { versionId: "original-v1", sha256: "a".repeat(64), byteCount: 1234,
+      mimeType: "image/jpeg" as const, width: 1920, height: 1080 },
+  };
+  const ids = [researchId(n + 30), researchId(n + 31), researchId(n + 32)];
+  const result = insertResearchStillBrowserV2(doc, still, {
+    expectedDocumentRevision: 0, researchProjectId: projectId, itemId, itemVersion: 1,
+    placement: { kind: "selected_words", rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence!.version,
+      startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[0]!.id },
+  }, () => ids.shift()!);
+  if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
+  const placed = result.document.activeDraft.blocks[0];
+  if (placed?.type !== "narration") throw new Error("Missing still row");
+  const slot = placed.primaryVisualSequence?.slots.find((entry) =>
+    entry.kind === "content" && entry.payload.kind === "visual" && entry.payload.researchStill);
+  if (!slot || slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Missing still payload");
+  return { doc: result.document, row: placed, still, payload: slot.payload };
 }

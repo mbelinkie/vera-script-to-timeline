@@ -5,6 +5,21 @@ export type WordlessPlacementV2 = NonNullable<VisualOnlyBlockV2["additionalVisua
 type Problem = { code: string; message: string };
 type Converted<T> = { value: T } | Problem;
 
+export const NEW_VISUAL_HOLD_MS = 4000;
+export const LEGACY_VISUAL_HOLD_MS = 3000;
+
+export function defaultWordlessHoldV2(row: VisualOnlyBlockV2, projectHoldMs: number): number {
+  return row.additionalVisuals?.length ? NEW_VISUAL_HOLD_MS : projectHoldMs;
+}
+
+/** Freeze the pre-edit hold before changing a placement's row or stack size. */
+export function preserveWordlessHoldV2(placement: WordlessPlacementV2, effectiveDefaultMs: number): WordlessPlacementV2 {
+  const timing = placement.visualOnlyTiming;
+  if (placement.payload.pictureKind === "clip" || timing.selectedSourceRange ||
+      timing.matchAudioDuration || timing.durationOverrideMs !== undefined) return placement;
+  return { ...placement, visualOnlyTiming: { ...timing, durationOverrideMs: effectiveDefaultMs } };
+}
+
 const problem = (code: string, message: string): Problem => ({ code, message });
 
 export function wordlessPlacementsV2(row: VisualOnlyBlockV2): WordlessPlacementV2[] {
@@ -33,6 +48,9 @@ export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Convert
   if (payload.researchStill) {
     return problem("WORDLESS_RESEARCH_STILL_UNSUPPORTED", "Keep this saved Research still on narration words; wordless rows cannot represent it without losing its kept-copy provenance.");
   }
+  if (payload.researchQuotePicture) {
+    return problem("WORDLESS_RESEARCH_STILL_UNSUPPORTED", "Keep this saved Research picture on narration words; wordless rows cannot represent its kept revision.");
+  }
   const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...standalone } = payload;
   if (payload.pictureKind === "clip") {
     if (!selectedSourceRange || !sourceUsage ||
@@ -47,7 +65,7 @@ export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Convert
   return { value: {
     payload: standalone,
     visualOnlyTiming: { kind: "visual_only", ...(selectedSourceRange
-      ? { selectedSourceRange } : { durationOverrideMs: 4000 }) },
+      ? { selectedSourceRange } : { durationOverrideMs: NEW_VISUAL_HOLD_MS }) },
     ...(researchClip ? { researchClip } : {}),
     ...(frameBinding ? { frameBinding } : {}),
   } };
@@ -57,7 +75,7 @@ export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Convert
 export function toNarratedPlacementV2(placement: WordlessPlacementV2): Converted<NarratedVisualPayloadV2> {
   const { payload, visualOnlyTiming, researchClip, frameBinding } = placement;
   if (payload.audioPolicy === "full" || visualOnlyTiming.matchAudioDuration ||
-      (visualOnlyTiming.durationOverrideMs !== undefined && visualOnlyTiming.durationOverrideMs !== 4000)) {
+      (visualOnlyTiming.durationOverrideMs !== undefined && visualOnlyTiming.durationOverrideMs !== NEW_VISUAL_HOLD_MS)) {
     return problem("WORDLESS_TIMING_UNSUPPORTED", "Clear custom hold, matched music or full source audio before moving this picture onto narration.");
   }
   const range = visualOnlyTiming.selectedSourceRange;
@@ -87,7 +105,7 @@ export function newWordlessPlaceholderV2(payloadId: string, visualType: "onscree
         source: { kind: "intentional_placeholder", text: "Onscreen Placeholder" }, audioPolicy: "mute", framingPolicy: "contain" }
       : { kind: "visual", payloadId, pictureKind: "unresolved_visual",
         source: { kind: "unresolved_visual", description: "Need to Find" }, audioPolicy: "mute", framingPolicy: "contain" },
-    visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    visualOnlyTiming: { kind: "visual_only", durationOverrideMs: NEW_VISUAL_HOLD_MS },
   };
 }
 
@@ -136,7 +154,9 @@ export function promoteWordlessNarrationV2(
   } };
 }
 
-export function appendWordlessV2(row: VisualOnlyBlockV2, placement: WordlessPlacementV2, slotId: string, slotVersion = 1): Problem | null {
+export function appendWordlessV2(
+  row: VisualOnlyBlockV2, placement: WordlessPlacementV2, slotId: string, slotVersion: number, projectHoldMs: number,
+): Problem | null {
   if (row.version === Number.MAX_SAFE_INTEGER) return problem("ROW_CONTENT_INVALID", "The visual row revision cannot advance safely.");
   if (wordlessPlacementsV2(row).some((item) => item.payload.payloadId === placement.payload.payloadId)) {
     return problem("VISUAL_ID_DUPLICATE", "The target row already has this visual identity.");
@@ -145,7 +165,8 @@ export function appendWordlessV2(row: VisualOnlyBlockV2, placement: WordlessPlac
       row.clearedNarration.slots.some((item) => item.id === slotId))) {
     return problem("VISUAL_ID_DUPLICATE", "The original narration slot identities must remain distinct and versionable.");
   }
-  setPlacements(row, [...wordlessPlacementsV2(row), placement]);
+  const priorHoldMs = defaultWordlessHoldV2(row, projectHoldMs);
+  setPlacements(row, [...wordlessPlacementsV2(row).map((item) => preserveWordlessHoldV2(item, priorHoldMs)), placement]);
   if (row.clearedNarration) {
     row.clearedNarration.slots.push({ id: slotId, version: slotVersion, visualId: placement.payload.payloadId });
     row.clearedNarration.version += 1;
@@ -176,7 +197,8 @@ export function liftWordlessV2(
   const priorSlotId = row.clearedNarration?.slots.find((slot) => slot.visualId === payloadId)?.id;
   const rest = placements.filter((item) => item.payload.payloadId !== payloadId);
   if (rest.length === 0) rest.push(newWordlessPlaceholderV2(replacementPayloadId!, "onscreen_placeholder"));
-  setPlacements(row, rest);
+  // A legacy stack's final implicit hold must not revert to the project default.
+  setPlacements(row, placements.length === 2 ? rest.map((item) => preserveWordlessHoldV2(item, NEW_VISUAL_HOLD_MS)) : rest);
   if (row.clearedNarration) {
     const slots = row.clearedNarration.slots.filter((slot) => slot.visualId !== payloadId);
     row.clearedNarration.slots = slots as NonNullable<VisualOnlyBlockV2["clearedNarration"]>["slots"];

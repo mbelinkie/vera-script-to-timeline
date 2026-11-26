@@ -13,7 +13,8 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
-  appendWordlessV2, liftWordlessV2, newWordlessPlaceholderV2,
+  appendWordlessV2, defaultWordlessHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
+  LEGACY_VISUAL_HOLD_MS, NEW_VISUAL_HOLD_MS, preserveWordlessHoldV2,
   promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
 } from "./authoring-v2-wordless.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
@@ -68,7 +69,8 @@ function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | Author
     }
     placements.push({
       payload,
-      visualOnlyTiming: { kind: "visual_only" as const, ...(selectedSourceRange ? { selectedSourceRange } : {}) },
+      visualOnlyTiming: { kind: "visual_only" as const, ...(selectedSourceRange
+        ? { selectedSourceRange } : { durationOverrideMs: NEW_VISUAL_HOLD_MS }) },
       ...(researchClip ? { researchClip } : {}),
       ...(frameBinding ? { frameBinding } : {}),
     });
@@ -106,7 +108,7 @@ function restoreClearedNarration(
     const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
     // Four seconds is the new source-free default, not an authored nondefault
     // hold. It can be discarded when the restored visual waits for words.
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== 4000) {
+    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== NEW_VISUAL_HOLD_MS) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {
@@ -1447,7 +1449,10 @@ function saveStashGroup(working: ScriptDocumentV2, command: SaveStashGroupComman
 }
 
 /** One immutable local transaction. A refusal returns the original input object. */
-export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
+export function applyRowEditV2(
+  document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2,
+  projectHoldMs = LEGACY_VISUAL_HOLD_MS,
+): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
     if ((command.kind === "add_row_transition" || command.kind === "remove_row_transition") && !validTransitionCommand(command)) {
@@ -2029,7 +2034,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const index = blocks.findIndex((item) => item.id === command.rowId);
     const row = blocks[index];
     if (row?.type === "visual_only") {
-      const issue = appendWordlessV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId);
+      const issue = appendWordlessV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId, 1, projectHoldMs);
       if (issue) return refused(document, issue.code, issue.message);
       markStashOriginEditedV2(row);
     } else if (row?.type === "narration") {
@@ -2082,9 +2087,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const mapped = source.clearedNarration?.slots.find((item) => item.visualId === command.payloadId);
       const slotId = mapped?.id ?? command.destinationSlotId ?? "";
+      const placement = preserveWordlessHoldV2(original, defaultWordlessHoldV2(source, projectHoldMs));
       // Verify the destination before lifting. A refused move must leave the source untouched.
       if (target.type === "narration") {
-        const promoted = promoteWordlessNarrationV2(target, original, slotId, mapped ? mapped.version + 1 : 1);
+        const promoted = promoteWordlessNarrationV2(target, placement, slotId, mapped ? mapped.version + 1 : 1);
         if (!("value" in promoted)) return refused(document, promoted.code, promoted.message);
         const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
         if (!("value" in taken)) return refused(document, taken.code, taken.message);
@@ -2094,7 +2100,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
           return refused(document, "WORDLESS_DESTINATION_SLOT_REQUIRED", "Provide a unique slot ID to preserve cleared narration.");
         }
         const preview = structuredClone(target);
-        const issue = appendWordlessV2(preview, original, slotId, mapped ? mapped.version + 1 : 1);
+        const issue = appendWordlessV2(preview, placement, slotId, mapped ? mapped.version + 1 : 1, projectHoldMs);
         if (issue) return refused(document, issue.code, issue.message);
         const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
         if (!("value" in taken)) return refused(document, taken.code, taken.message);
@@ -2136,7 +2142,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const target = visuals.find((item) => item.payload.payloadId === command.payloadId);
       if (!target) return refused(document, "VISUAL_NOT_FOUND", "Choose an existing visual in this row.");
-      if (target.payload.pictureKind === "clip" || target.payload.pictureKind === "unresolved_visual") {
+      if (target.payload.pictureKind === "clip" || target.visualOnlyTiming.selectedSourceRange) {
         return refused(document, "VISUAL_HOLD_INVALID", "Only a still or other untimed visual can have an editable hold; clips use their trimmed length.");
       }
       if (target.visualOnlyTiming.matchAudioDuration) {
@@ -2226,7 +2232,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       for (const visual of [row, ...row.additionalVisuals ?? []]) {
         if (visual.payload.pictureKind !== "clip" && visual.payload.pictureKind !== "unresolved_visual" &&
           visual.visualOnlyTiming.durationOverrideMs === undefined) {
-          visual.visualOnlyTiming.durationOverrideMs = 4000;
+          visual.visualOnlyTiming.durationOverrideMs = NEW_VISUAL_HOLD_MS;
         }
       }
     }
@@ -2689,7 +2695,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
 }
 
 /** Session-owned history is independent of consumer views; no collaborative undo is implied. */
-export function createRowEditSessionV2(initial: ScriptDocumentV2) {
+export function createRowEditSessionV2(initial: ScriptDocumentV2, projectHoldMs = LEGACY_VISUAL_HOLD_MS) {
   let current = structuredClone(initial);
   let revision = current.rowEditRevision ?? 0;
   const history: ScriptDocumentV2[] = [];
@@ -2723,7 +2729,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
         current = { ...structuredClone(split.before), rowEditRevision: revision };
         return { ok: true, document: structuredClone(current), diagnostics: [] };
       }
-      const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command);
+      const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command, projectHoldMs);
       if (result.ok) {
         lastSplit = command.kind === "split_row"
           ? { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] }
@@ -2745,7 +2751,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       const blockId = command.kind === "move_payload" ? command.sourceBlockId : command.blockId;
       const row = current.activeDraft.blocks.find((block) => block.id === blockId);
       const sequenceVersion = row?.type === "narration" ? row.primaryVisualSequence?.version ?? 0 : 0;
-      const result = applyVisualSequenceEditV2(current, sequenceVersion, command);
+      const result = applyVisualSequenceEditV2(current, sequenceVersion, command, projectHoldMs);
       if (!result.ok) return { ...result, document: structuredClone(current) };
       history.push(current);
       redoHistory.length = 0;

@@ -137,6 +137,24 @@ function indexEvents(manifest: TimelineManifestV2): Map<string, TimelineEventV2>
     safeRange(event.recordRange);
     optionalRange(event.sourceRange);
     if (event.provenance.documentId !== manifest.document.documentId) fail("EVIDENCE_MISMATCH", "Event document identity differs");
+    if (event.quoteBackgroundParts) {
+      const parts = event.quoteBackgroundParts;
+      const first = parts[0];
+      if (event.kind !== "primary_visual" || event.trackRole !== "primary_root" ||
+          event.pictureTreatment?.kind !== "still_frame" || parts.length < 2 ||
+          !first || event.provenance.payloadId !== first.payloadId || event.provenance.blockId !== first.blockId ||
+          event.provenance.sequenceId !== first.sequenceId || event.provenance.slotId !== first.slotId ||
+          new Set(parts.map(({ blockId }) => blockId)).size !== parts.length) {
+        fail("INCONSISTENT_RANGE", "Quote still ownership is ambiguous");
+      }
+      let cursor = event.recordRange.startFrame;
+      for (const part of parts) {
+        const range = safeRange(part.recordRange);
+        if (range.startFrame !== cursor) fail("INCONSISTENT_RANGE", "Quote still parts must be contiguous");
+        cursor = range.endFrame;
+      }
+      if (cursor !== event.recordRange.endFrame) fail("INCONSISTENT_RANGE", "Quote still parts must cover the event");
+    }
     result.set(event.eventId, event);
   }
   return result;
@@ -169,13 +187,21 @@ function indexOwners(manifest: TimelineManifestV2, events: Map<string, TimelineE
       bucket.set(group, [...bucket.get(group) ?? [], range]);
       for (const eventId of item.eventIds) {
         const event = events.get(eventId);
-        if (!event || event.provenance.slotId !== item.slotId || !sameAuthoringJsonV2(event.recordRange, range)) {
+        const shared = event?.quoteBackgroundParts?.find((part) =>
+          part.blockId === item.blockId && part.sequenceId === item.sequenceId && part.slotId === item.slotId &&
+          part.payloadId === item.payloadId);
+        if (!event || (shared ? !sameAuthoringJsonV2(shared.recordRange, range)
+          : event.provenance.slotId !== item.slotId || !sameAuthoringJsonV2(event.recordRange, range))) {
           fail("INCONSISTENT_RANGE", "Visible event does not match its owner interval");
         }
       }
       for (const appearance of item.topmostAppearances) {
         const event = events.get(appearance.eventId);
-        if (!event || !item.eventIds.includes(appearance.eventId) || !sameAuthoringJsonV2(appearance.recordRange, event.recordRange)) {
+        const shared = event?.quoteBackgroundParts?.find((part) =>
+          part.blockId === item.blockId && part.sequenceId === item.sequenceId && part.slotId === item.slotId &&
+          part.payloadId === item.payloadId);
+        if (!event || !item.eventIds.includes(appearance.eventId) ||
+            !sameAuthoringJsonV2(appearance.recordRange, shared?.recordRange ?? event.recordRange)) {
           fail("INCONSISTENT_RANGE", "Topmost appearance lacks its recorded event");
         }
       }

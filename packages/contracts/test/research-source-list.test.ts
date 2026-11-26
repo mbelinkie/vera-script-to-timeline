@@ -4,11 +4,14 @@ const formatMlaCitation = vi.hoisted(() => vi.fn());
 vi.mock("../src/mla-citation.js", () => ({ formatMlaCitation }));
 
 import {
+  exportScriptSources,
+} from "../src/research-citation-commands.js";
+import {
   formatResearchSourceList,
   usedResearchLibraryItems,
 } from "../src/research-source-list.js";
 import type { MlaSource } from "../src/mla-citation.js";
-import { researchId, researchNestedNote, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
+import { researchId, researchNestedNote, researchNote, researchOccurrence, researchStashFixture, researchStillFixture } from "./issue-367-fixture.js";
 
 type TestSource = MlaSource & { id: string; label: string; projectId?: string };
 
@@ -69,4 +72,84 @@ describe("Research source list", () => {
     ]);
     expect(doc.stash).toBeDefined();
   });
+
+  it("retains a quote source from surviving spoken tokens after its visual cards are removed", () => {
+    const { doc } = researchStashFixture(false);
+    const projectId = researchId(981251);
+    const quoteId = researchId(981252);
+    const sourceId = researchId(981253);
+    const useId = researchId(981254);
+    const row = researchNestedNote(981255);
+    delete row.plainDirection;
+    row.tokens.forEach((token) => {
+      token.spoken = true;
+      token.researchQuoteProvenance = { researchProjectId: projectId, researchQuoteId: quoteId, researchSourceId: sourceId, useId };
+    });
+    // Both the quote box and its background are gone; ordinary narration still remembers its source.
+    row.overlayEvents = [];
+    row.primaryVisualSequence!.slots = row.primaryVisualSequence!.slots.filter((slot) =>
+      slot.kind !== "content" || slot.payload.kind !== "visual");
+    doc.activeDraft.blocks = [row];
+
+    expect(usedResearchLibraryItems(doc, researchId(981250))).toEqual([
+      { projectId, itemId: quoteId, kind: "quote", sourceId },
+    ]);
+
+    row.tokens = [];
+    expect(usedResearchLibraryItems(doc, researchId(981250))).toEqual([]);
+  });
+
+  it("exports a retained quote source without requiring its deleted quote item", async () => {
+    formatMlaCitation.mockImplementation((value: TestSource) => ({
+      citationText: value.label, italicSpan: null,
+    }));
+    const { doc } = researchStashFixture(false);
+    const projectId = researchId(981261);
+    const quoteId = researchId(981262);
+    const sourceId = researchId(981263);
+    const row = researchNote(981264);
+    delete row.plainDirection;
+    row.tokens.forEach((token) => {
+      token.spoken = true;
+      token.researchQuoteProvenance = {
+        researchProjectId: projectId, researchQuoteId: quoteId, researchSourceId: sourceId, useId: researchId(981265),
+      };
+    });
+    row.overlayEvents = [];
+    doc.activeDraft.blocks = [row];
+    const retainedSource = { id: sourceId, projectId, label: "Retained quote source" };
+    const client = {
+      item: vi.fn(),
+      source: vi.fn(() => Promise.resolve(retainedSource)),
+    };
+
+    await expect(exportScriptSources(doc, projectId, client as never)).resolves.toBe("Retained quote source");
+    expect(client.item).not.toHaveBeenCalled();
+    expect(client.source).toHaveBeenCalledWith(projectId, sourceId);
+  });
+});
+
+it("collects placed stills from primary slots and overlays, but not parked, excluded or waiting visuals", () => {
+  const first = researchStillFixture(982000);
+  const other = researchStillFixture(982100, researchId(982900), first.still.itemId);
+  const overlay = researchNestedNote(982200);
+  delete overlay.primaryVisualSequence;
+  overlay.overlayEvents[0]!.payload = other.payload;
+  const duplicate = researchStillFixture(982300, first.still.researchProjectId, first.still.itemId);
+  const excluded = researchStillFixture(982400);
+  excluded.row.state = "excluded";
+  const loose = researchStillFixture(982500);
+  delete loose.row.primaryVisualSequence;
+  loose.row.unattachedVisuals = [{ slotId: researchId(982599), payload: loose.payload, version: 1 }];
+  const parked = researchStillFixture(982600);
+  first.doc.stash = [{ id: researchId(982699), rows: [parked.row], supportingItems: [] }];
+  first.doc.activeDraft.blocks = [first.row, overlay, duplicate.row, excluded.row, loose.row];
+  const before = structuredClone(first.doc);
+  const expected = [
+    { projectId: first.still.researchProjectId, itemId: first.still.itemId, kind: "still" },
+    { projectId: other.still.researchProjectId, itemId: other.still.itemId, kind: "still" },
+  ];
+  expect(usedResearchLibraryItems(first.doc, researchId(982999))).toEqual(expected);
+  expect(usedResearchLibraryItems(first.doc, researchId(982999))).toEqual(expected);
+  expect(first.doc).toEqual(before);
 });

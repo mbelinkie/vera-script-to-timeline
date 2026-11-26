@@ -18,7 +18,10 @@ import {
 } from "@vera/project-documents";
 import * as Y from "yjs";
 
-import { applyRootChange, characterKey, readRoot, ROOT_KEY, sameJson, seedRoot, type JsonObject } from "./tree.js";
+import {
+  applyRootChange, characterKey, findDraftRowText, needsRowUpgrade, readRoot, sameJson, seedRoot, upgradeRows,
+  type JsonObject,
+} from "./tree.js";
 
 /** `current`: the saved script holds the live text. `pending`: not written yet. `unstorable`: the merge cannot be saved as a script. */
 export type Materialization = "current" | "pending" | "unstorable";
@@ -320,21 +323,30 @@ export class ProjectCollaborationService {
    */
   private async reconcile(db: SqlClient, projectId: string, room: Room, updates: Uint8Array[]): Promise<void> {
     const basis = await this.documents.readLiveBasis(db, projectId);
-    if (basis.documentRevision === room.documentRevision && basis.ideasRevision === room.ideasRevision) return;
-    const old = await this.documents.readLiveRevisions(db, projectId, room.documentRevision, room.ideasRevision);
+    const saved = basis.documentRevision !== room.documentRevision || basis.ideasRevision !== room.ideasRevision;
+    if (!saved && !needsRowUpgrade(room.doc)) return;
+    const old = saved
+      ? await this.documents.readLiveRevisions(db, projectId, room.documentRevision, room.ideasRevision)
+      : undefined;
     // A fresh Yjs client per save, so its characters are attributed to the saver alone.
     const fork = new Y.Doc();
     Y.applyUpdate(fork, Y.encodeStateAsUpdate(room.doc));
     const before = Y.encodeStateVector(fork);
-    fork.transact(() => {
-      applyRootChange(fork,
-        { document: old.document, ideas: old.ideas } as unknown as JsonObject,
+    const changed = fork.transact(() => {
+      if (!old) return upgradeRows(fork);
+      applyRootChange(fork, { document: old.document, ideas: old.ideas } as unknown as JsonObject,
         { document: basis.document, ideas: basis.ideas } as unknown as JsonObject);
+      return true;
     });
+    if (!changed) return;
     const update = Y.encodeStateAsUpdate(fork, before);
     Y.applyUpdate(room.doc, update, "document_save");
     await this.log(db, projectId, room, basis.documentUpdatedBy, "document_save", update, [fork.clientID]);
     updates.push(update);
+    if (!saved) {
+      if (room.materialization === "current") room.materializedSequence = room.liveSequence;
+      return;
+    }
     room.documentRevision = basis.documentRevision;
     room.ideasRevision = basis.ideasRevision;
     const live = readRoot(room.doc);
@@ -651,11 +663,8 @@ export class ProjectCollaborationService {
       const byClient = new Map(owners.rows.map((row) => [row.yjs_client_id, row.actor_id]));
       const doc = new Y.Doc();
       Y.applyUpdate(doc, state);
-      let node: unknown = doc.getMap(ROOT_KEY);
-      for (const key of ["document", "activeDraft", "blocks", rowId, "text"]) {
-        node = node instanceof Y.Map ? (node as Y.Map<unknown>).get(key) : undefined;
-      }
-      if (!(node instanceof Y.Text)) throw new CollaborationError("not_found");
+      const node = findDraftRowText(doc, rowId);
+      if (!node) throw new CollaborationError("not_found");
       const content = node.toJSON();
       const runs: { actorId: string | null; text: string }[] = [];
       for (let index = 0; index < content.length; index += 1) {

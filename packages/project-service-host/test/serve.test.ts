@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,6 +17,7 @@ import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, QaStartupRefusal, type QaRunningServer } from "../src/serve.js";
 import { createAuthoringHandler } from "../src/authoring.js";
+import { readRetainedResearchQuotePicture, retainResearchQuotePicture } from "../src/research-quote-picture-cache.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
 
 const dirs: string[] = [];
@@ -457,6 +458,9 @@ const RESEARCH_CLIP = researchId(710001);
 const RESEARCH_STILL = researchId(710003);
 const LEGACY_STILL = researchId(710004);
 const RESEARCH_STILL_SOURCE = researchId(710005);
+const RESEARCH_QUOTE = researchId(710006);
+const RESEARCH_QUOTE_SOURCE = researchId(710007);
+const RESEARCH_QUOTE_PICTURE = researchId(710008);
 // A tiny generated WebP thumbnail. No source page is part of the kept API.
 const thumbnailBytes = Buffer.from("UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAAcQBSxg/wMR0f8A", "base64");
 const keptStillAsset = { versionId: "immutable-kept-still", sha256: createHash("sha256").update(thumbnailBytes).digest("hex"),
@@ -468,10 +472,11 @@ const RESEARCH_SECRET = "private-research-test-bearer-never-send";
 function fakeResearchCatalog() {
   const calls: Array<{ pathname: string; method: string | undefined;
     redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
-  const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3,
+  const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3, quoteVersion: 7,
+    quoteDisplayText: "This is the spoken quotation.", quoteImage: "none",
     stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false };
   const request: typeof fetch = (input, init) => {
-    const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
+    const { pathname, searchParams } = new URL(input instanceof Request ? input.url : String(input));
     const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
     calls.push({ pathname, method: init?.method, redirect: init?.redirect, bearer });
     if (state.offline) return Promise.reject(new Error(`private request failed with ${RESEARCH_SECRET}`));
@@ -484,6 +489,41 @@ function fakeResearchCatalog() {
       { id: RESEARCH_PROJECT, name: "Field research", hiddenBearer: RESEARCH_SECRET },
     ] : []));
     const project = `/api/projects/${RESEARCH_PROJECT}`;
+    const quote = { kind: "quote", id: RESEARCH_QUOTE, projectId: RESEARCH_PROJECT,
+      sourceId: RESEARCH_QUOTE_SOURCE, version: state.quoteVersion, content: {
+        text: "This is the longer original quotation.", latestDisplayText: state.quoteDisplayText,
+        speaker: "Sam Producer", hidden: RESEARCH_SECRET,
+      } };
+    if (pathname === `${project}/items` && searchParams.get("kind") === "quote") {
+      return Promise.resolve(Response.json([quote]));
+    }
+    if (pathname === `${project}/items/${RESEARCH_QUOTE}`) {
+      if (init?.method === "PATCH") {
+        const { latestDisplayText, expectedVersion } = JSON.parse(typeof init.body === "string" ? init.body : "") as {
+          latestDisplayText: string; expectedVersion: number;
+        };
+        if (expectedVersion !== state.quoteVersion) return Promise.resolve(new Response(null, { status: 409 }));
+        state.quoteVersion++;
+        state.quoteDisplayText = latestDisplayText;
+        return Promise.resolve(Response.json({ ...quote, version: state.quoteVersion,
+          content: { ...quote.content, latestDisplayText } }));
+      }
+      return Promise.resolve(Response.json(quote));
+    }
+    if (pathname === `${project}/sources/${RESEARCH_QUOTE_SOURCE}`) return Promise.resolve(Response.json({
+      id: RESEARCH_QUOTE_SOURCE, projectId: RESEARCH_PROJECT, kind: "offline", details: {},
+      bibliography: { title: { value: "A synthetic source" } }, hidden: RESEARCH_SECRET,
+    }));
+    if (pathname.includes("/library-reference-pictures/")) {
+      const picture = `${project}/library-reference-pictures/source/${RESEARCH_QUOTE_SOURCE}`;
+      if (state.quoteImage === "none" || !pathname.startsWith(picture)) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      if (pathname === picture) return Promise.resolve(Response.json({ revisionId: RESEARCH_QUOTE_PICTURE,
+        assets: { original: keptStillAsset, thumbnail: keptStillAsset } }));
+      return Promise.resolve(new Response(state.quoteImage === "valid" ? thumbnailBytes : Buffer.alloc(thumbnailBytes.length),
+        { headers: { "Content-Type": "image/webp" } }));
+    }
     const still = { kind: "still", id: RESEARCH_STILL, projectId: state.stillProject,
       sourceId: RESEARCH_STILL_SOURCE, version: state.stillVersion, content: { title: "Saved photo",
         credit: "Test photographer", licence: "Test permission", hiddenBearer: RESEARCH_SECRET } };
@@ -512,7 +552,15 @@ function fakeResearchCatalog() {
     if (pathname === `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`) return Promise.resolve(Response.json(clip));
     return Promise.resolve(Response.json({ error: "unexpected_research_path" }, { status: 500 }));
   };
-  return { catalog: createResearchClient({ bearer: RESEARCH_SECRET, request }), state, calls };
+  const client = createResearchClient({ bearer: RESEARCH_SECRET, request });
+  return { catalog: {
+    ...client,
+    quotePicture: async (projectId: string, quote: Awaited<ReturnType<typeof client.quote>>) =>
+      (await client.readQuotePicture(projectId, quote))?.picture ?? null,
+    quoteThumbnail: (projectId: string, quote: Awaited<ReturnType<typeof client.quote>>) =>
+      client.readQuotePicture(projectId, quote, true),
+    retainedQuotePicture: vi.fn(() => Promise.resolve(thumbnailBytes)),
+  }, state, calls };
 }
 
 async function researchBrowserRequests() {
@@ -801,6 +849,218 @@ describe("protected kept Research stills", () => {
     expect(await (await h.read(base)).json()).toEqual({ stills: [], nextOffset: null });
     expect((await insert()).status).toBe(422);
     expect(h.projects).not.toHaveBeenCalled();
+  });
+});
+
+describe("protected Research quote placement", () => {
+  const base = `research/${TIMELINE_PROJECT}/projects/${RESEARCH_PROJECT}/quotes`;
+
+  function quoteRequest() {
+    const document = researchStashFixture(false).doc;
+    document.projectId = TIMELINE_PROJECT;
+    document.activeDraft.blocks = [];
+    return { timelineProjectId: TIMELINE_PROJECT, document, researchProjectId: RESEARCH_PROJECT,
+      quoteId: RESEARCH_QUOTE, quoteVersion: 7, expectedDocumentRevision: document.rowEditRevision ?? 0,
+      placement: { kind: "gap", destination: { sectionId: null, afterRowId: null, beforeRowId: null } } };
+  }
+
+  it("lists a slim quote DTO and assembles one edit from the exact current quote", async () => {
+    const h = await researchBrowserRequests();
+    const list = await h.read(`${base}?offset=0`);
+    expect(list.headers.get("Cache-Control")).toBe("no-store");
+    expect(list.status).toBe(200);
+    const page: unknown = await list.json();
+    expect(page).toMatchObject({ nextOffset: null, quotes: [{
+      itemId: RESEARCH_QUOTE, sourceId: RESEARCH_QUOTE_SOURCE, itemVersion: 7,
+      speakerName: "Sam Producer", sourceTitle: "A synthetic source",
+    }] });
+    expect(JSON.stringify(page)).not.toContain(RESEARCH_SECRET);
+    expect(JSON.stringify(page)).not.toContain("sourceKind");
+    const body = quoteRequest();
+    const placed = await h.read("research-quote-insert", { method: "POST", body });
+    expect(placed.status).toBe(200);
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.rowEditRevision).toBe(body.expectedDocumentRevision + 1);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.text).toBe("“This is the spoken quotation.”");
+    expect(row.overlayEvents).toHaveLength(1);
+    const event = row.overlayEvents[0]!;
+    expect(event.quoteBox).toMatchObject({ displayText: "This is the spoken quotation.",
+      researchQuoteVersion: 7, researchProjectId: RESEARCH_PROJECT, researchSourceId: RESEARCH_QUOTE_SOURCE });
+    expect(h.authorizeTimelineProject).toHaveBeenLastCalledWith(TIMELINE_PROJECT, "edit_document");
+
+    const edited = await h.read("research-quote-box-edit", { method: "POST", body: {
+      document: result.document, rowId: row.id, overlayId: event.id, expectedRowVersion: row.version,
+      expectedDocumentRevision: result.document.rowEditRevision, expectedOverlayVersion: event.version,
+      edit: { displayText: "A shorter on-screen quote." },
+    } });
+    expect(edited.status).toBe(200);
+    const editResult = await edited.json() as CommandResult;
+    expect(editResult.ok, JSON.stringify(editResult.diagnostics)).toBe(true);
+    const editedRow = editResult.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(editedRow.text).toBe(row.text);
+    expect(editedRow.overlayEvents[0]!.quoteBox).toMatchObject({ displayText: "A shorter on-screen quote." });
+    const editOverlay = (model: CommandResult, edit: unknown) => {
+      const current = model.document.activeDraft.blocks[0] as NarrationBlockV2;
+      return h.read("research-quote-box-edit", { method: "POST", body: {
+        document: model.document, rowId: current.id, overlayId: event.id, expectedRowVersion: current.version,
+        expectedDocumentRevision: model.document.rowEditRevision, expectedOverlayVersion: current.overlayEvents[0]!.version,
+        edit,
+      } });
+    };
+    const first = row.tokens[0]!.id;
+    const last = row.tokens.at(-1)!.id;
+    expect((await editOverlay(editResult, { range: { startTokenId: last, endTokenId: first } })).status).toBe(409);
+    const ranged = await (await editOverlay(editResult, { range: { startTokenId: last, endTokenId: last } }))
+      .json() as CommandResult;
+    expect(ranged.ok, JSON.stringify(ranged.diagnostics)).toBe(true);
+    const rangedRow = ranged.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(rangedRow.primaryVisualSequence).toEqual(editedRow.primaryVisualSequence);
+    expect(rangedRow.overlayEvents[0]!.timing).toMatchObject({ start: { anchor: { tokenId: last } },
+      end: { anchor: { tokenId: last } } });
+    const removed = await (await editOverlay(ranged, { delete: true })).json() as CommandResult;
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    const afterDelete = removed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(afterDelete.tokens).toEqual(row.tokens);
+    expect(afterDelete.primaryVisualSequence).toEqual(row.primaryVisualSequence);
+    expect(afterDelete.overlayEvents).toEqual([]);
+    expect(h.fake.calls.every(({ method }) => method === "GET")).toBe(true);
+  });
+
+  it("refuses extra record fields, revoked membership and a changed quote version", async () => {
+    const h = await researchBrowserRequests();
+    const body = quoteRequest();
+    const place = (request: unknown = body) => h.read("research-quote-insert", { method: "POST", body: request });
+    expect((await h.browser(base)).status).toBe(401);
+    expect((await place({ ...body, picture: keptStillAsset })).status).toBe(400);
+    expect((await place({ ...body, placement: { ...body.placement, quoteText: "forged" } })).status).toBe(400);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await place()).status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    h.fake.state.visible = false;
+    expect((await h.read(base)).status).toBe(403);
+    expect((await place()).status).toBe(403);
+    h.fake.state.visible = true;
+    h.fake.state.quoteVersion++;
+    expect((await place()).status).toBe(409);
+    expect(h.projects).not.toHaveBeenCalled();
+  });
+
+  it("returns authorized kept thumbnail bytes and places only a verified source picture", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteImage = "valid";
+    const preview = `${base}/${RESEARCH_QUOTE}/thumbnail?version=7`;
+    const image = await h.read(preview);
+    expect(image.headers.get("Content-Type")).toBe("image/webp");
+    expect(image.headers.get("Cache-Control")).toBe("no-store");
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(thumbnailBytes);
+    expect((await h.read(preview.replace("version=7", "version=6"))).status).toBe(409);
+    const place = async () => {
+      const response = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+      expect(response.status).toBe(200);
+      const result = await response.json() as CommandResult;
+      expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+      return JSON.stringify(result.document);
+    };
+    expect(await place()).toContain(RESEARCH_QUOTE_PICTURE);
+    h.fake.state.quoteImage = "corrupted";
+    expect((await h.read(preview)).status).toBe(404);
+    expect(await place()).not.toContain(RESEARCH_QUOTE_PICTURE);
+  });
+
+  it("reads a placed picture by its saved payload and checks Research access again", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteImage = "valid";
+    const response = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    const { document } = await response.json() as CommandResult;
+    const row = document.activeDraft.blocks[0] as NarrationBlockV2;
+    const slot = row.primaryVisualSequence?.slots.find((entry) =>
+      entry.kind === "content" && entry.payload.kind === "visual" && entry.payload.researchQuotePicture);
+    if (slot?.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected a verified picture.");
+    const route = `research/${TIMELINE_PROJECT}/quote-pictures/${slot.payload.payloadId}`;
+    const head = { projectId: TIMELINE_PROJECT, document };
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    const image = await h.read(route);
+    expect(image.status).toBe(200);
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(thumbnailBytes);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledWith(slot.payload.researchQuotePicture);
+    h.fake.state.visible = false;
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    expect((await h.read(route)).status).toBe(403);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates the Library default from the exact saved box and uses the fresh Research version", async () => {
+    const h = await researchBrowserRequests();
+    const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const event = row.overlayEvents[0]!;
+    event.quoteBox!.displayText = "The use I just saved.";
+    const digest = `sha256:${"a".repeat(64)}`;
+    const head = { projectId: TIMELINE_PROJECT, document: result.document, revision: 12, digest };
+    const intent = { timelineProjectId: TIMELINE_PROJECT, rowId: row.id,
+      overlayId: event.id, expectedRevision: 12, expectedDigest: digest };
+    const publish = () => h.read("research-quote-display-default", { method: "POST", body: intent });
+
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await publish()).status).toBe(409);
+    expect(h.fake.calls.some(({ method }) => method === "PATCH")).toBe(false);
+    h.fake.state.quoteVersion = 10;
+    const priorDisplayText = h.fake.state.quoteDisplayText;
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    const written = await publish();
+    expect(written.status).toBe(200);
+    const receipt = (await written.json() as { undo: string }).undo;
+    expect(h.fake.state.quoteVersion).toBe(11);
+    expect(h.fake.state.quoteDisplayText).toBe("The use I just saved.");
+
+    event.quoteBox!.displayText = "My earlier per-use wording.";
+    const undo = (proof: string) => h.read("research-quote-display-default", {
+      method: "POST", body: { ...intent, expectedRevision: 13, undo: proof },
+    });
+    expect((await undo(`${receipt}tampered`)).status).toBe(400);
+    h.fake.state.quoteDisplayText = "A newer Research edit.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(409);
+    h.fake.state.quoteDisplayText = "The use I just saved.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(204);
+    expect(h.fake.state.quoteDisplayText).toBe(priorDisplayText);
+  });
+
+  it("uses original narration when the latest display text contains direction brackets", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteDisplayText = "[A speaker] described the finding.";
+    const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    expect(placed.status).toBe(200);
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.text).toBe("“This is the longer original quotation.”");
+    expect(row.overlayEvents[0]?.quoteBox?.displayText).toBe(h.fake.state.quoteDisplayText);
+  });
+
+  it("publishes an immutable kept picture only after verifying its size and hash", async () => {
+    const home = await mkdtemp(join(tmpdir(), "vera-retained-quote-test-"));
+    dirs.push(home);
+    const revisionId = RESEARCH_QUOTE_PICTURE;
+    const picture = { researchProjectId: RESEARCH_PROJECT, ownerKind: "source" as const,
+      ownerId: RESEARCH_QUOTE_SOURCE, revisionId,
+      original: { ...keptStillAsset, mimeType: "image/webp" as const } };
+    await expect(retainResearchQuotePicture(picture, Buffer.alloc(thumbnailBytes.length), home)).rejects.toThrow("Invalid retained");
+    await Promise.all([
+      retainResearchQuotePicture(picture, thumbnailBytes, home),
+      retainResearchQuotePicture(picture, thumbnailBytes, home),
+    ]);
+    const path = join(home, ".local", "state", "vera", "research-quote-pictures", RESEARCH_PROJECT, revisionId,
+      picture.original.sha256);
+    expect(await readFile(path)).toEqual(thumbnailBytes);
+    expect(await readRetainedResearchQuotePicture(picture, home)).toEqual(thumbnailBytes);
+    await writeFile(path, Buffer.alloc(thumbnailBytes.length));
+    expect(await readRetainedResearchQuotePicture(picture, home)).toBeNull();
   });
 });
 

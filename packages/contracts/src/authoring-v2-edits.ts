@@ -30,7 +30,7 @@ import {
   liftVisualV2,
   type VisualLifecycleResultV2,
 } from "./authoring-v2-visual-lifecycle.js";
-import { appendWordlessV2, toWordlessPlacementV2 } from "./authoring-v2-wordless.js";
+import { appendWordlessV2, LEGACY_VISUAL_HOLD_MS, toWordlessPlacementV2 } from "./authoring-v2-wordless.js";
 import type {
   AuthoringDiagnosticV2,
   DroppedVisualDetailV2,
@@ -75,6 +75,7 @@ export function applyVisualSequenceEditV2(
   document: ScriptDocumentV2,
   expectedSequenceVersion: number,
   command: VisualSequenceEditCommandV2,
+  projectHoldMs = LEGACY_VISUAL_HOLD_MS,
 ): VisualSequenceEditResultV2 {
   const beforeValidation = validateScriptDocumentV2(document);
   if (beforeValidation.diagnostics.some((diagnostic) => diagnostic.code === "SCHEMA_INVALID")) {
@@ -92,7 +93,7 @@ export function applyVisualSequenceEditV2(
   }
 
   const working = structuredClone(document);
-  const mutation = applyCommand(working, expectedSequenceVersion, command);
+  const mutation = applyCommand(working, expectedSequenceVersion, command, projectHoldMs);
   if (mutation.diagnostics.length > 0) return failure(document, mutation.diagnostics);
   for (const blockId of mutation.blockIds) {
     const row = working.activeDraft.blocks.find((block) => block.id === blockId);
@@ -147,6 +148,7 @@ function applyCommand(
   document: ScriptDocumentV2,
   expectedVersion: number,
   command: VisualSequenceEditCommandV2,
+  projectHoldMs: number,
 ): MutationResult {
   switch (command.kind) {
     case "insert_sequential": {
@@ -197,7 +199,7 @@ function applyCommand(
       if (isCoverageRefusalV2(lifted)) return refused(lifted.code, lifted.message, command.blockId, command.slotId);
       const placement = toWordlessPlacementV2(lifted.payload);
       if (!("value" in placement)) return refused(placement.code, placement.message, command.blockId, command.slotId);
-      const issue = appendWordlessV2(destination, placement.value, command.slotId, placed?.version ?? waitingVersion ?? 1);
+      const issue = appendWordlessV2(destination, placement.value, command.slotId, placed?.version ?? waitingVersion ?? 1, projectHoldMs);
       if (issue) return refused(issue.code, issue.message, command.destinationBlockId, command.slotId);
       return lifecycle([command.blockId, command.destinationBlockId], command.slotId, {
         slotIds: lifted.slotIds, payloadIds: lifted.payloadIds,
