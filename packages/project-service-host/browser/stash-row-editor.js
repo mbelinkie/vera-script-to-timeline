@@ -355,6 +355,7 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
       const next = await fetchProjection(snapshot);
       if (stageDocument === snapshot) projection = next;
     } catch {
+      if (stageDocument !== snapshot) return;
       projection = null;
       status.textContent = "The visual preview could not be refreshed. Row text remains staged.";
     }
@@ -440,8 +441,11 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     }
   }
 
-  function requestClose(reopen = null) {
-    if (!session) return;
+  async function requestClose(reopen = null) {
+    const closing = session;
+    if (!closing || pending) return;
+    await queued;
+    if (session !== closing || pending) return;
     reopenAfterClose = reopen;
     if (!dirty()) { closeNow(); return; }
     promptText.textContent = `Save your changes to ${label()}?`;
@@ -456,7 +460,10 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
   function promptKeepFocus() { keep.focus(); }
 
   async function commit() {
-    if (!session || pending) return false;
+    const saving = session;
+    if (!saving || pending) return false;
+    await queued;
+    if (session !== saving || pending) return false;
     if (!dirty()) {
       closeNow();
       return true;
@@ -551,12 +558,20 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     baselineMembers = clone(members);
     heading.textContent = session.groupId ? "Edit saved rows" : "Edit saved row";
     prompt.hidden = true;
-    status.textContent = "Changes are staged until Save.";
-    render();
+    status.textContent = "Opening saved rows…";
+    rowsRoot.replaceChildren();
+    add.hidden = true;
+    save.disabled = true;
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
-    queueMicrotask(() => rowsRoot.querySelector("[data-narration-editor]")?.focus());
-    void refreshProjection().then(() => { if (session) render(); });
+    const opened = session;
+    void refreshProjection().then(() => {
+      if (session !== opened) return;
+      if (status.textContent === "Opening saved rows…") status.textContent = "Changes are staged until Save.";
+      render();
+      save.disabled = false;
+      rowsRoot.querySelector("[data-narration-editor]")?.focus();
+    });
     return true;
   }
 

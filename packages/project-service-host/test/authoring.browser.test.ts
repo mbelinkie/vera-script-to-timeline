@@ -1690,15 +1690,17 @@ describe("browser authoring over the local project service", () => {
     });
     try {
       const projectId = await createProject(page, origin, "Saved range playback browser proof");
+      const preview = page.locator("[data-footage-preview]");
+      const iframe = preview.locator("[data-footage-player-mount] iframe");
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
       await expect.poll(() => page.locator(".footage-item--clip").count()).toBe(3);
       await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
       expect(externalRequests).toHaveLength(0);
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
-      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await expect.poll(() => iframe.count()).toBe(0);
+      await expect.poll(() => preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => iframe.count()).toBe(1);
       const url = new URL(externalRequests[0]!.url);
       expect(url.pathname).toBe("/embed/p0W_cxbbTQA");
       expect(Object.fromEntries(url.searchParams)).toEqual({
@@ -1707,16 +1709,16 @@ describe("browser authoring over the local project service", () => {
       expect(externalRequests[0]!.referer).toBe(`${origin}/`);
       expect(url.href).not.toContain(loggedClip.id);
       expect(url.href).not.toContain(loggedClip.selection.text);
-      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("sandbox"))
+      expect(await iframe.getAttribute("sandbox"))
         .toBe("allow-scripts allow-same-origin allow-presentation");
-      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("referrerpolicy"))
+      expect(await iframe.getAttribute("referrerpolicy"))
         .toBe("strict-origin-when-cross-origin");
-      const playerDocument = page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
+      const playerDocument = preview.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
       const commands = () => playerDocument.evaluate(() =>
         (window as unknown as { commands: Array<{ func: string; args: unknown[] }> }).commands);
       const rangeLoads = async () => (await commands()).filter((entry) => entry.func === "loadVideoById");
       const loadRange = { func: "loadVideoById", args: [{ videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 }] };
-      const status = page.locator("[data-footage-player-status]");
+      const status = preview.locator("[data-footage-player-status]");
       const emitState = (state: number) => playerDocument.evaluate((_, value) =>
         (window as unknown as { emitState: (playerState: number) => void }).emitState(value), state);
       await expect.poll(() => playerDocument.evaluate(() =>
@@ -1728,12 +1730,12 @@ describe("browser authoring over the local project service", () => {
       await emitState(2);
       await expect.poll(() => status.textContent()).toBe("Paused.");
       await emitState(1);
-      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      await preview.getByRole("button", { name: "Pause", exact: true }).click();
       await expect.poll(async () => (await commands()).some((entry) => entry.func === "pauseVideo")).toBe(true);
       await playerDocument.evaluate(() => {
         (window as unknown as { holdNextPlay: boolean }).holdNextPlay = true;
       });
-      await page.getByRole("button", { name: "Replay from start" }).click();
+      await preview.getByRole("button", { name: "Replay from start" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange]);
       // A late ended event from the previous run must not finish a replay.
       expect(await status.textContent()).toBe("Starting saved range…");
@@ -1741,7 +1743,7 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(() => status.textContent()).toBe("Playing saved range…");
       await emitState(0);
       await expect.poll(() => status.textContent()).toBe("Saved range finished.");
-      await page.getByRole("button", { name: "Replay saved range" }).click();
+      await preview.getByRole("button", { name: "Replay saved range" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange, loadRange]);
       await playerDocument.evaluate(() =>
         (window as unknown as { emitAutoplayBlocked: () => void }).emitAutoplayBlocked());
@@ -1752,29 +1754,29 @@ describe("browser authoring over the local project service", () => {
 
       await page.evaluate(() => {
         (window as unknown as { oldFrame: HTMLIFrameElement | undefined }).oldFrame =
-          document.querySelector<HTMLIFrameElement>('[data-footage-player-mount] iframe') ?? undefined;
+          document.querySelector<HTMLIFrameElement>('[data-footage-preview] [data-footage-player-mount] iframe') ?? undefined;
       });
       await page.getByRole("button", { name: "Preview footage: Second public playback" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
-      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
+      await expect.poll(() => iframe.count()).toBe(0);
+      await expect.poll(() => preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
       await expect.poll(() => page.locator("[data-footage-placement]").isHidden()).toBe(true);
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => iframe.count()).toBe(1);
       await page.evaluate(() => {
         (window as unknown as { oldFrame?: HTMLIFrameElement }).oldFrame?.dispatchEvent(new Event("error"));
       });
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await expect.poll(() => iframe.count()).toBe(1);
       expect(new URL(externalRequests[1]!.url).pathname).toBe("/embed/M7lc1UVf-VE");
-      await page.getByRole("button", { name: "Close preview" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await preview.getByRole("button", { name: "Close preview" }).click();
+      await expect.poll(() => iframe.count()).toBe(0);
       await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
-      await expect.poll(() => page.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
-      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
+      await expect.poll(() => preview.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
+      await expect.poll(() => preview.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
       expect(externalRequests).toHaveLength(2);
       await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
       await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Close Library" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => iframe.count()).toBe(0);
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
     } finally { await page.close(); }
   }, 90_000);
@@ -1935,12 +1937,13 @@ describe("browser authoring over the local project service", () => {
       </script>` }));
     try {
       const projectId = await createProject(page, origin, "Restricted footage browser proof");
+      const preview = page.locator("[data-footage-preview]");
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
       await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => preview.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
+      await expect.poll(() => preview.locator("[data-footage-player-mount] iframe").count()).toBe(0);
       await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Close Library" }).click();
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
@@ -5416,13 +5419,48 @@ describe("browser authoring over the local project service", () => {
         const group = stash.locator(`[data-stash-group-id="${groupId}"]`);
         await group.waitFor({ state: "visible" });
         const edit = group.getByRole("button", { name: /^Edit group/u }).first();
-        await edit.click();
+        let releaseProjection!: () => void;
+        const projectionGate = new Promise<void>((resolve) => { releaseProjection = resolve; });
+        let noteProjectionRequested!: () => void;
+        const projectionRequested = new Promise<void>((resolve) => { noteProjectionRequested = resolve; });
+        await page.route("**/authoring/projection", async (route) => {
+          if (route.request().postData()?.includes('"title":"Saved rows"')) {
+            noteProjectionRequested();
+            await projectionGate;
+          }
+          await route.continue();
+        });
         const dialog = page.locator(".stash-row-editor");
         const firstEditor = dialog.locator(`[data-row-id="${first}"] [data-narration-editor]`);
-        await selectText(firstEditor, "Group opening".length, "Group opening".length);
-        await page.keyboard.insertText("!");
-        await dialog.getByRole("button", { name: "Close saved row editor" }).click();
-        await dialog.getByRole("button", { name: "Keep editing" }).click();
+        try {
+          await edit.click();
+          await projectionRequested;
+          expect(await firstEditor.count()).toBe(0);
+        } finally {
+          releaseProjection();
+        }
+
+        let releaseEdit!: () => void;
+        const editGate = new Promise<void>((resolve) => { releaseEdit = resolve; });
+        let noteEditRequested!: () => void;
+        const editRequested = new Promise<void>((resolve) => { noteEditRequested = resolve; });
+        await page.route("**/authoring/command", async (route) => {
+          noteEditRequested();
+          await editGate;
+          await route.continue();
+        }, { times: 1 });
+        const keepEditing = dialog.getByRole("button", { name: "Keep editing" });
+        try {
+          await selectText(firstEditor, "Group opening".length, "Group opening".length);
+          await page.keyboard.insertText("!");
+          await editRequested;
+          await dialog.getByRole("button", { name: "Close saved row editor" }).click();
+          expect(await dialog.isVisible()).toBe(true);
+          expect(await keepEditing.isVisible()).toBe(false);
+        } finally {
+          releaseEdit();
+        }
+        await keepEditing.click();
         expect(await saved()).toEqual(baseline);
         await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
         expect(await saved()).toEqual(baseline);

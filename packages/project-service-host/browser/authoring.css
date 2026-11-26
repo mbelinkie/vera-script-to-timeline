@@ -490,6 +490,8 @@ input {
   color: #252a30;
 }
 
+.visual-card:has(:is(.visual-card__menu, .visual-card__types):not([hidden])) { z-index: 11; }
+
 .visual-card[data-visual-drag] { cursor: grab; }
 .visual-card[data-visual-drag]:active { cursor: grabbing; }
 .visual-card--dragging { opacity: 0.55; }
