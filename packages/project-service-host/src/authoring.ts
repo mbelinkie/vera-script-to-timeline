@@ -521,7 +521,7 @@ export function createAuthoringHandler(
     if (path === "/account" && request.method === "GET" && !trustedAccountBrowser) {
       return Response.json({ mode: "local" }, { status: 404 });
     }
-    const accountRoute = /^\/projects\/[0-9a-f-]{36}\/(?:access|members(?:\/[0-9a-f-]{36})?)$/iu.test(path);
+    const accountRoute = /^\/projects\/[0-9a-f-]{36}\/(?:access|write-session|members(?:\/[0-9a-f-]{36})?)$/iu.test(path);
 
     const route = PROJECT.exec(path);
     const visualHoldDefault = request.method === "GET" ? VISUAL_HOLD_DEFAULT.exec(path) : null;
@@ -548,7 +548,7 @@ export function createAuthoringHandler(
     const isQuoteInsert = path === "/research-quote-insert" && request.method === "POST";
     const isQuoteBoxEdit = path === "/research-quote-box-edit" && request.method === "POST";
     const isQuoteDisplayDefault = path === "/research-quote-display-default" && request.method === "POST";
-    const allowed = accountRoute ? ["GET", "PATCH"].includes(request.method) : path === "/projects" ? request.method === "POST" :
+    const allowed = accountRoute ? ["GET", "PATCH", "POST"].includes(request.method) : path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       visualHoldDefault || (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);

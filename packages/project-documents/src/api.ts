@@ -137,6 +137,13 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const writeSession = /^\/v1\/projects\/([^/]+)\/write-session$/u.exec(path);
+      if (writeSession) {
+        if (request.method !== "POST") return response(404, { error: "not_found" });
+        queryFields(url, []);
+        fields(await jsonBody(request), [], []);
+        return response(200, { writeSessionId: await deps.authorization.openWriteSession(requireUuid(writeSession[1]), principal) });
+      }
       const access = /^\/v1\/projects\/([^/]+)\/access$/u.exec(path);
       if (access) {
         if (request.method !== "GET") return response(404, { error: "not_found" });

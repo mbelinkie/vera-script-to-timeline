@@ -63,6 +63,28 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
     await visible(editor, '[data-narration-editor]');
     expect(await editor.locator("#script-rows").innerText()).not.toContain("REFUSED SYNTHETIC TEXT");
     expect(JSON.stringify((await h.documents.getDocument(h.projectId, h.actors.owner!)).document)).not.toContain("REFUSED SYNTHETIC TEXT");
+    // Hide both role changes from the polling UI and hold an actual document PUT.
+    let releasePoll!: () => void;
+    const pollGate = new Promise<void>((resolve) => { releasePoll = resolve; });
+    await editor.route("**/access", async (route) => { await pollGate; await route.continue(); });
+    let releasePut!: () => void, putArrived!: () => void;
+    const putGate = new Promise<void>((resolve) => { releasePut = resolve; });
+    const putting = new Promise<void>((resolve) => { putArrived = resolve; });
+    await editor.route("**/document", async (route) => {
+      if (route.request().method() === "PUT") { putArrived(); await putGate; }
+      await route.continue();
+    });
+    const pendingEditor = editor.locator('[data-narration-editor]').first();
+    await pendingEditor.fill((await pendingEditor.innerText()) + " OLD LEASE TEXT");
+    await putting;
+    await change("viewer"); await change("editor");
+    const refused = editor.waitForResponse((response) => response.request().method() === "PUT" && response.status() === 403);
+    releasePut(); await refused; releasePoll();
+    await visible(editor, "#account-notice");
+    expect(JSON.stringify((await h.documents.getDocument(h.projectId, h.actors.owner!)).document)).not.toContain("OLD LEASE TEXT");
+    await editor.getByRole("button", { name: "Discard unsaved edits" }).click();
+    await editor.locator("#account-notice").waitFor({ state: "hidden" });
+    expect(await editor.locator("#script-rows").innerText()).not.toContain("OLD LEASE TEXT");
     await change(null);
     await visible(editor, "#account-access-ended");
     expect(await editor.locator("#authoring-view").isVisible()).toBe(false);

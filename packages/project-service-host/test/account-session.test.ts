@@ -4,7 +4,7 @@ import { CollaborationClient, connectCollaborationSocket } from "@vera/project-c
 import { accountFixture } from "./account-fixture.js";
 
 it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and promptly revokes live sockets", async () => {
-  const h = await accountFixture();
+  const h = await accountFixture(); 
   const client = new CollaborationClient();
   let socket: Awaited<ReturnType<typeof connectCollaborationSocket>> | undefined;
   try {
@@ -22,21 +22,32 @@ it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and p
     expect((await h.request(route, "owner", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
     expect((await h.request("/authoring/session", "owner", { method: "POST" })).status).toBe(404);
     expect((await fetch(h.origin + `/v1/projects/${h.projectId}`, { headers: { cookie: h.cookies.owner! } })).status).toBe(401);
+    const lease = await h.request(route + "/write-session", "editor", { method: "POST",
+      headers: { "content-type": "application/json" }, body: "{}" });
+    const { writeSessionId } = await lease.json() as { writeSessionId: string };
     const before = await h.documents.getDocument(h.projectId, h.actors.owner!);
     expect((await h.request(route + "/document", "viewer", { method: "PUT",
       headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedRevision: before.revision,
         clientMutationId: randomUUID(), document: before.document }) })).status).toBe(403);
+    // Both role changes can happen between browser polls; the old lease must stay invalid.
+    await h.auth.changeMembership(h.projectId, h.actors.owner!, h.actors.editor!.principalId, "viewer");
+    await h.auth.changeMembership(h.projectId, h.actors.owner!, h.actors.editor!.principalId, "editor");
+    expect((await h.request(route + "/document", "editor", { method: "PUT", headers: {
+      "content-type": "application/json", "x-vera-write-session": writeSessionId },
+      body: JSON.stringify({ expectedRevision: before.revision, clientMutationId: randomUUID(),
+        document: before.document, writeSessionId }) })).status).toBe(403);
+    
     // An account cookie cannot authenticate a raw WebSocket upgrade.
     await expect(connectCollaborationSocket(client, h.origin.replace("http:", "ws:") +
       `/v1/projects/${h.projectId}/collaboration`, { cookie: h.cookies.owner!, origin: "https://evil.test" }))
       .rejects.toThrow();
     socket = await connectCollaborationSocket(client, h.origin.replace("http:", "ws:") +
       `/v1/projects/${h.projectId}/collaboration`, { authorization: h.bearers.editor! });
-    await expect.poll(() => client.canEdit).toBe(true);
+    await expect.poll(() => client.canEdit).toBe(true); 
     const member = route + `/members/${h.actors.editor!.principalId}`;
     expect((await h.request(member, "owner", { method: "PATCH", headers: { "content-type": "application/json" },
       body: JSON.stringify({ role: "viewer" }) })).status).toBe(200);
-    await expect.poll(() => client.canEdit).toBe(false);
+    await expect.poll(() => client.roster.find((entry) => entry.actorId === h.actors.editor!.principalId)?.canEdit).toBe(false);
     expect((await h.documents.getDocument(h.projectId, h.actors.owner!)).revision).toBe(before.revision);
     expect((await h.request(member, "owner", { method: "PATCH", headers: { "content-type": "application/json" },
       body: JSON.stringify({ role: null }) })).status).toBe(200);
@@ -44,7 +55,7 @@ it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and p
     expect((await h.request(route, "editor")).status).toBe(403);
     expect((await h.request("/authoring/account/sign-out", "owner", { method: "POST" })).status).toBe(200);
     expect((await h.request(route, "owner")).status).toBe(401);
-  } finally { socket?.close(); client.destroy(); await h.stop(); }
+  } finally { socket?.close(); if (socket) await socket.closed; client.destroy(); await h.stop(); }
 }, 90_000);
 
 it("fails closed when account mode has no provider, without falling back to QA", async () => {

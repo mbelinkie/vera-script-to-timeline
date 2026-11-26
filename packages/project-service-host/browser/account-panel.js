@@ -4,7 +4,7 @@ const roleName = (role) => role[0].toUpperCase() + role.slice(1);
 
 /** No identity credential is stored here. Capabilities are display hints only. */
 export function mountAccountPanel({ root, request, onAccess, onSessionEnded, beforeSignOut }) {
-  let mode = "local", csrfToken = "", actorId, projectId, role, refreshPending = false;
+  let mode = "local", csrfToken = "", actorId, projectId, role, membershipVersion, refreshPending = false;
   root.className = "account-panel";
   const status = node("span", "", { role: "status" });
   const member = node("span", "");
@@ -131,7 +131,9 @@ export function mountAccountPanel({ root, request, onAccess, onSessionEnded, bef
       status.textContent = `${roleName(role)}${role === "viewer" ? " · read only" : ""}`;
       manage.hidden = role !== "producer";
       if (manage.hidden && dialog.open) dialog.close();
-      onAccess({ role, actorId });
+      const changed = membershipVersion !== undefined && membershipVersion !== access.membershipVersion;
+      membershipVersion = access.membershipVersion;
+      onAccess({ role, actorId, changed });
     } catch (error) {
       manage.hidden = true;
       if (dialog.open) dialog.close();

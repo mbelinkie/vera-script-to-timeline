@@ -35,7 +35,7 @@ export function createAccountAuthoringHandler(
 ) {
   const handlers = new Map<string, { authorization: string; handler: ReturnType<typeof createAuthoringHandler> }>();
   const assets = createAuthoringHandler(origin, "unused-account-assets", projects);
-  return async (request: Request): Promise<Response | undefined> => {
+  const handle = async (request: Request): Promise<Response | undefined> => {
     const url = new URL(request.url);
     const account = url.pathname === "/authoring/account";
     const signIn = url.pathname === "/authoring/account/sign-in";
@@ -71,6 +71,16 @@ export function createAccountAuthoringHandler(
         handlers.delete(session.sessionId);
         return await mode.sessions.signOut(request);
       }
+      if (url.pathname === "/authoring/session") return reply(404, { error: "not_found" });
+      if (request.method !== "GET" && url.pathname !== "/authoring/projects" &&
+          !/\/(?:members(?:\/[^/]+)?|write-session)$/u.test(url.pathname) &&
+          !/\/(?:projection|visual-preview|prompter-export)$/u.test(url.pathname)) {
+        const body = await request.clone().json().catch(() => null) as { document?: { projectId?: string }; timelineProjectId?: string } | null;
+        const projectId = /\/projects\/([^/]+)/u.exec(url.pathname)?.[1] ?? body?.document?.projectId ?? body?.timelineProjectId;
+        const writeSessionId = request.headers.get("x-vera-write-session");
+        if (!projectId || !writeSessionId) return reply(403, { error: "write_session_required" });
+        await auth.authorizeRequest(projectId, principal, "edit_document", writeSessionId);
+      }
       let cached = handlers.get(session.sessionId);
       if (!cached || cached.authorization !== session.authorization) {
         // Bound transient per-session editor state; an eviction only loses Undo/split proof.
@@ -84,5 +94,13 @@ export function createAccountAuthoringHandler(
       if (error instanceof ProjectAuthError) return reply(error.status, { error: error.code });
       return reply(503, { error: "account_provider_unavailable" });
     }
+  };
+  return async (request: Request): Promise<Response | undefined> => {
+    const response = await handle(request);
+    if (response && new URL(request.url).pathname.startsWith("/authoring/")) {
+      response.headers.set("Cache-Control", "no-store");
+      response.headers.set("Referrer-Policy", "no-referrer");
+    }
+    return response;
   };
 }

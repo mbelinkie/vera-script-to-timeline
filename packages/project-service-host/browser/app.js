@@ -91,6 +91,7 @@ let stashPanel;
 let stashScriptDrag = null;
 
 let accountRole = null;
+let accountWriteSession = "";
 let accountHold = false;
 let accountEnded = false;
 let accountGeneration = 0;
@@ -100,20 +101,20 @@ const accountPanel = mountAccountPanel({
   root: element("account-panel"), request: api,
   onAccess: updateAccountAccess,
   onSessionEnded: () => updateAccountAccess({ denied: true, role: null }),
-  beforeSignOut: () => !documentDirty && !pendingDocument && !pendingName && !commandsPending && !editRefused && !accountHold ||
+  beforeSignOut: () => !hasPendingDraft() ||
     window.confirm("Sign out and leave unsaved changes? They will not be sent under another account."),
 });
 function updateAccountAccess(access) {
   const previous = accountRole;
   accountRole = access.role;
-  if (access.denied) {
+  if (access.denied && !accountEnded) {
     accountEnded = true; accountHold = true; accountGeneration += 1;
     clearTimeout(saveTimer); clearTimeout(renderTimer);
     home.hidden = true; authoring.hidden = true;
     element("account-notice").hidden = true;
     element("account-access-ended").hidden = false;
     element("account-access-ended").querySelector("h1").focus();
-  } else if (access.unavailable || accountRole === "viewer" && previous && previous !== "viewer") {
+  } else if (access.unavailable || access.changed || accountRole === "viewer" && previous && previous !== "viewer") {
     if (!accountHold) accountGeneration += 1;
     accountHold = true;
     clearTimeout(saveTimer); clearTimeout(renderTimer);
@@ -131,7 +132,7 @@ function updateAccountAccess(access) {
   projectTitle.readOnly = accountRole !== "producer" || accountHold;
   for (const id of ["undo", "open-sorting", "open-stash", "open-footage"]) element(id).hidden = !canEditAccount();
   element("undo-history").closest("details").hidden = !canEditAccount();
-  retrySave.hidden = !canEditAccount();
+  if (!canEditAccount()) retrySave.hidden = true;
 }
 element("account-discard").addEventListener("click", async () => {
   const button = element("account-discard");
@@ -154,11 +155,11 @@ element("account-discard").addEventListener("click", async () => {
 async function accountFetch(path, options = {}) {
   if (accountPanel.accountMode() && options.method && options.method !== "GET" &&
       !path.endsWith("/projection") && !path.endsWith("/prompter-export") &&
-      !path.endsWith("/visual-preview") && path !== "/authoring/projects" && !canEditAccount()) {
+      !path.endsWith("/visual-preview") && !path.endsWith("/write-session") && path !== "/authoring/projects" && !canEditAccount()) {
     throw new ApiError(403, { error: "action_not_allowed" });
   }
   const generation = accountGeneration;
-  const response = await fetch(path, { ...options, headers: { ...options.headers, ...accountPanel.headers() } });
+  const response = await fetch(path, { ...options, headers: { ...options.headers, ...accountPanel.headers(), "X-VERA-Write-Session": accountWriteSession } });
   if (accountPanel.accountMode() && !path.endsWith("/access") && [401, 403].includes(response.status)) {
     if (options.method && options.method !== "GET") updateAccountAccess({ role: accountRole, unavailable: true });
     void accountPanel.refresh();
@@ -178,7 +179,9 @@ async function api(path, method = "GET", data) {
   const headers = { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
   if (data) headers["Content-Type"] = "application/json";
   const response = await accountFetch(`/authoring/projects${path}`, {
-    method, headers, body: data && JSON.stringify(data),
+    method, headers, body: data && JSON.stringify(accountPanel.accountMode() &&
+      (method === "PUT" && path.endsWith("/document") || method === "POST" && path.endsWith("/extras-operations"))
+      ? { ...data, writeSessionId: accountWriteSession } : data),
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => null));
@@ -373,6 +376,10 @@ async function showScript(projectId) {
   activeProjectId = projectId;
   await accountPanel.setProject(projectId);
   if (accountEnded || accountHold) throw new ApiError(403, { error: "access_changed" });
+  accountWriteSession = "";
+  if (accountPanel.accountMode() && canEditAccount()) {
+    ({ writeSessionId: accountWriteSession } = await api(`/${projectId}/write-session`, "POST", {}));
+  }
   sortingTrial = null;
   setSortingMode(false);
   clearPreparedPrompter();
@@ -1913,6 +1920,7 @@ async function updateSortingDocument(trial, operations, result) {
 }
 
 function queueSortingCommand(command, label, options) {
+  if (!canEditAccount()) return Promise.resolve(false);
   const trial = sortingTrial;
   if (editRefused || trial.preview || trial.busy || trial.acceptance || options.structural && composingRows.size) return Promise.resolve(false);
   trial.pending++;
@@ -2014,6 +2022,7 @@ export function discardSortingTrial() {
 }
 
 export async function acceptSortingTrial(outcome = "all") {
+  if (!canEditAccount()) return false;
   const trial = sortingTrial;
   if (!trial || trial.busy || trial.pending || !sortingBaselineCurrent(trial)) return false;
   trial.busy = true;
@@ -2306,7 +2315,7 @@ function lockExtrasEditor(locked) {
   for (const id of ["script-rows", "stash-panel", "footage-panel", "research-still-panel"]) {
     element(id).inert = locked;
   }
-  projectTitle.readOnly = locked;
+  projectTitle.readOnly = locked || accountPanel.accountMode() && (accountRole !== "producer" || !canEditAccount());
   for (const id of ["open-footage", "open-stash"]) element(id).disabled = locked;
   updateUndo();
 }
@@ -2316,6 +2325,7 @@ element("project-home").addEventListener("click", (event) => {
 });
 
 export function queueExtrasOperation(resolve, label) {
+  if (!canEditAccount()) return Promise.resolve(false);
   if (sortingTrial) return queueSortingCommand(resolve, label, { structural: true });
   return startExtrasWrite(resolve, label, false);
 }
@@ -2969,11 +2979,14 @@ retrySave.addEventListener("click", () => {
   else if (nameSaveFailure) void saveName();
 });
 
+function hasPendingDraft() {
+  return Boolean(sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy ||
+    sortingTrial?.acceptance || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty ||
+    documentSaving || commandsPending || editRefused || accountHold || composingRows.size ||
+    project && projectTitle.value.trim() !== project.title);
+}
 function protectDraft(event) {
-  if (sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
-    event.preventDefault();
-    event.returnValue = true;
-  }
+  if (hasPendingDraft()) { event.preventDefault(); event.returnValue = ""; }
 }
 
 window.addEventListener("beforeunload", protectDraft);
@@ -3008,7 +3021,7 @@ const stashActions = createStashActions((command, label, options) => {
 }, editorDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused),
+  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused || !canEditAccount()),
   applyCommand: applyBrowserCommand, fetchProjection, pickClip: openStashClipPicker,
   loadClip: async ({ researchProjectId, clipId, clipVersion }) => {
     const { clip } = await researchCatalogGet(researchProjectId, clipId);
