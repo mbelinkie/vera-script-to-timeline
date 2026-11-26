@@ -6,7 +6,7 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/u;
 const MAX_VIDEO_MS = 24 * 60 * 60 * 1000;
 
 /** Playback responses contain exactly one requested half-open frame interval. */
-export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
+export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus, onPlaying) {
   const doc = mount.ownerDocument;
   let operation, objectUrl, video, frameCallback;
 
@@ -24,6 +24,7 @@ export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
     mount.replaceChildren();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = null;
+    onPlaying(false);
   }
 
   async function load(action, bounds, rate, frame) {
@@ -51,7 +52,6 @@ export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
       const element = doc.createElement("video");
       video = element;
       element.playsInline = true;
-      element.controls = true;
       element.setAttribute("aria-label", action === "saved" ? "Saved range video" : "Logged cut video");
       element.addEventListener("error", () => {
         if (operation !== started) return;
@@ -60,8 +60,13 @@ export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
         onStatus("The verified clip could not be decoded.");
       });
       element.addEventListener("ended", () => {
-        if (operation === started) onStatus("Playback finished.");
+        if (operation === started) {
+          onPlaying(false);
+          onStatus("Playback finished.");
+        }
       });
+      element.addEventListener("play", () => { if (operation === started) { onPlaying(true); onStatus(""); } });
+      element.addEventListener("pause", () => { if (operation === started) onPlaying(false); });
       element.addEventListener("seeking", () => {
         if (operation === started) onFrame(null);
       });
@@ -75,7 +80,7 @@ export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
       mount.replaceChildren(element);
       if (element.requestVideoFrameCallback) frameCallback = element.requestVideoFrameCallback(presented);
       await element.play().catch(() => {
-        if (operation === started) onStatus("Press Play in the video to start playback.");
+        if (operation === started) onStatus("Press Play again to start playback.");
       });
       if (operation === started && !element.paused) onStatus("");
     } catch (error) {
@@ -87,6 +92,7 @@ export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
 
   function toggle() {
     if (!video) return false;
+    if (video.ended) return false;
     if (video.paused) void video.play().catch(() => onStatus("Playback could not start."));
     else video.pause();
     return true;

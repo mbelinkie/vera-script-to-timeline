@@ -200,7 +200,7 @@ def test_narrated_occurrence_uses_actual_slot_and_independent_ranges(
             time_base=Fraction(1001, 24000),
         ),
     )
-    clip = {
+    clip: Json = {
         "id": "clip",
         "researchClip": snapshot,
         "payload": {"payloadId": "one"},
@@ -263,10 +263,10 @@ def test_cached_numbered_research_cut_reaches_delivery(
 ) -> None:
     """Run real Prep Media, compile and verify both package representations."""
     import subprocess
+    import wave
     from functools import partial
 
-    import opentimelineio as otio
-
+    import opentimelineio as otio  # type: ignore[import-untyped]
     from vera_timeline_agent import prep_media_inputs
     from vera_timeline_agent.build_compiler_bridge import invoke_bridge
     from vera_timeline_agent.media_preparation import _prepare_media
@@ -310,7 +310,12 @@ def test_cached_numbered_research_cut_reaches_delivery(
     second = json.loads(json.dumps(first))
     second.update(id="00000000-0000-4000-8000-000000000031", orderKey="b0")
     second["payload"]["payloadId"] = "00000000-0000-4000-8000-000000000032"
-    document["activeDraft"]["blocks"] = [first, second]
+    flat = json.loads(fixture_path.with_name("flat.input.golden.json").read_bytes())
+    narrated = flat["document"]["activeDraft"]["blocks"][0]
+    narrated["orderKey"] = second["orderKey"]
+    slot = narrated["primaryVisualSequence"]["slots"][0]
+    anchor = dict(slot["boundaryBefore"])
+    document["activeDraft"]["blocks"] = [first, narrated]
     dependencies["timeline"]["frameRate"] = {"numerator": 24000, "denominator": 1001}
     dependencies["occurrenceResolutions"] = []
     dependencies["preparedMedia"] = []
@@ -394,11 +399,32 @@ def test_cached_numbered_research_cut_reaches_delivery(
             "startFrame": start,
             "durationFrames": end - start,
         }
+    slot["payload"] = {
+        **second["payload"],
+        "researchClip": snapshot,
+        "frameBinding": second["frameBinding"],
+        "selectedSourceRange": second["visualOnlyTiming"]["selectedSourceRange"],
+        "sourceUsage": {"sourceInFrame": 5},
+    }
+    sound = media_root / "narration.wav"
+    with wave.open(str(sound), "wb") as wav:
+        wav.setparams((1, 3, 48000, 4004, "NONE", "not compressed"))
+        wav.writeframes(bytes(4004 * 3))
+    timing = flat["dependencies"]["narrationTimingMaps"][0]
+    timing["tokens"][0]["audibleEnd"] = {"numerator": 1, "denominator": 24}
+    digest = "sha256:" + hashlib.sha256(sound.read_bytes()).hexdigest()
+    timing["audioHash"] = timing["audio"]["audioHash"] = digest
+    timing["audio"]["durationSamples"] = 4004
+    dependencies["narrationTimingMaps"] = [timing]
+    dependencies["document"]["textHash"] = flat["dependencies"]["document"]["textHash"]
     script = tmp_path / "script.json"
     script.write_text(json.dumps(document))
     inputs = tmp_path / "dependencies"
     inputs.mkdir()
     (inputs / "compiler-dependencies.json").write_text(json.dumps(dependencies))
+    (inputs / "media-paths.json").write_text(
+        json.dumps({f"source:{timing['narrationAssetId']}": str(sound)})
+    )
 
     # Use the same generated-media qualification mode as the installed-tool
     # tests. The public Prep Media path still requires a qualified toolset.
@@ -425,6 +451,12 @@ def test_cached_numbered_research_cut_reaches_delivery(
     )
 
     frozen = prepared / "script.json"
+    assert (
+        json.loads(frozen.read_bytes())["activeDraft"]["blocks"][1][
+            "primaryVisualSequence"
+        ]["slots"][0]["boundaryBefore"]
+        == anchor
+    )
     settings = prepared / "compiler-dependencies.json"
     result = invoke_bridge("compile", frozen, settings).result
     manifest = tmp_path / "manifest.json"
@@ -453,15 +485,18 @@ def test_cached_numbered_research_cut_reaches_delivery(
     )
     build_root = built.project_root / "Builds" / built.build_id
     timeline = otio.adapters.read_from_file(str(build_root / "timeline.otio"))
-    clips = [clip for clip in timeline.find_clips()]
+    clips = [clip for track in timeline.video_tracks() for clip in track.find_clips()]
     assert [
         (clip.source_range.start_time.value, clip.source_range.duration.value)
         for clip in clips
     ] == [(2, 3), (5, 2)]
     view = json.loads((build_root / "delivery-view.json").read_bytes())
+    footage_events = [
+        event for event in view["events"] if event["kind"] == "primary_visual"
+    ]
     assert [
         (event["sourceRange"]["startFrame"], event["sourceRange"]["durationFrames"])
-        for event in view["events"]
+        for event in footage_events
     ] == [(2, 3), (5, 2)]
     prepared_ranges = [
         (
@@ -473,7 +508,7 @@ def test_cached_numbered_research_cut_reaches_delivery(
     assert prepared_ranges == [(2, 5), (5, 7)]
     sources = {source["id"]: source["path"] for source in view["sources"]}
     for clip, event, expected in zip(
-        clips, view["events"], ([2, 3, 4], [5, 6]), strict=True
+        clips, footage_events, ([2, 3, 4], [5, 6]), strict=True
     ):
         assert sources[event["sourceId"]] == clip.media_reference.target_url
         path = package / clip.media_reference.target_url

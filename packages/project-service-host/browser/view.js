@@ -264,6 +264,11 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     }
   }
   if (researchClip && options.footagePlacementId) {
+    const words = (researchClip.englishText || researchClip.loggedSelection?.text || "").trim().split(/\s+/u);
+    if (words[0]) {
+      const excerpt = words.slice(0, 24).join(" ") + (words.length > 24 ? "…" : "");
+      meta.append(makeElement(document, "span", "visual-card__source-transcript", excerpt));
+    }
     const binding = options.frameBinding ?? payload?.frameBinding;
     const range = options.selectedSourceRange ?? payload?.selectedSourceRange;
     const end = range?.startFrame + range?.durationFrames;

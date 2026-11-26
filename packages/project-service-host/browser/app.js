@@ -1184,8 +1184,8 @@ async function researchMediaRequest(basis, owner, action, { signal, frame } = {}
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(125_000)]) : AbortSignal.timeout(125_000),
   });
   if (!response.ok) {
-    const { error } = await response.json().catch(() => ({}));
-    throw new ResearchStillApiError(response.status, error);
+    const body = await response.json().catch(() => null);
+    throw new ResearchStillApiError(response.status, body);
   }
   const result = await (action === "describe" || action === "bind" ? response.json() : response.blob());
   if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Reopen this footage.");

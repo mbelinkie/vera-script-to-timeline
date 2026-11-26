@@ -880,7 +880,7 @@ function occurrenceFor(model, rowId, placementId) {
     same(payload.source, clip.payload.source) && same(payload.researchClip, clip.researchClip) &&
     same(payload.frameBinding, clip.frameBinding) && same(payload.selectedSourceRange, range) &&
     same(payload.sourceUsage, range ? { sourceInFrame: range.startFrame } : null);
-  if (mirror) return { snapshot: clip.researchClip, owner: clip, attachment: true,
+  if (mirror) return { snapshot: clip.researchClip, owner: clip,
     fixedNarration: slot.playoutPolicy === "match_structural_interval" };
   if ((slot || waiting) && payload?.kind === "visual") return {
     snapshot: payload.researchClip,
@@ -907,7 +907,7 @@ function boundInterval(owner) {
 }
 
 const mediaUnavailable = error => {
-  switch (error?.body) {
+  switch (error?.body?.error) {
     case "research_media_missing": return "Verified media is missing. Prepare media or restore the cut, then reopen this footage.";
     case "research_media_unconfigured": return "Verified media is unavailable for this project.";
     case "research_media_changed":
@@ -924,6 +924,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   const controls = root.querySelector("#occurrence-trim-controls");
   const inputIn = find("in");
   const inputOut = find("out");
+  const selectionRail = find("selection");
   const reset = find("reset");
   const bindButton = find("bind");
   const play = find("play");
@@ -933,20 +934,65 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   const next = find("next");
   const setIn = find("set-in");
   const setOut = find("set-out");
+  const clearOut = find("clear-out");
   const feedback = find("feedback");
   const rangeLabel = find("range");
   const status = find("player-status");
   let selected, model, occurrence, interval, basis, descriptor, lookup, lookupError, playhead, gesture;
   let frameRequest = null;
   let scrubbing = false;
+  let panelPosition = null;
+  let moving = null;
   let openTrim = false;
   let pending = false;
+  let playing = false;
 
   const owner = () => occurrence.selector ?? (occurrence.owner ? { clipRowId: occurrence.owner.id } : null);
   const player = mountVerifiedFootagePlayer(find("player-mount"),
     (action, options) => mediaRequest(basis, owner(), action, options),
     frame => { playhead = frame; renderTransport(); },
-    message => { status.textContent = message; });
+    message => { status.textContent = message; },
+    value => { playing = value; renderPlayLabel(); });
+
+  const win = root.ownerDocument.defaultView;
+  function cardFor(entry) {
+    return [...root.ownerDocument.querySelectorAll("[data-footage-placement]")].find(node =>
+      node.dataset.footagePlacement === entry.placementId &&
+      node.closest("[data-row-id]")?.dataset.rowId === entry.rowId);
+  }
+
+  function position() {
+    if (!selected || gesture || scrubbing) return;
+    const card = cardFor(selected)?.getBoundingClientRect();
+    if (!card) return;
+    const edge = 12;
+    const width = root.offsetWidth;
+    const stageBottom = root.ownerDocument.querySelector(".script-stage")?.getBoundingClientRect().bottom ?? win.innerHeight;
+    const viewportBottom = Math.min(stageBottom, win.innerHeight) - edge;
+    const left = card.left - width - edge;
+    const preferredLeft = panelPosition?.left ?? (left >= edge ? left : card.right + edge);
+    const editorTop = root.ownerDocument.querySelector(".app-bar")?.getBoundingClientRect().bottom ?? 0;
+    const top = Math.max(editorTop + edge, Math.min(panelPosition?.top ?? card.top, viewportBottom - root.offsetHeight));
+    const clampedLeft = Math.max(edge, Math.min(preferredLeft, win.innerWidth - width - edge));
+    root.style.left = `${clampedLeft}px`;
+    root.style.setProperty("--occurrence-top", `${top}px`);
+    root.style.setProperty("--occurrence-stage-space", `${viewportBottom - top}px`);
+    root.style.maxWidth = `${win.innerWidth - clampedLeft - edge}px`;
+  }
+  win.addEventListener("resize", position);
+  const heading = find("preview-title").parentElement;
+  heading.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || event.target.closest("button")) return;
+    const bounds = root.getBoundingClientRect();
+    moving = { x: event.clientX - bounds.x, y: event.clientY - bounds.y };
+    heading.setPointerCapture(event.pointerId);
+  });
+  heading.addEventListener("pointermove", event => {
+    if (!moving) return;
+    panelPosition = { left: event.clientX - moving.x, top: event.clientY - moving.y };
+    position();
+  });
+  heading.addEventListener("lostpointercapture", () => { moving = null; });
 
   function invalidateMedia() {
     lookup?.abort();
@@ -962,13 +1008,14 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     selected = null;
     gesture = null;
     pending = false;
+    moving = panelPosition = null;
     invalidateMedia();
+    root.style.removeProperty("width");
+    root.style.removeProperty("height");
+    root.style.removeProperty("max-width");
     root.hidden = true;
     if (!restoreFocus || !prior) return;
-    const card = [...root.ownerDocument.querySelectorAll("[data-footage-placement]")].find(node =>
-      node.dataset.footagePlacement === prior.placementId &&
-      node.closest("[data-row-id]")?.dataset.rowId === prior.rowId);
-    card?.querySelector("[data-inspect-footage]")?.focus();
+    cardFor(prior)?.querySelector("[data-inspect-footage]")?.focus();
   }
 
   const whole = () => interval?.start === interval?.min && interval?.end === interval?.max;
@@ -1001,32 +1048,45 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   function resetInputs() {
     if (!interval) return;
     inputIn.min = String(interval.min);
-    inputIn.max = String(interval.end - 1);
-    inputOut.min = String(interval.start + 1);
+    inputIn.max = String(interval.max);
+    inputOut.min = String(interval.min);
     inputOut.max = String(interval.max);
     inputIn.value = String(interval.start);
     inputOut.value = String(interval.end);
     inputIn.setAttribute("aria-valuetext", `Source frame ${interval.start}`);
     inputOut.setAttribute("aria-valuetext", `Source frame ${interval.end}, exclusive`);
+    drawSelection(interval.start, interval.end);
+  }
+
+  function drawSelection(start, end) {
+    const span = interval.max - interval.min;
+    selectionRail.style.setProperty("--selected-start", `${(start - interval.min) / span * 100}%`);
+    selectionRail.style.setProperty("--selected-end", `${(end - interval.min) / span * 100}%`);
   }
 
   function render() {
     const editable = ready();
     const currentOwner = owner();
     renderTransport();
-    play.textContent = openTrim ? "Play logged cut" : "Play saved range";
+    renderPlayLabel();
+    toggle.textContent = openTrim ? "Hide trim" : "Trim";
     find("preview-range").textContent = openTrim ? "Full logged cut" : "Saved occurrence";
     rangeLabel.textContent = interval ?
       `Frames ${interval.start}–${interval.end} (end exclusive) · Logged ${interval.min}–${interval.max}` :
       "This occurrence has no saved frame range.";
     controls.hidden = !openTrim || !interval;
     toggle.disabled = !interval;
-    bindButton.hidden = !currentOwner || occurrence.attachment || Boolean(interval) ||
-      !(descriptor || lookupError?.body === "research_media_missing");
+    bindButton.hidden = !currentOwner || Boolean(interval) ||
+      !(descriptor?.bindable || lookupError?.body?.bindable);
     bindButton.disabled = pending || !basis;
     inputIn.disabled = inputOut.disabled = !editable;
     reset.disabled = !editable || whole();
+    clearOut.disabled = !editable || interval?.end === interval?.max;
     find("anchor-note").hidden = !occurrence.fixedNarration;
+  }
+
+  function renderPlayLabel() {
+    play.textContent = playing ? "Pause" : openTrim ? "Play logged cut" : "Play saved range";
   }
 
   async function describe(current) {
@@ -1037,9 +1097,9 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
       const result = await mediaRequest(current, owner(), "describe", { signal: started.signal });
       if (lookup !== started) return;
       descriptor = result;
-      status.textContent = descriptor.bound ? "" : occurrence.attachment ?
-        "This attached occurrence needs an existing verified media binding." :
-        "Bind verified media to play or trim this occurrence.";
+      status.textContent = descriptor.bound ? "" : descriptor.bindable ?
+        "Bind verified media to play or trim this occurrence." :
+        "Verified media binding is unavailable for this placement.";
     } catch (error) {
       if (lookup !== started) return;
       lookupError = error;
@@ -1091,6 +1151,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     resetInputs();
     renderExcerpt();
     render();
+    position();
     (toggle.disabled ? find("preview-close") : toggle).focus();
   }
 
@@ -1110,6 +1171,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
         frameRequest = null;
         renderTransport();
       }
+      if (selected === target) position();
     }
   }
   play.addEventListener("click", () => {
@@ -1147,6 +1209,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     toggle.setAttribute("aria-expanded", String(openTrim));
     resetInputs();
     render();
+    position();
   });
 
   bindButton.addEventListener("click", async () => {
@@ -1173,14 +1236,16 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
       return;
     }
     const target = selected;
+    const focused = root.contains(root.ownerDocument.activeElement);
     pending = true;
     feedback.textContent = "Saving trim…";
     render();
+    if (focused && !root.contains(root.ownerDocument.activeElement)) toggle.focus();
     try {
       const ok = await commit(proof, { kind: "trim_research_clip", ...owner(), ...command });
       if (selected === target) feedback.textContent = ok ? "Trim updated." : "Trim not applied. Reopen or finish saving the script.";
     } finally {
-      if (selected === target) { pending = false; resetInputs(); update(); }
+      if (selected === target) { pending = false; resetInputs(); update(); position(); }
     }
   }
 
@@ -1201,7 +1266,10 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     });
     input.addEventListener("input", () => {
       if (!gesture) { resetInputs(); return; }
+      input.value = String(input === inputIn ? Math.min(Number(input.value), interval.end - 1) :
+        Math.max(Number(input.value), interval.start + 1));
       input.setAttribute("aria-valuetext", `Source frame ${input.value}${input === inputOut ? ", exclusive" : ""}`);
+      drawSelection(Number(inputIn.value), Number(inputOut.value));
       feedback.textContent = `Proposed frames ${inputIn.value}–${inputOut.value} (not yet saved)`;
     });
     const cancel = () => {
@@ -1222,6 +1290,9 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     });
   }
   reset.addEventListener("click", () => void apply({ edge: "reset" }, basis));
+  clearOut.addEventListener("click", () => void apply({
+    edge: "range", startFrame: interval.start, endFrame: interval.max,
+  }, basis));
   root.addEventListener("keydown", event => {
     if (event.key === "Escape") {
       event.preventDefault();

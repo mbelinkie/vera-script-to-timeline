@@ -1610,13 +1610,15 @@ describe("browser authoring over the local project service", () => {
         const root = head.document.activeDraft.blocks.find(item =>
           item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
         const narration = head.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
-        const slot = narration?.type === "narration" && narration.primaryVisualSequence?.slots.find(item =>
-          item.kind === "content" && item.payload.kind === "visual" && item.payload.researchClip?.clipId === loggedClip.id);
+        const candidate = narration?.type === "narration" ? narration.primaryVisualSequence?.slots.find(item =>
+          item.kind === "content" && item.payload.kind === "visual" && item.payload.researchClip?.clipId === loggedClip.id) : undefined;
+        const slot = candidate?.kind === "content" ? candidate : undefined;
         return {
           head,
           root: root?.type === "visual_only" ? root : undefined,
-          slot: slot && slot.kind === "content" && slot.payload.kind === "visual" ? slot.payload : undefined,
-          anchor: slot && slot.kind === "content" ? slot.boundaryBefore : undefined,
+          slot: slot?.payload.kind === "visual" ? slot.payload : undefined,
+          placementId: slot?.id,
+          anchor: slot?.boundaryBefore,
         };
       };
       const row = seeded.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
@@ -1662,7 +1664,9 @@ describe("browser authoring over the local project service", () => {
       } finally {
         researchVisible = true;
       }
-      expect((await status("bind", slotId, latest)).status).toBe(200);
+      await page.locator(`[data-footage-placement="${initial.placementId}"] [data-inspect-footage]`).click();
+      await panel.getByRole("button", { name: "Bind verified footage" }).click();
+      await expect.poll(async () => (await loadOwners()).slot?.frameBinding?.loggedEndFrame).toBe(8);
       await page.reload();
       await page.locator(`[data-row-id="${rootId}"]`).waitFor();
       const bound = await loadOwners();
@@ -1676,7 +1680,11 @@ describe("browser authoring over the local project service", () => {
       await rootCard.click();
       const play = panel.locator("[data-occurrence-play]");
       const toggle = panel.locator("[data-occurrence-toggle]");
-      await expect.poll(() => play.isEnabled()).toBe(true);
+      const waitForPlayback = () => expect.poll(async () => ({
+        ready: await play.isEnabled(),
+        status: await panel.locator("[data-occurrence-player-status]").textContent(),
+      }), { timeout: 12_000 }).toEqual({ ready: true, status: "" });
+      await waitForPlayback();
       expect(await panel.locator("video").count()).toBe(0);
       await toggle.click();
       expect(await panel.locator("[data-occurrence-timing]").textContent()).toContain("full transcript");
@@ -1708,7 +1716,7 @@ describe("browser authoring over the local project service", () => {
       await toggle.press("i");
       await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
         .toEqual({ startFrame: 2, durationFrames: 6 });
-      await expect.poll(() => play.isEnabled()).toBe(true);
+      await waitForPlayback();
       await scrubTo(5);
       await assertFrame(5);
       await panel.getByRole("button", { name: "Set out (O)" }).click();
@@ -1717,13 +1725,20 @@ describe("browser authoring over the local project service", () => {
       await page.getByRole("button", { name: "Undo Trim footage" }).click();
       await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
         .toEqual({ startFrame: 2, durationFrames: 6 });
-      await expect.poll(() => play.isEnabled()).toBe(true);
+      await waitForPlayback();
       await scrubTo(5);
       await assertFrame(5);
       await toggle.press("o");
       await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
         .toEqual({ startFrame: 2, durationFrames: 3 });
-      await page.keyboard.press("Escape");
+      await waitForPlayback();
+      await panel.getByRole("button", { name: "Clear out" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await toggle.press("Escape");
       expect(await panel.isHidden()).toBe(true);
       expect(await rootCard.evaluate(node => document.activeElement === node)).toBe(true);
       await page.reload();
@@ -1754,8 +1769,8 @@ describe("browser authoring over the local project service", () => {
       if (!needs.ok) throw new Error("Compiler rejected the measured media descriptor");
       expect(needs.requirements.map(item => item.requiredSourceRange)).toEqual([{ startFrame: 2, endFrame: 5 }]);
       await rootCard.click();
-      await expect.poll(() => play.isEnabled()).toBe(true);
-      const playAndReadFrames = async () => {
+      await waitForPlayback();
+      const playAndReadFrames = async (): Promise<number[]> => {
         const video = panel.locator("video");
         // Attach before decoding starts, then sample every presented picture.
         await panel.locator("[data-occurrence-player-mount]").evaluate(mount => {
@@ -1783,9 +1798,9 @@ describe("browser authoring over the local project service", () => {
         });
         await play.click();
         await expect.poll(async () => ({
-          frames: await video.getAttribute("data-frames", { timeout: 1500 }).catch(() => null),
+          captured: Boolean(await video.getAttribute("data-frames", { timeout: 1500 }).catch(() => null)),
           status: await panel.locator("[data-occurrence-player-status]").textContent(),
-        }), { timeout: 12_000 }).toMatchObject({ frames: expect.any(String), status: "Playback finished." });
+        }), { timeout: 12_000 }).toEqual({ captured: true, status: "Playback finished." });
         return JSON.parse((await video.getAttribute("data-frames"))!) as number[];
       };
       expect(await playAndReadFrames()).toEqual([2, 3, 4]);
@@ -1794,22 +1809,31 @@ describe("browser authoring over the local project service", () => {
       expect(await playAndReadFrames()).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
       expect(await loadOwners()).toEqual(refined);
       const input = panel.locator("[data-occurrence-in]");
+      await input.scrollIntoViewIfNeeded();
       const handle = (await input.boundingBox())!;
-      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+      await page.mouse.move(handle.x + 6 + (handle.width - 12) * 2 / 8, handle.y + handle.height / 2);
       await page.mouse.down();
       await page.mouse.move(handle.x + handle.width - 10, handle.y + handle.height / 2);
+      expect(await input.inputValue()).not.toBe("2");
       await input.press("Escape");
       await page.mouse.up();
       expect(await input.inputValue()).toBe("2");
       expect(await loadOwners()).toEqual(refined);
       for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
         await page.setViewportSize(viewport);
+        await expect.poll(async () => {
+          const bounds = await panel.boundingBox();
+          return Boolean(bounds && bounds.x + bounds.width <= viewport.width && bounds.y + bounds.height <= viewport.height);
+        }).toBe(true);
         const bounds = (await panel.boundingBox())!;
         expect(bounds.width).toBe(viewport.width === 1280 ? 520 : 440);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
         expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
         if (process.env.VERA_DESIGN_EVIDENCE_DIR) {
+          await panel.evaluate(node => { node.scrollTop = 0; });
           await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}.png`) });
+          await panel.evaluate(node => { node.scrollTop = node.scrollHeight; });
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}-lower.png`) });
         }
       }
       const otherProject = await createProject(page, origin, "Preview teardown");
@@ -1830,7 +1854,7 @@ describe("browser authoring over the local project service", () => {
       await restartHostAndDatabase();
       await page.close();
     }
-  }, 60_000);
+  }, 90_000);
 
   it("#83 unconfigured playback leaves the saved occurrence and Library independent", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
@@ -1859,15 +1883,15 @@ describe("browser authoring over the local project service", () => {
       await page.route("**/authoring/research/**/clips", route => route.fulfill({
         contentType: "application/json", body: JSON.stringify({ clips: [playable] }),
       }));
-      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await page.getByRole("button", { name: "Library", exact: true }).click();
       expect(await panel.isHidden()).toBe(true);
       await page.getByLabel("Show used").check();
       await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
-      expect(await page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      expect(await page.locator("#footage-panel [data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
       expect(await page.locator("iframe").count()).toBe(0);
       expect((await appRequest(page, path)).body).toEqual(before);
     } finally { await page.close(); }
-  });
+  }, 30_000);
 
   it("#83 primary checkpoint saves, resets, undoes and reloads a bound narrated use", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

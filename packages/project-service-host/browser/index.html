@@ -159,9 +159,15 @@
             <span data-occurrence-playhead></span>
             <button type="button" data-occurrence-set-in aria-keyshortcuts="I">Set in (I)</button>
             <button type="button" data-occurrence-set-out aria-keyshortcuts="O">Set out (O)</button>
+            <button type="button" data-occurrence-clear-out>Clear out</button>
           </div>
-          <label>In boundary (source frame)<input type="range" data-occurrence-in></label>
-          <label>Out boundary (exclusive source frame)<input type="range" data-occurrence-out></label>
+          <div class="occurrence-footage__trim-rail">
+            <label for="occurrence-in">In boundary</label>
+            <label for="occurrence-out">Out boundary (exclusive)</label>
+            <div data-occurrence-selection aria-hidden="true"></div>
+            <input id="occurrence-in" type="range" data-occurrence-in>
+            <input id="occurrence-out" type="range" data-occurrence-out>
+          </div>
           <button type="button" data-occurrence-reset>Reset to logged range</button>
           <p data-occurrence-anchor-note class="footage-panel__hint" hidden>Narration anchors stay fixed. If the footage is too short, choose other footage or edit the interval in the script.</p>
         </div>

@@ -520,6 +520,8 @@ export {
   createRowEditSessionV2,
   serializeAuthoringDocumentV2,
   deserializeAuthoringDocumentV2,
+  parkAttachedFootageForSortingV2,
+  presentAttachedFootageForSortingV2,
   type RowEditCommandV2,
   type StashFootageCommandV2,
   type StashGroupCommandV2,

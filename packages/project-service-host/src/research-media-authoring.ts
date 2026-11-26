@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
-import { findPrimaryResearchOwnerV2, snapshotResearchCandidateV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import {
+  findPrimaryResearchOwnerV2, parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2,
+  snapshotResearchCandidateV2, validateScriptDocumentV2,
+} from "@vera/contracts/authoring-v2";
 import { ResearchReadError } from "@vera/contracts/research-clip-client";
 import type { ResearchFrameBindingV2, ScriptDocumentV2, SourceFrameMapV1 } from "@vera/contracts/v2";
 
@@ -43,6 +46,7 @@ function worker(config: ResearchMediaConfig, command: object) {
 }
 
 function target(document: ScriptDocumentV2, selector: string, id: string) {
+  const grouped = (rowId: string) => document.stashGroups?.some(group => group.rowIds.includes(rowId)) ?? false;
   if (selector === "payloadId") {
     const owner = findPrimaryResearchOwnerV2(document, id);
     if (!owner?.payload.researchClip || !document.activeDraft.blocks.includes(owner.row)) return undefined;
@@ -51,7 +55,7 @@ function target(document: ScriptDocumentV2, selector: string, id: string) {
     if (!pin) return undefined;
     const sequence = row.primaryVisualSequence;
     return {
-      rowId: row.id, payloadId: payload.payloadId, pin, bindable: true,
+      rowId: row.id, payloadId: payload.payloadId, pin, bindable: !grouped(row.id),
       binding: payload.frameBinding, range: payload.selectedSourceRange,
       attach(binding: ResearchFrameBindingV2) {
         if (!sequence || ![row.version, item.version, sequence.version].every(version =>
@@ -68,22 +72,36 @@ function target(document: ScriptDocumentV2, selector: string, id: string) {
       },
     };
   }
-  const row = document.activeDraft.blocks.flatMap(block => {
-    if (block.type === "visual_only") return [block];
-    return block.type === "narration" && block.attachedFootage ? [block.attachedFootage.clip] : [];
-  }).find(block => block.id === id);
+  const direct = document.activeDraft.blocks.find(block => block.id === id);
+  const note = document.activeDraft.blocks.find(block =>
+    block.type === "narration" && block.attachedFootage?.clip.id === id);
+  if (direct && note) return undefined;
+  const attachment = note?.type === "narration" ? note : undefined;
+  const row = direct ?? attachment?.attachedFootage?.clip;
   if (row?.type !== "visual_only" || !row.researchClip) return undefined;
+  const sequence = attachment?.primaryVisualSequence;
+  const slot = sequence?.slots[0];
+  const bindable = !grouped(attachment?.id ?? row.id) &&
+    (!attachment || parkAttachedFootageForSortingV2(structuredClone(attachment)));
   return {
     rowId: row.id, payloadId: row.payload.payloadId, pin: row.researchClip,
-    bindable: document.activeDraft.blocks.includes(row),
+    bindable,
     binding: row.frameBinding, range: row.visualOnlyTiming.selectedSourceRange,
     attach(binding: ResearchFrameBindingV2) {
-      if (!document.activeDraft.blocks.includes(row) || !Number.isSafeInteger(row.version + 1)) return false;
+      if (!Number.isSafeInteger(row.version + 1) || (attachment &&
+        (!sequence || !slot || ![attachment.version, sequence.version, slot.version].every(version =>
+          Number.isSafeInteger(version + 1)) || !parkAttachedFootageForSortingV2(attachment)))) return false;
       row.frameBinding = binding;
       row.payload.pictureKind = "clip";
       row.payload.source = { kind: "media_reference", mediaReferenceId: binding.mediaReferenceId };
       row.visualOnlyTiming.selectedSourceRange = { startFrame: 0, durationFrames: binding.loggedEndFrame };
       row.version++;
+      if (attachment && sequence && slot) {
+        if (!presentAttachedFootageForSortingV2(attachment)) return false;
+        attachment.version++;
+        sequence.version++;
+        slot.version++;
+      }
       return true;
     },
   };
@@ -162,7 +180,7 @@ export async function handleResearchMedia(
       "Content-Type": action === "frame" ? "image/png" : "video/mp4", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
     } });
     if (action === "describe" || owner.binding) {
-      return response(200, { ...verified, bound: !!owner.binding, savedRange: owner.range ?? null,
+      return response(200, { ...verified, bound: !!owner.binding, bindable: owner.bindable, savedRange: owner.range ?? null,
         transcriptClock: null, revision: head.revision, digest: head.digest });
     }
     const revision = (head.document.rowEditRevision ?? 0) + 1;
@@ -176,7 +194,7 @@ export async function handleResearchMedia(
   } catch (error) {
     if (error instanceof ResearchReadError || error instanceof ProjectAuthError) throw error;
     if (typeof error === "object" && error && "code" in error && error.code === 3) {
-      return response(404, { error: "research_media_missing" });
+      return response(404, { error: "research_media_missing", bindable: owner.bindable });
     }
     return response(422, { error: "research_media_unavailable" });
   }

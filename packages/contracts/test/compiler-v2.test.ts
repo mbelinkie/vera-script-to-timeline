@@ -3113,6 +3113,7 @@ it("checkpoint B preserves the fixed interval and refuses insufficient selected 
   const run = (startFrame: number, endFrame: number) => {
     slot.payload = {
       ...structuredClone(clip.payload),
+      audioPolicy: "mute",
       researchClip: structuredClone(clip.researchClip!),
       frameBinding: structuredClone(clip.frameBinding!),
       selectedSourceRange: {startFrame, durationFrames:endFrame-startFrame},
