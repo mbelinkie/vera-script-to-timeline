@@ -261,6 +261,15 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
           edit: { delete: true } });
       });
       meta.append(remove);
+      if (options.quoteBoxStash) {
+        const stash = makeElement(document, "button", "visual-card__quote-stash", "Stash quote box");
+        stash.type = "button";
+        stash.addEventListener("click", () => void options.quoteBoxStash({
+          rowId: options.rowId, overlayId: options.overlayId,
+          expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion,
+        }));
+        meta.append(stash);
+      }
     }
   }
   if (researchClip && !payload?.frameBinding) {
@@ -445,7 +454,7 @@ function quoteBoxRangeLabel(row, event) {
   return start >= 0 && end >= start ? `Range · words ${start + 1}–${end + 1}` : "Range · words need review";
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -471,7 +480,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
           slotId: entry.overlay.overlayEventId, startTokenIndex: entry.overlay.startTokenIndex,
           footagePlacementId: entry.overlay.overlayEventId, quoteBox: event.quoteBox,
           rowId: block.id, rowVersion: block.version, overlayId: event.id,
-          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash,
           quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
         }));
         continue;
@@ -530,7 +539,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
           footagePlacementId: event.id, quoteBox: event.quoteBox,
           rowId: block.id, rowVersion: block.version, overlayId: event.id,
-          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash,
           quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
         }));
       }
@@ -630,7 +639,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -655,11 +664,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, allowStash = false, quoteBoxEdit, quoteBoxRangeEdit, quotePicture } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, allowStash = false, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -681,7 +690,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture, quoteBoxStash));
       rowCount += 1;
     }
   }

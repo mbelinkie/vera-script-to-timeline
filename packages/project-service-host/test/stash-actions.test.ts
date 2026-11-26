@@ -346,3 +346,23 @@ describe("existing authenticated browser command endpoint", () => {
     expect(placement.document.rowEditRevision).toBe(3);
   });
 });
+
+describe("compact Research Stash actions", () => {
+  it("queues one exact move or deletion and refuses an obsolete model", async () => {
+    const { document } = fixture();
+    let current = document;
+    const queue = vi.fn(async (command: (model: ScriptDocumentV2) => unknown) => {
+      command(current);
+      return true;
+    });
+    const actions = createStashActions(queue, () => current);
+    const location = { sectionId: null, noteRowId: null, afterItemId: null };
+    expect(await actions.moveResearch(id(900), location, document)).toBe(true);
+    expect(queue.mock.calls[0]![0](document)).toEqual({ kind: "move_stash_research_item", itemId: id(900), ...location });
+    expect(await actions.deleteResearch(id(900), document)).toBe(true);
+    expect(queue.mock.calls[1]![0](document)).toEqual({ kind: "delete_stash_research_item", itemId: id(900) });
+    current = structuredClone(document);
+    expect(await actions.moveResearch(id(900), location, document)).toBe(false);
+    expect(queue).toHaveBeenCalledTimes(2);
+  });
+});

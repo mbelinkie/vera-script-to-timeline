@@ -70,7 +70,8 @@ function caretRect(editor, offset) {
 
 /** The panel only projects saved state; all writes go through the ordinary editor queue. */
 export function mountStashPanel({ root, script, actions, getDocument, onOpen, readOnly = () => false,
-  getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, loadClip, pickClip = () => {}, sorting = () => false }) {
+  getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, loadClip, pickClip = () => {}, sorting = () => false,
+  pickResearch, startResearchDrag, getResearchDrag, captureResearch, placeResearch }) {
   const doc = root.ownerDocument;
   const toggle = doc.getElementById("open-stash");
   const form = root.querySelector("[data-stash-form]");
@@ -128,6 +129,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   let drag = null;
   let preview = null;
   let stashTarget = null;
+  let researchPreview = null;
   let choices = [];
   let chosen = null;
   let savedChoice = null;
@@ -152,6 +154,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     drag = null;
     preview = null;
     stashTarget = null;
+    researchPreview = null;
     marker.hidden = true;
     marker.style.width = "3px";
     marker.style.height = "";
@@ -515,7 +518,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     const model = getDocument();
     form.hidden = readonly;
     if (readonly && !pending) { cancelPlace(); cancelSaved(); clearDrag(); }
-    const signature = JSON.stringify([readonly, sections, Boolean(hideCompleted?.checked), editNoteRow]);
+    const signature = JSON.stringify([readonly, sections, model?.stashResearchItems, model?.stashResearchItems?.length ? model.rowEditRevision : null, Boolean(hideCompleted?.checked), editNoteRow, sorting()]);
     if (signature === rendered) return;
     rendered = signature;
     const previous = section.value;
@@ -532,9 +535,10 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
       clips: all.filter((entry) => entry.kind === "clip").length + all.filter((entry) => entry.kind === "note" && entry.row.attachedFootage?.clip).length,
       rows: all.filter((entry) => entry.kind === "row").length,
     };
-    const total = counts.notes + counts.clips + counts.rows;
+    const researchItems = model?.stashResearchItems ?? [];
+    const total = counts.notes + counts.clips + counts.rows + researchItems.length;
     const countLabel = (value, singular, plural) => `${value} ${value === 1 ? singular : plural}`;
-    root.querySelector("[data-stash-count]").textContent = `· ${total} (${countLabel(counts.notes, "note", "notes")}, ${countLabel(counts.clips, "clip", "clips")}, ${countLabel(counts.rows, "saved row", "saved rows")})`;
+    root.querySelector("[data-stash-count]").textContent = `· ${total} (${countLabel(counts.notes, "note", "notes")}, ${countLabel(counts.clips, "clip", "clips")}, ${countLabel(counts.rows, "saved row", "saved rows")}${researchItems.length ? ", " + countLabel(researchItems.length, "Research item", "Research items") : ""})`;
     if (hideCompleted) hideCompleted.disabled = readonly;
     if (addSection) addSection.disabled = readonly;
     if (addClip) addClip.disabled = readonly;
@@ -570,6 +574,82 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         addSectionClip.addEventListener("click", () => chooseLoggedClip({ sectionId: item.id, from: addSectionClip }));
         heading.append(addSectionClip);
       }
+      const researchPickerButtons = (container, noteRowId = null) => {
+        if (readonly || sorting() || !pickResearch) return;
+        for (const [kind, label] of [["quote", "Add quote from Library"], ["still", "Add kept still"]]) {
+          const button = make(doc, "button", label);
+          button.type = "button";
+          button.addEventListener("click", () => pickResearch(kind,
+            { sectionId: item.id, noteRowId, afterItemId: null }, button));
+          container.append(button);
+        }
+      };
+      researchPickerButtons(heading);
+      const renderResearch = (saved) => {
+        const card = make(doc, "div");
+        card.className = "stash-research-item";
+        card.dataset.stashResearchId = saved.id;
+        card.draggable = !readonly && !sorting();
+        const payload = saved.kind === "quote" ? saved.quote : saved.still;
+        card.append(make(doc, "strong", saved.kind === "quote" ? "Quote" : "Still Image"));
+        const content = make(doc, saved.kind === "quote" ? "blockquote" : "p",
+          saved.kind === "quote" ? payload.displayText : payload.title);
+        content.className = "stash-research-text";
+        card.append(content);
+        const credit = saved.kind === "quote" ? [payload.speakerName, payload.speakerTitle, payload.citationText].filter(Boolean).join(" · ") : payload.credit;
+        if (credit) card.append(make(doc, "p", credit));
+        if (!readonly && !sorting()) {
+          const action = (label, run) => {
+            const button = make(doc, "button", label);
+            button.type = "button";
+            button.addEventListener("click", run);
+            card.append(button);
+          };
+          action("Place at selected words or caret", () => void runMutation(() => placeResearch(saved, null, model),
+            "Research item placed.", "Choose current script words or caret. See script status."));
+          if (saved.kind === "quote") {
+            const gapSelect = make(doc, "select");
+            gapSelect.setAttribute("aria-label", "Quote destination gap");
+            const gaps = draftGapChoices(model);
+            gapSelect.append(...gaps.map(({ label }, index) => {
+              const option = make(doc, "option", label);
+              option.value = String(index);
+              return option;
+            }));
+            card.append(gapSelect);
+            action("Place quote at gap", () => {
+              const gap = gaps[Number(gapSelect.value)]?.gap;
+              if (gap) void runMutation(() => placeResearch(saved, gap, model), "Quote placed.", "Quote was not placed.");
+            });
+          }
+          if (saved.noteRowId) {
+            action("Detach Research item", () => void runMutation(() => actions.moveResearch(saved.id,
+              { sectionId: item.id, noteRowId: null, afterItemId: null }, model), "Research item detached.", "Item was not detached."));
+          } else {
+            const notes = item.entries.filter((entry) => entry.kind === "note");
+            if (notes.length) {
+              const noteSelect = make(doc, "select");
+              noteSelect.setAttribute("aria-label", "Attach Research item to note");
+              noteSelect.append(...notes.map((entry) => {
+                const option = make(doc, "option", entry.row.text);
+                option.value = entry.rowId;
+                return option;
+              }));
+              card.append(noteSelect);
+              action("Attach to note", () => void runMutation(() => actions.moveResearch(saved.id,
+                { sectionId: item.id, noteRowId: noteSelect.value, afterItemId: null }, model), "Research item attached.", "Item was not attached."));
+            }
+          }
+          action("Delete Research item", () => void runMutation(() => actions.deleteResearch(saved.id, model),
+            "Research item deleted.", "Item was not deleted."));
+          card.addEventListener("dragstart", (event) => {
+            if (!event.dataTransfer || event.target.closest("button, select")) return;
+            event.stopPropagation();
+            startResearchDrag?.(event, saved, model);
+          });
+        }
+        return card;
+      };
       sectionNode.append(heading);
       const list = make(doc, "ul");
       list.dataset.stashDropSection = item.id ?? "";
@@ -723,6 +803,17 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           preview.addEventListener("click", () => void previewStashClip(row.researchClip, preview));
           li.append(preview);
         }
+        if (entry.kind === "note") {
+          const researchStrip = make(doc, "div");
+          researchStrip.className = "stash-research-attachments";
+          researchStrip.dataset.stashResearchNote = entry.rowId;
+          researchStrip.append(make(doc, "span", "Research attachments"));
+          for (const saved of researchItems.filter((saved) => saved.noteRowId === entry.rowId)) {
+            researchStrip.append(renderResearch(saved));
+          }
+          researchPickerButtons(researchStrip, entry.rowId);
+          li.append(researchStrip);
+        }
         const origin = make(doc, "span", `Original Draft: ${entry.originalDraft.label} · ${entry.originalDraft.available ? "Original gap available" : "Choose a current gap"}`);
         origin.className = "stash-entry-origin";
         if (entry.kind !== "note" || entry.originalDraft.gap) li.append(origin);
@@ -771,6 +862,9 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         list.append(li);
       }
       sectionNode.append(list);
+      for (const saved of researchItems.filter((saved) => saved.sectionId === item.id && saved.noteRowId === null)) {
+        sectionNode.append(renderResearch(saved));
+      }
       return sectionNode;
     }));
     if (focusedId && !chosen && !savedChoice) {
@@ -875,6 +969,50 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     return { outside: source };
   }
 
+  const libraryResearchType = "application/x-vera-library-stash-research";
+  const savedResearchType = "application/x-vera-saved-research";
+  const researchDrop = (event) => {
+    const source = getResearchDrag?.();
+    if (!source || source.model !== getDocument() || readOnly() || sorting() || pending || root.hidden) return null;
+    const types = event.dataTransfer?.types ?? [];
+    const saved = types.includes(savedResearchType);
+    if (!saved && !types.includes(libraryResearchType)) return null;
+    const sectionNode = event.target.closest?.("[data-stash-section]");
+    if (!sectionNode) return null;
+    const note = event.target.closest?.("[data-stash-research-note]");
+    const sectionId = sectionNode.dataset.stashSection || null;
+    const noteRowId = note?.dataset.stashResearchNote ?? null;
+    const targetCard = event.target.closest?.("[data-stash-research-id]");
+    const siblings = (source.model.stashResearchItems ?? []).filter((item) =>
+      item.sectionId === sectionId && item.noteRowId === noteRowId && (!saved || item.id !== source.source.id));
+    const targetIndex = siblings.findIndex((item) => item.id === targetCard?.dataset.stashResearchId);
+    const box = targetCard?.getBoundingClientRect();
+    const after = targetIndex >= 0 ? targetIndex - (event.clientY < (box.top + box.bottom) / 2 ? 1 : 0) : siblings.length - 1;
+    const location = { sectionId, noteRowId, afterItemId: siblings[after]?.id ?? null };
+    return { source, saved, location, node: note ?? sectionNode };
+  };
+  entries.addEventListener("dragover", (event) => {
+    const next = researchDrop(event);
+    researchPreview = next;
+    if (!next) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.dataTransfer.dropEffect = next.saved ? "move" : "copy";
+    drawLine(next.node.getBoundingClientRect());
+  });
+  entries.addEventListener("drop", (event) => {
+    const next = researchDrop(event);
+    if (!next || !researchPreview || researchPreview.source !== next.source ||
+        JSON.stringify(researchPreview.location) !== JSON.stringify(next.location)) return;
+    const { source, saved, location } = next;
+    const type = saved ? savedResearchType : libraryResearchType;
+    if (event.dataTransfer.getData(type) !== (saved ? source.source.id : source.source.itemId)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    clearDrag();
+    void runMutation(() => saved ? actions.moveResearch(source.source.id, location, source.model) :
+      captureResearch(source.source, location, source.model), "Research item saved.", "Research item was not saved.");
+  });
   entries.addEventListener("dragstart", (event) => {
     const item = event.target.closest?.("[data-stash-row-id]");
     if (!item || readOnly() || pending || !event.dataTransfer || event.target.closest("button, input, textarea, select")) return;
@@ -904,7 +1042,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     drawLine(stashTarget.box, stashTarget.y);
   });
   entries.addEventListener("dragleave", (event) => {
-    if (!entries.contains(event.relatedTarget)) marker.hidden = true;
+    if (!entries.contains(event.relatedTarget)) { marker.hidden = true; researchPreview = null; }
   });
   entries.addEventListener("drop", (event) => {
     const input = stashInput(event);

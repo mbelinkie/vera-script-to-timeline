@@ -159,7 +159,7 @@ export function researchQuoteUsage(model, fallbackProjectId = "") {
 
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
 export function mountResearchPanel({ root, catalog, quotesCatalog = async () => ({ quotes: [], nextOffset: null }),
-  quoteThumbnail, getDocument, insert, insertQuote, onPlaceQuote, gapChoices, rowChoices, onStatus }) {
+  quoteThumbnail, getDocument, insert, insertQuote, onPlaceQuote, gapChoices, rowChoices, onStatus, stashQuote, dragQuote, onClose }) {
   const doc = root.ownerDocument;
   const openButton = doc.getElementById("open-footage");
   const closeButton = root.querySelector("[data-footage-close]");
@@ -277,6 +277,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     results.replaceChildren();
     loadMore.hidden = true;
     openButton.setAttribute("aria-expanded", "false");
+    onClose?.();
     const restoreStash = returnToStash;
     returnToStash = null;
     if (restoreStash) restoreStash();
@@ -391,6 +392,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     action.setAttribute("aria-label", "Place quote from " + title + " in script");
     action.addEventListener("dragstart", (event) => {
       event.dataTransfer?.setData("application/x-vera-research-quote", quote.itemId);
+      dragQuote?.(event, quote);
       if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
     });
     action.addEventListener("click", () => {
@@ -400,6 +402,13 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     card.append(media, copy);
     renderUsageJumps(card, usageOf("quote", quote));
     card.append(preview, action);
+    if (stashQuote) {
+      const stash = make(doc, "button", "footage-item__quote-stash", "Add quote to Stash");
+      stash.type = "button";
+      stash.disabled = committing;
+      stash.addEventListener("click", () => void stashQuote(quote));
+      card.append(stash);
+    }
     results.append(card);
   };
   const renderClip = (clip) => {

@@ -37,12 +37,15 @@ export function normalizeResearchStillPage(value) {
  *
  * @param {{root: HTMLElement, catalog: (projectId: string, offset: number) => Promise<unknown>,
  * thumbnail: (projectId: string, itemId: string, itemVersion: number) => Promise<{mimeType: string, bytes: ArrayBuffer|Uint8Array}>,
- * insert: (still: object, placement: unknown, projectId: string) => Promise<boolean>, onStatus?: (message: string) => void}} ports
+ * insert: (still: object, placement: unknown, projectId: string) => Promise<boolean>,
+ * stashStill?: (still: object, projectId: string) => Promise<boolean>,
+ * dragStill?: (event: DragEvent, still: object, projectId: string) => void,
+ * onClose?: () => void, onStatus?: (message: string) => void}} ports
  */
-export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onStatus = () => undefined }) {
+export function mountResearchStillPanel({ root, catalog, thumbnail, insert, stashStill, dragStill, onClose, onStatus = () => undefined }) {
   if (!root?.ownerDocument || typeof catalog !== "function" ||
       typeof thumbnail !== "function" || typeof insert !== "function") {
-    return { open: async () => undefined, close: () => undefined, update: () => undefined };
+    return { open: async () => undefined, close: () => undefined, update: () => undefined, currentProject: () => "" };
   }
   const doc = root.ownerDocument;
   const openButton = doc.getElementById("open-footage");
@@ -80,6 +83,7 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
     committing = false;
     revokeThumbnails();
     root.hidden = true;
+    onClose?.();
     if (opener?.isConnected) opener.focus();
     else openButton?.focus();
     opener = null;
@@ -153,6 +157,11 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
       choose.type = "button";
       choose.disabled = committing;
       choose.dataset.researchStillId = still.itemId;
+      choose.draggable = !committing;
+      choose.addEventListener("dragstart", (event) => {
+        dragStill?.(event, still, currentProject);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+      });
       choose.setAttribute("aria-label", `Choose saved Research still: ${still.title}`);
       const art = make(doc, "span", "research-still-item__thumbnail");
       art.setAttribute("aria-hidden", "true");
@@ -177,6 +186,7 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
       choose.append(art, copy);
       choose.addEventListener("click", () => {
         if (committing) return;
+        if (!placement) { void stashStill?.(still, currentProject); return; }
         const selectedProject = currentProject;
         const started = generation;
         committing = true;
@@ -200,6 +210,13 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
         });
       });
       card.append(choose);
+      if (stashStill && placement) {
+        const stash = make(doc, "button", "", "Add still to Stash");
+        stash.type = "button";
+        stash.disabled = committing;
+        stash.addEventListener("click", () => void stashStill(still, currentProject));
+        card.append(stash);
+      }
       results.append(card);
     }
   };
@@ -289,5 +306,5 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
     close();
   });
 
-  return { open, close, update: render };
+  return { open, close, update: render, currentProject: () => currentProject };
 }

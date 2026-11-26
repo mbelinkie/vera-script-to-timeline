@@ -2068,6 +2068,73 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("Stash Research items: captures a quote by drag, attaches and places, then undoes and reloads", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research Stash quote proof");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    try {
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await page.locator("#stash-note").fill("Quote note");
+      await page.locator("[data-stash-form]").getByRole("button", { name: "Add note", exact: true }).click();
+      await expect.poll(async () => (await load()).document.stashOutline?.length).toBe(1);
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      const quote = page.locator(`[data-quote-place-id="${typedQuoteWithoutPicture.itemId}"]`);
+      const section = page.locator('[data-stash-section=""] .stash-section-heading');
+      await quote.dragTo(section);
+      const card = page.locator("[data-stash-research-id]");
+      await expect.poll(() => card.locator("blockquote").textContent()).toBe(typedQuoteWithoutPicture.displayText);
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(1);
+      expect((await load()).document.activeDraft.blocks).toEqual(seeded.document.activeDraft.blocks);
+      await card.dragTo(page.locator("[data-stash-research-note]"));
+      await expect.poll(async () => (await load()).document.stashResearchItems?.[0]?.noteRowId).not.toBeNull();
+      await page.locator("[data-footage-close]").click();
+      await card.getByRole("button", { name: "Place quote at gap" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length ?? 0).toBe(0);
+      await expect.poll(async () => (await load()).document.activeDraft.blocks.some((row) =>
+        row.type === "narration" && row.overlayEvents.some((event) => event.quoteBox?.researchQuoteId === typedQuoteWithoutPicture.itemId))).toBe(true);
+      await page.getByRole("button", { name: "Undo Place saved Research item" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(1);
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await expect.poll(() => page.locator("[data-stash-research-note] blockquote").textContent()).toBe(typedQuoteWithoutPicture.displayText);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  it("Stash Research items: captures kept still, attaches to note and places on selected words", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research Stash still proof");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    try {
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await page.locator("#stash-note").fill("Still note");
+      await page.locator("[data-stash-form]").getByRole("button", { name: "Add note", exact: true }).click();
+      await expect.poll(async () => (await load()).document.stashOutline?.length).toBe(1);
+      await page.locator("[data-stash-research-note]").getByRole("button", { name: "Add kept still" }).click();
+      await page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).click();
+      const card = page.locator("[data-stash-research-id]");
+      await expect.poll(async () => (await load()).document.stashResearchItems?.[0]).toMatchObject({ kind: "still", still: loggedStill });
+      await page.locator("[data-research-still-close]").click();
+      const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+      await selectText(editor, 0, 5);
+      await card.getByRole("button", { name: "Place at selected words or caret" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length ?? 0).toBe(0);
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.slots.some((slot) =>
+        slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId)).toBe(true);
+      await page.getByRole("button", { name: "Undo Place saved Research item" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(1);
+    } finally { await page.close(); }
+  }, 90_000);
+
   it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
