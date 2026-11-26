@@ -12,7 +12,7 @@ import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/author
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { compileTimelineV2 } from "@vera/contracts/compiler-core-v2";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId, researchNestedNote, researchNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -709,8 +709,17 @@ describe("browser authoring over the local project service", () => {
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
-    await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
+    const startup = new Promise<never>((_resolve, reject) => {
+      page.once("pageerror", reject);
+      page.on("response", (response) => {
+        const pathname = new URL(response.url()).pathname;
+        if (pathname.endsWith(".js") && !response.ok()) reject(new Error(`${pathname}: HTTP ${response.status()}`));
+      });
+    });
+    await Promise.race([startup, (async () => {
+      await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
+      await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
+    })()]);
     expect(new URL(page.url()).hash).toBe("");
     await page.close();
   }, 180_000);
@@ -1170,7 +1179,7 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
-  it("#78 places a compact clip, keeps groups unavailable and refuses a crossing saved citation", async () => {
+  it("#78 places a compact clip, shows one group entry and refuses a crossing saved citation", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
     const projectId = await createProject(page, origin, "Extras compact placement");
@@ -1200,10 +1209,9 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
     await page.locator("#open-stash").click();
     const entry = (id: string) => page.locator(`[data-stash-row-id="${id}"]`);
-    for (const grouped of [first, second]) {
-      expect(await entry(grouped.id).innerText()).toContain("whole-group editing is unavailable");
-      expect(await entry(grouped.id).locator("button").count()).toBe(0);
-    }
+    expect(await entry(first.id).getByRole("button", { name: /^Edit group/u }).isVisible()).toBe(true);
+    expect(await entry(second.id).count()).toBe(0);
+    expect(await entry(first.id).getByRole("button", { name: /^Duplicate as new/u }).count()).toBe(0);
     await entry(a.id).getByRole("button", { name: /^Duplicate as new/ }).click();
     await page.locator("#stash-saved-destination").selectOption("0");
     await page.getByRole("button", { name: "Duplicate as new", exact: true }).click();
@@ -1421,7 +1429,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Stash", exact: true }).click();
     await page.locator("#stash-section").selectOption(sectionId);
     await page.locator("#stash-note").fill("[cold open] now");
-    await page.getByRole("button", { name: "Add note", exact: true }).click();
+    await page.locator("[data-stash-form]").getByRole("button", { name: "Add note", exact: true }).click();
     const ideas = page.locator(`[data-stash-section="${sectionId}"]`);
     await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
     await expect.poll(async () => (await load()).stashOutline?.filter((entry) => entry.sectionId === sectionId).length).toBe(1);
@@ -1470,14 +1478,14 @@ describe("browser authoring over the local project service", () => {
     expect(retained).toMatchObject({ id: original?.id, text: "[cold open] now", stashChecklist: { completed: true } });
     if (retained?.type !== "narration" || original?.type !== "narration") throw new Error("Missing retained note");
     expect(retained.tokens).toEqual(original.tokens);
-    expect(await note.locator('[aria-label="Completed"]').count()).toBe(1);
+    await expect.poll(() => note.getByRole("checkbox", { name: /^Mark incomplete/u }).isChecked()).toBe(true);
     await page.getByRole("button", { name: "Undo Insert Stash note", exact: true }).click();
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo");
     await expect.poll(async () => (await load()).stash).toEqual(before.stash);
     await page.reload();
     await editor.waitFor();
     await page.getByRole("button", { name: "Stash", exact: true }).click();
-    await expect.poll(() => note.locator('[aria-label="Not completed"]').count()).toBe(1);
+    await expect.poll(() => note.getByRole("checkbox", { name: /^Mark complete:/u }).isChecked()).toBe(false);
     // A destination selected before a later edit must not silently land at a new point.
     await note.getByRole("button", { name: /Place note/ }).click();
     await page.locator("#stash-destination").selectOption("1");
@@ -1682,15 +1690,17 @@ describe("browser authoring over the local project service", () => {
     });
     try {
       const projectId = await createProject(page, origin, "Saved range playback browser proof");
+      const preview = page.locator("[data-footage-preview]");
+      const iframe = preview.locator("[data-footage-player-mount] iframe");
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
       await expect.poll(() => page.locator(".footage-item--clip").count()).toBe(3);
       await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
       expect(externalRequests).toHaveLength(0);
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
-      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await expect.poll(() => iframe.count()).toBe(0);
+      await expect.poll(() => preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => iframe.count()).toBe(1);
       const url = new URL(externalRequests[0]!.url);
       expect(url.pathname).toBe("/embed/p0W_cxbbTQA");
       expect(Object.fromEntries(url.searchParams)).toEqual({
@@ -1699,16 +1709,16 @@ describe("browser authoring over the local project service", () => {
       expect(externalRequests[0]!.referer).toBe(`${origin}/`);
       expect(url.href).not.toContain(loggedClip.id);
       expect(url.href).not.toContain(loggedClip.selection.text);
-      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("sandbox"))
+      expect(await iframe.getAttribute("sandbox"))
         .toBe("allow-scripts allow-same-origin allow-presentation");
-      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("referrerpolicy"))
+      expect(await iframe.getAttribute("referrerpolicy"))
         .toBe("strict-origin-when-cross-origin");
-      const playerDocument = page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
+      const playerDocument = preview.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
       const commands = () => playerDocument.evaluate(() =>
         (window as unknown as { commands: Array<{ func: string; args: unknown[] }> }).commands);
       const rangeLoads = async () => (await commands()).filter((entry) => entry.func === "loadVideoById");
       const loadRange = { func: "loadVideoById", args: [{ videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 }] };
-      const status = page.locator("[data-footage-player-status]");
+      const status = preview.locator("[data-footage-player-status]");
       const emitState = (state: number) => playerDocument.evaluate((_, value) =>
         (window as unknown as { emitState: (playerState: number) => void }).emitState(value), state);
       await expect.poll(() => playerDocument.evaluate(() =>
@@ -1720,12 +1730,12 @@ describe("browser authoring over the local project service", () => {
       await emitState(2);
       await expect.poll(() => status.textContent()).toBe("Paused.");
       await emitState(1);
-      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      await preview.getByRole("button", { name: "Pause", exact: true }).click();
       await expect.poll(async () => (await commands()).some((entry) => entry.func === "pauseVideo")).toBe(true);
       await playerDocument.evaluate(() => {
         (window as unknown as { holdNextPlay: boolean }).holdNextPlay = true;
       });
-      await page.getByRole("button", { name: "Replay from start" }).click();
+      await preview.getByRole("button", { name: "Replay from start" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange]);
       // A late ended event from the previous run must not finish a replay.
       expect(await status.textContent()).toBe("Starting saved range…");
@@ -1733,7 +1743,7 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(() => status.textContent()).toBe("Playing saved range…");
       await emitState(0);
       await expect.poll(() => status.textContent()).toBe("Saved range finished.");
-      await page.getByRole("button", { name: "Replay saved range" }).click();
+      await preview.getByRole("button", { name: "Replay saved range" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange, loadRange]);
       await playerDocument.evaluate(() =>
         (window as unknown as { emitAutoplayBlocked: () => void }).emitAutoplayBlocked());
@@ -1744,29 +1754,29 @@ describe("browser authoring over the local project service", () => {
 
       await page.evaluate(() => {
         (window as unknown as { oldFrame: HTMLIFrameElement | undefined }).oldFrame =
-          document.querySelector<HTMLIFrameElement>('[data-footage-player-mount] iframe') ?? undefined;
+          document.querySelector<HTMLIFrameElement>('[data-footage-preview] [data-footage-player-mount] iframe') ?? undefined;
       });
       await page.getByRole("button", { name: "Preview footage: Second public playback" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
-      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
+      await expect.poll(() => iframe.count()).toBe(0);
+      await expect.poll(() => preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
       await expect.poll(() => page.locator("[data-footage-placement]").isHidden()).toBe(true);
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => iframe.count()).toBe(1);
       await page.evaluate(() => {
         (window as unknown as { oldFrame?: HTMLIFrameElement }).oldFrame?.dispatchEvent(new Event("error"));
       });
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await expect.poll(() => iframe.count()).toBe(1);
       expect(new URL(externalRequests[1]!.url).pathname).toBe("/embed/M7lc1UVf-VE");
-      await page.getByRole("button", { name: "Close preview" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await preview.getByRole("button", { name: "Close preview" }).click();
+      await expect.poll(() => iframe.count()).toBe(0);
       await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
-      await expect.poll(() => page.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
-      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
+      await expect.poll(() => preview.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
+      await expect.poll(() => preview.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
       expect(externalRequests).toHaveLength(2);
       await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
       await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Close Library" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => iframe.count()).toBe(0);
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
     } finally { await page.close(); }
   }, 90_000);
@@ -1927,12 +1937,13 @@ describe("browser authoring over the local project service", () => {
       </script>` }));
     try {
       const projectId = await createProject(page, origin, "Restricted footage browser proof");
+      const preview = page.locator("[data-footage-preview]");
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
       await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
-      await page.getByRole("button", { name: "Play saved range" }).click();
-      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
-      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await preview.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => preview.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
+      await expect.poll(() => preview.locator("[data-footage-player-mount] iframe").count()).toBe(0);
       await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Close Library" }).click();
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
@@ -2195,6 +2206,27 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(1);
       await webQuoteButton.dragTo(page.locator("#script-rows [data-row-gap]").first());
       await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(2);
+      await page.reload();
+      await expect.poll(() => page.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
+      await expect.poll(() => page.locator("[data-quote-picture-media] img").count()).toBe(1);
+
+      const savedRows = await narrationRowsFromApi(page, projectId);
+      const first = page.locator(`#script-rows [data-row-id="${savedRows[0]!.id}"]`);
+      const second = page.locator(`#script-rows [data-row-id="${savedRows[1]!.id}"]`);
+      await first.hover();
+      await first.locator("[data-row-action-trigger]").click();
+      await first.getByRole("menuitem", { name: "Select range" }).click();
+      await second.locator(".narration-cell").click();
+      await page.getByRole("button", { name: "Stash selected rows" }).click();
+      const group = page.locator("#stash-panel [data-stash-group-id]");
+      await group.waitFor({ state: "visible" });
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(0);
+      await group.locator(".stash-entry-text").dragTo(page.locator("#script-rows [data-row-gap] [data-row-add]").first());
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((item) => ({
+        id: item.id, text: item.text, sequence: item.primaryVisualSequence, overlays: item.overlayEvents,
+      }))).toEqual(savedRows.map((item) => ({
+        id: item.id, text: item.text, sequence: item.primaryVisualSequence, overlays: item.overlayEvents,
+      })));
       await page.reload();
       await expect.poll(() => page.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
       await expect.poll(() => page.locator("[data-quote-picture-media] img").count()).toBe(1);
@@ -5243,7 +5275,8 @@ describe("browser authoring over the local project service", () => {
     const open = async () => {
       await page.locator("#open-sorting").click();
       expect(await page.locator("#sorting-heading").evaluate((el) => el === document.activeElement)).toBe(true);
-      expect(await page.locator("#script-rows").isVisible()).toBe(false);
+      expect(await page.locator("#script-rows").isVisible()).toBe(true);
+      expect(await page.locator("#script-rows [contenteditable]:visible").count()).toBe(0);
       expect(await page.locator(".script-paper").count()).toBe(1);
       expect(await page.locator("#sorting-view").evaluate((el) => getComputedStyle(el).zoom))
         .toBe(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom));
@@ -5265,14 +5298,17 @@ describe("browser authoring over the local project service", () => {
     await move();
     await page.locator("#open-stash").click();
     expect(await page.locator("#stash-panel").isVisible()).toBe(true);
-    expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+    expect(await page.locator("[data-stash-form]").isVisible()).toBe(true);
     expect(await page.locator(`[data-stash-row-id="${parkedRow.id}"]`).innerText()).toContain(parkedRow.text);
-    expect(await page.locator("[data-saved-action]").count()).toBe(0);
     await page.locator("[data-stash-close]").click();
-    page.once("dialog", async (dialog) => await dialog.dismiss());
-    await page.locator("#open-sorting").click();
+    await page.getByRole("button", { name: "← Back to script" }).click();
+    expect(await page.locator("#script-rows").isVisible()).toBe(true);
+    expect(await draftOrder()).toEqual(reordered);
+    expect(await page.locator("#script-rows [contenteditable]").count()).toBe(0);
+    await page.getByRole("button", { name: "Return to Sorting" }).click();
     expect(await trialOrder()).toEqual(reordered);
     expect(await saved()).toEqual(baseline);
+    page.once("dialog", async (dialog) => await dialog.accept());
     await page.locator("#sorting-discard").click();
     expect(await page.locator("#open-sorting").evaluate((el) => el === document.activeElement)).toBe(true);
     await page.reload();
@@ -5329,6 +5365,7 @@ describe("browser authoring over the local project service", () => {
     expect(await page.locator("#sorting-view").isVisible()).toBe(true);
     expect(puts).toBe(0);
     expect((await appRequest(page, path)).body).toEqual(newer);
+    page.once("dialog", async (dialog) => await dialog.accept());
     await page.locator("#sorting-discard").click();
     await page.reload();
     await page.locator("#script-rows").waitFor({ state: "visible" });
@@ -5338,6 +5375,485 @@ describe("browser authoring over the local project service", () => {
     await other.close();
     await page.close();
   }, 90_000);
+
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#616 edits a nested saved group and restores it through reload at $width × $height", async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, "Saved Stash group");
+        const fixture = multiNarrationDocumentFixture(projectId, ["Group opening", "Group ending", "Keep in script"]);
+        const [first, second, remaining] = fixture.rowIds as [string, string, string];
+        const noteId = randomUUID();
+        const groupId = randomUUID();
+        const sectionId = randomUUID();
+        const noteText = "[keep] these takes";
+        const note: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> = {
+          type: "narration", id: noteId, orderKey: "saved-note", text: noteText, tokens: narrationWords(noteText),
+          primaryVisualSequence: { id: randomUUID(), version: 1, slots: [{
+            kind: "content", id: randomUUID(), version: 1, relation: { kind: "base" },
+            boundaryBefore: { kind: "row_start" }, playoutPolicy: "match_structural_interval",
+            payload: { kind: "on_camera", presenterChoiceId: null },
+          }] },
+          overlayEvents: [], timingPolicy: "narration_spine", state: "active", notes: [], version: 1,
+        };
+        const withSection = applyRowEditV2(fixture.document, fixture.document.rowEditRevision ?? 0,
+          { kind: "create_stash_section", sectionId, title: "Alternate takes" });
+        expect(withSection.ok).toBe(true);
+        const withNote = applyRowEditV2(withSection.document, withSection.document.rowEditRevision!,
+          { kind: "create_stash_note", row: note, bundleId: randomUUID(), sectionId,
+            parentRowId: null, afterRowId: null });
+        expect(withNote.ok, JSON.stringify(withNote.diagnostics)).toBe(true);
+        const withGroup = applyRowEditV2(withNote.document, withNote.document.rowEditRevision!,
+          { kind: "stash_group_rows", rowIds: [first, second], groupId, bundleId: randomUUID(),
+            sectionId, parentRowId: noteId, afterRowId: null });
+        expect(withGroup.ok, JSON.stringify(withGroup.diagnostics)).toBe(true);
+        await saveDocumentFixture(page, projectId, withGroup.document);
+        const path = `/authoring/projects/${projectId}/document`;
+        const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+        const baseline = await saved();
+        await page.reload();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        const stash = page.locator("#stash-panel");
+        const group = stash.locator(`[data-stash-group-id="${groupId}"]`);
+        await group.waitFor({ state: "visible" });
+        const edit = group.getByRole("button", { name: /^Edit group/u }).first();
+        let releaseProjection!: () => void;
+        const projectionGate = new Promise<void>((resolve) => { releaseProjection = resolve; });
+        let noteProjectionRequested!: () => void;
+        const projectionRequested = new Promise<void>((resolve) => { noteProjectionRequested = resolve; });
+        await page.route("**/authoring/projection", async (route) => {
+          if (route.request().postData()?.includes('"title":"Saved rows"')) {
+            noteProjectionRequested();
+            await projectionGate;
+          }
+          await route.continue();
+        });
+        const dialog = page.locator(".stash-row-editor");
+        const firstEditor = dialog.locator(`[data-row-id="${first}"] [data-narration-editor]`);
+        try {
+          await edit.click();
+          await projectionRequested;
+          expect(await firstEditor.count()).toBe(0);
+        } finally {
+          releaseProjection();
+        }
+
+        let releaseEdit!: () => void;
+        const editGate = new Promise<void>((resolve) => { releaseEdit = resolve; });
+        let noteEditRequested!: () => void;
+        const editRequested = new Promise<void>((resolve) => { noteEditRequested = resolve; });
+        await page.route("**/authoring/command", async (route) => {
+          noteEditRequested();
+          await editGate;
+          await route.continue();
+        }, { times: 1 });
+        const keepEditing = dialog.getByRole("button", { name: "Keep editing" });
+        try {
+          await selectText(firstEditor, "Group opening".length, "Group opening".length);
+          await page.keyboard.insertText("!");
+          await editRequested;
+          await dialog.getByRole("button", { name: "Close saved row editor" }).click();
+          expect(await dialog.isVisible()).toBe(true);
+          expect(await keepEditing.isVisible()).toBe(false);
+        } finally {
+          releaseEdit();
+        }
+        await keepEditing.click();
+        expect(await saved()).toEqual(baseline);
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        expect(await saved()).toEqual(baseline);
+        await edit.click();
+        await selectText(firstEditor, "Group opening".length, "Group opening".length);
+        await page.keyboard.insertText("!");
+        await dialog.locator(".stash-row-editor__add").click();
+        await expect.poll(() => dialog.locator("[data-narration-editor]").count()).toBe(3);
+        const newMember = dialog.locator(`.script-row:not([data-row-id="${first}"], [data-row-id="${second}"]) [data-narration-editor]`);
+        await newMember.press("N");
+        await newMember.press("e");
+        await newMember.press("w");
+        await dialog.locator(`[data-row-id="${second}"]`).getByRole("button", { name: /^Remove .* from group$/u }).click();
+        await expect.poll(() => dialog.locator("[data-narration-editor]").count()).toBe(2);
+        await dialog.getByRole("button", { name: "Save", exact: true }).click();
+        await expect.poll(async () => ({
+          revision: (await saved()).revision,
+          status: await dialog.isVisible() ? await dialog.locator(".stash-row-editor__status").textContent() : "",
+          draftStatus: (await page.locator("#save-status").textContent())?.startsWith("Saved") ? "" :
+            await page.locator("#save-status").textContent(),
+        })).toEqual({ revision: baseline.revision + 1, status: "", draftStatus: "" });
+        const edited = await saved();
+        expect(edited.document.stashGroups?.[0]?.rowIds[0]).toBe(first);
+        expect(edited.document.stashGroups?.[0]?.rowIds).not.toContain(second);
+        expect(edited.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === first))
+          .toMatchObject({ text: "Group opening!" });
+        await page.getByRole("button", { name: "Undo Save Stash group" }).click();
+        await expect.poll(async () => (await saved()).document.stash).toEqual(baseline.document.stash);
+        await page.reload();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        expect(await group.isVisible()).toBe(true);
+        expect(await page.locator(`#script-rows [data-row-id="${remaining}"]`).isVisible()).toBe(true);
+        expect(await page.locator(`#script-rows [data-row-id="${first}"]`).count()).toBe(0);
+        const targetRow = page.locator(`#script-rows [data-row-id="${remaining}"]`);
+        await group.locator(".stash-entry-text").dragTo(targetRow, { targetPosition: { x: 30, y: 2 } });
+        await expect.poll(async () => (await saved()).document.activeDraft.blocks.some((row) => row.id === first)).toBe(true);
+        await expect.poll(() => group.count()).toBe(0);
+        await page.getByRole("button", { name: "Undo Place Stash group" }).click();
+        await expect.poll(async () => (await saved()).document.stashGroups?.[0]?.rowIds).toEqual([first, second]);
+        await group.waitFor({ state: "visible" });
+      } finally { await page.close(); }
+    }, 60_000,
+  );
+
+  it("#616 keeps completed ancestors visible and restores named Stash structure with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash outline and sections");
+      const fixture = editableDocumentFixture(projectId, "Spoken scene");
+      const sectionId = randomUUID();
+      const parent = researchNestedNote(861000);
+      const child = researchNestedNote(862000);
+      fixture.document.stash = [
+        { id: randomUUID(), rows: [parent], supportingItems: [] },
+        { id: randomUUID(), rows: [child], supportingItems: [] },
+      ];
+      fixture.document.stashSections = [{ id: sectionId, title: "Earlier ideas", rowIds: [] }];
+      fixture.document.stashOutline = [
+        { rowId: parent.id, kind: "note", parentRowId: null, sectionId },
+        { rowId: child.id, kind: "note", parentRowId: parent.id, sectionId },
+      ];
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const parentEntry = page.locator(`[data-stash-row-id="${parent.id}"]`);
+      const childEntry = page.locator(`[data-stash-row-id="${child.id}"]`);
+      const checkbox = (entry: Locator) => entry.locator("input[type=checkbox]").first();
+      const beforeCount = await page.locator("[data-stash-count]").innerText();
+      await checkbox(parentEntry).check();
+      await expect.poll(async () => (await saved()).document.stash?.[0]?.rows[0]).toMatchObject({
+        stashChecklist: { completed: true },
+      });
+      await page.getByRole("checkbox", { name: "Hide completed" }).check();
+      expect(await parentEntry.isVisible()).toBe(true);
+      expect(await childEntry.isVisible()).toBe(true);
+      await checkbox(childEntry).click();
+      await expect.poll(() => parentEntry.count()).toBe(0);
+      expect(await page.locator("[data-stash-count]").innerText()).toBe(beforeCount);
+      await page.getByRole("checkbox", { name: "Hide completed" }).uncheck();
+      const named = page.locator(`[data-stash-section="${sectionId}"]`);
+      await named.getByRole("button", { name: "Rename section" }).click();
+      await named.getByRole("textbox", { name: "Stash section name" }).fill("Renamed ideas");
+      await named.getByRole("button", { name: "Save", exact: true }).click();
+      await expect.poll(async () => (await saved()).document.stashSections?.[0]?.title).toBe("Renamed ideas");
+      await named.getByRole("button", { name: "Delete section" }).click();
+      await expect.poll(async () => (await saved()).document.stashOutline).toEqual([
+        { rowId: parent.id, kind: "note", parentRowId: null, sectionId: null },
+        { rowId: child.id, kind: "note", parentRowId: parent.id, sectionId: null },
+      ]);
+      await page.getByRole("button", { name: "Undo Delete Stash section" }).click();
+      await expect.poll(async () => (await saved()).document.stashSections?.[0]?.title).toBe("Renamed ideas");
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await named.getByRole("heading", { name: "Renamed ideas" }).isVisible()).toBe(true);
+      expect(await childEntry.getAttribute("data-parent-row-id")).toBe(parent.id);
+      await checkbox(parentEntry).uncheck();
+      await expect.poll(async () => (await saved()).document.stash?.[0]?.rows[0]).toMatchObject({
+        stashChecklist: { completed: false },
+      });
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      await parentEntry.locator('[data-saved-action="place_stash_rows"]').click();
+      expect(await page.locator("[data-stash-saved-description]").innerText()).toContain("Places 1 row");
+      await page.locator("#stash-saved-destination").selectOption("0");
+      await page.getByRole("button", { name: "Place in script", exact: true }).click();
+      const copyId = async () => (await saved()).document.activeDraft.blocks.find((row) =>
+        row.type === "narration" && row.stashOrigin?.sourceNoteRowId === parent.id)?.id;
+      await expect.poll(copyId).toBeTruthy();
+      const copy = page.locator(`#script-rows [data-row-id="${await copyId()}"]`);
+      await copy.hover();
+      await copy.locator("[data-row-action-trigger]").click();
+      await copy.getByRole("menuitem", { name: "Return to stash" }).click();
+      await expect.poll(copyId).toBeUndefined();
+      expect((await saved()).document.stash?.[0]?.rows[0]).toMatchObject({ stashChecklist: { completed: false } });
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 replaces an attached clip, undoes detaching, and releases footage when its note is blanked", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash attached footage");
+      const fixture = editableDocumentFixture(projectId, "Spoken scene");
+      const note = researchNote(863000);
+      const oldClip = researchOccurrence(864000, false);
+      note.attachedFootage = { clip: oldClip };
+      fixture.document.stash = [{ id: randomUUID(), rows: [note], supportingItems: [] }];
+      fixture.document.stashOutline = [{ rowId: note.id, kind: "note", parentRowId: null, sectionId: null }];
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      const attachment = async () => {
+        const row = (await saved()).document.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === note.id);
+        return row?.type === "narration" ? row.attachedFootage?.clip.id : undefined;
+      };
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const entry = page.locator(`[data-stash-row-id="${note.id}"]`);
+      await entry.getByRole("button", { name: "Choose logged clip…" }).click();
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      await expect.poll(attachment).not.toBe(oldClip.id);
+      await entry.locator(".stash-attached-footage").waitFor();
+      const replacement = await attachment();
+      expect(replacement).toBeTruthy();
+      expect((await saved()).document.stashOutline).toContainEqual({
+        rowId: oldClip.id, kind: "clip", parentRowId: note.id, sectionId: null,
+      });
+      await entry.getByRole("button", { name: "Detach footage" }).click();
+      await expect.poll(attachment).toBeUndefined();
+      await page.getByRole("button", { name: "Undo Detach Stash footage" }).click();
+      await expect.poll(attachment).toBe(replacement);
+
+      const beforeDelete = (await saved()).document;
+      await entry.getByRole("button", { name: "Delete saved item" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual([]);
+      await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("Frozen research source");
+      await page.getByRole("button", { name: "Undo Delete saved Stash material" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual(beforeDelete.stash);
+      expect((await saved()).document.stashOutline).toEqual(beforeDelete.stashOutline);
+
+      await entry.getByRole("button", { name: "Edit note", exact: true }).click();
+      await entry.getByRole("textbox", { name: /^Edit note:/u }).fill("");
+      await entry.getByRole("button", { name: "Save note", exact: true }).click();
+      await expect.poll(() => entry.count()).toBe(0);
+      expect((await saved()).document.stashOutline).toContainEqual({
+        rowId: replacement, kind: "clip", parentRowId: null, sectionId: null,
+      });
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 adds logged footage to Stash during Sorting and checks the saved result", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      const projectId = await createProject(page, origin, "Sorting with logged footage");
+      const fixture = multiNarrationDocumentFixture(projectId, ["Opening words", "Closing words"]);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      const before = await saved();
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await page.locator("[data-stash-add-clip]").click();
+      await page.getByRole("heading", { name: "Choose logged footage for Stash" }).waitFor();
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      const clip = page.locator('[data-stash-kind="clip"]').filter({ hasText: "Frozen research source" });
+      await clip.waitFor();
+      expect(await saved()).toEqual(before);
+      await page.getByRole("button", { name: "Accept", exact: true }).click();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).waitFor();
+      const after = await saved();
+      expect(after.revision).toBe(before.revision + 1);
+      expect(after.document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+      const added = after.document.stash?.flatMap((bundle) => bundle.rows).find((row) =>
+        row.type === "visual_only" && row.researchClip?.clipId === loggedClip.id);
+      expect(added).toMatchObject({ type: "visual_only", researchClip: { clipId: loggedClip.id } });
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await clip.isVisible()).toBe(true);
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 moves one visual through Stash and restores its source trim with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash visual transfer");
+      const fixture = draggableVisualFixture(projectId);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      await page.reload();
+      const source = page.locator(`[data-slot-id="${fixture.movedSlotId}"].visual-card`);
+      await source.waitFor();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await source.dragTo(page.locator('[data-stash-drop-section=""]'));
+      const stashed = page.locator('#stash-panel [data-stash-kind="clip"]');
+      await stashed.waitFor();
+      const staged = await saved();
+      const rows = staged.document.stash?.flatMap((bundle) => bundle.rows) ?? [];
+      const clip = rows.find((row) => row.type === "visual_only" && row.payload.payloadId === fixture.movedPayload.payloadId);
+      expect(clip?.type === "visual_only" && clip.visualOnlyTiming.selectedSourceRange)
+        .toEqual(fixture.movedPayload.selectedSourceRange);
+      const receiving = page.locator(`[data-row-id="${fixture.targetId}"] .visuals-cell`);
+      await stashed.locator(".stash-entry-text").dragTo(receiving);
+      await receiving.getByRole("button", { name: "Attach to words" }).waitFor();
+      await expect.poll(async () => {
+        const after = await saved();
+        return after.document.activeDraft.blocks.find((block) => block.id === fixture.targetId);
+      }).toMatchObject({ unattachedVisuals: [{ payload: { payloadId: fixture.movedPayload.payloadId,
+        selectedSourceRange: fixture.movedPayload.selectedSourceRange } }] });
+      await page.getByRole("button", { name: "Undo Add Stash visual" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual(staged.document.stash);
+      expect(await stashed.isVisible()).toBe(true);
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 keeps the pending order when the saved head changes during acceptance", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const other = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Sorting save race");
+      const fixture = multiNarrationDocumentFixture(projectId, ["First words", "Second words"]);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      await page.getByRole("button", { name: "Move Second words up" }).click();
+      await expect.poll(() => page.locator("#sorting-accept").isEnabled()).toBe(true);
+      const path = `/authoring/projects/${projectId}/document`;
+      await other.goto(`${origin}/?project=${projectId}`);
+      const baseline = (await appRequest(other, path)).body as SavedDocument;
+      let competingStatus = 0;
+      await page.route(`**${path}`, async (route) => {
+        if (route.request().method() === "PUT") {
+          const result = await appRequest(other, path, "PUT", {
+            expectedRevision: baseline.revision, clientMutationId: randomUUID(),
+            document: { ...baseline.document, title: "Saved elsewhere while accepting" },
+          });
+          competingStatus = result.status;
+        }
+        await route.continue();
+      });
+      await page.getByRole("button", { name: "Accept", exact: true }).click();
+      await expect.poll(() => page.locator("#sorting-status").textContent()).toContain("saved script changed");
+      expect(competingStatus).toBe(200);
+      const saved = (await appRequest(other, path)).body as SavedDocument;
+      expect(saved.document.title).toBe("Saved elsewhere while accepting");
+      expect(saved.document.activeDraft.blocks).toEqual(baseline.document.activeDraft.blocks);
+      expect(await page.locator("[data-sorting-row-id]").first().getAttribute("data-sorting-row-id")).toBe(fixture.rowIds[1]);
+      page.once("dialog", async (dialog) => await dialog.accept());
+      await page.getByRole("button", { name: "Discard all" }).click();
+    } finally {
+      await other.close();
+      await page.close();
+    }
+  });
+
+  it.each([
+    { width: 1280, height: 800, outcome: "all", keepsEdits: true, keepsOrder: true },
+    { width: 1024, height: 768, outcome: "edits_only", keepsEdits: true, keepsOrder: false },
+    { width: 1280, height: 800, outcome: "sorting_only", keepsEdits: false, keepsOrder: true },
+    { width: 1024, height: 768, outcome: "discard", keepsEdits: false, keepsOrder: false },
+  ])("#616 saves $outcome with a pending preview at $width × $height", async ({
+    width, height, outcome, keepsEdits, keepsOrder,
+  }) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const browserErrors: string[] = [];
+    page.on("pageerror", (error) => browserErrors.push(error.message));
+    try {
+      await page.setViewportSize({ width, height });
+      const projectId = await createProject(page, origin, "Editable Sorting");
+      const fixture = draggableVisualFixture(projectId);
+      const target = fixture.document.activeDraft.blocks.find((row) => row.id === fixture.targetId);
+      if (target?.type !== "narration") throw new Error("The connector test needs a narration row");
+      const firstVisual = target.primaryVisualSequence!.slots[0];
+      if (firstVisual?.kind !== "content" || firstVisual.payload.kind !== "visual") {
+        throw new Error("The connector test needs a visual cue");
+      }
+      const cue = target.tokens[7]!;
+      target.primaryVisualSequence!.slots.push({
+        ...structuredClone(firstVisual), id: randomUUID(), relation: { kind: "sequential" },
+        payload: { ...firstVisual.payload, payloadId: randomUUID() },
+        boundaryBefore: { kind: "spoken_word", anchor: {
+          blockId: target.id, tokenId: cue.id, affinity: "before", quotedWord: cue.value, anchorVersion: 1,
+        } },
+      });
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      const baseline = await saved();
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      const first = page.locator(`[data-sorting-row-id="${fixture.targetId}"]`);
+      await first.getByRole("button", { name: /^Expand one two/u }).click();
+      const lanes = first.locator("[data-lane]");
+      await expect.poll(() => lanes.count()).toBe(3);
+      expect(browserErrors).toEqual([]);
+      await expect.poll(() => lanes.evaluateAll((items) => {
+        const x = items.map((item) => item.querySelector(".sorting-connector__vertical")!.getBoundingClientRect().left);
+        return Math.min(x[0]! - x[1]!, x[1]! - x[2]!);
+      })).toBeGreaterThan(0);
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const crossing = await lanes.evaluateAll((items) => {
+        const routes = items.map((item) => Array.from(item.querySelectorAll("span"), (part) => part.getBoundingClientRect())
+          .filter(({ width, height }) => width > 0 && height > 0));
+        return routes.some((route, index) => routes.slice(index + 1).some((other) =>
+          route.some((part) => other.some((piece) =>
+            part.left < piece.right && piece.left < part.right && part.top < piece.bottom && piece.top < part.bottom))));
+      });
+      expect(crossing).toBe(false);
+      await page.locator("[data-stash-close]").click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const editor = first.locator("[data-narration-editor]");
+      await editor.press("End");
+      await editor.press("!");
+      await expect.poll(async () => await page.locator("#sorting-accept").isEnabled()).toBe(true);
+      // Trial Undo leaves both the working row and the saved document at the original content.
+      await page.getByRole("button", { name: "Undo trial action" }).click();
+      await expect.poll(() => editor.textContent()).toBe("one two three four five six seven eight nine ten");
+      await editor.press("End");
+      await editor.press("!");
+      await expect.poll(async () => await page.locator("#sorting-accept").isEnabled()).toBe(true);
+      await page.getByRole("button", { name: /^Move footage leaves this row.* up$/u }).click();
+      const order = () => page.locator("#script-rows .script-row").evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute("data-row-id")));
+      await expect.poll(async () => (await order())[0]).toBe(fixture.sourceId);
+      await page.getByRole("button", { name: "← Back to script" }).click();
+      expect((await order())[0]).toBe(fixture.sourceId);
+      expect(await page.locator("#script-rows [contenteditable]").count()).toBe(0);
+      expect(await saved()).toEqual(baseline);
+      await page.locator("#open-stash").click();
+      expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+      expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+      await page.locator("[data-stash-close]").click();
+      if (outcome === "discard") {
+        page.once("dialog", async (dialog) => await dialog.accept());
+        await page.getByRole("button", { name: "Discard all" }).click();
+      } else if (outcome === "all") {
+        await page.getByRole("button", { name: "Accept", exact: true }).click();
+      } else {
+        await page.getByRole("button", { name: "Acceptance options" }).click();
+        await page.getByRole("button", { name: outcome === "edits_only"
+          ? "Keep edits, undo sorting" : "Keep sorting, undo edits" }).click();
+      }
+      await page.getByRole("button", { name: "Sort rows", exact: true }).waitFor();
+      const accepted = await saved();
+      expect(accepted.revision).toBe(baseline.revision + Number(outcome !== "discard"));
+      const expectedFirst = keepsOrder ? fixture.sourceId : fixture.targetId;
+      expect(accepted.document.activeDraft.blocks[0]?.id).toBe(expectedFirst);
+      const authored = accepted.document.activeDraft.blocks.find((block) => block.id === fixture.targetId);
+      expect(authored?.type === "narration" && authored.text.includes("!")).toBe(keepsEdits);
+      if (outcome === "all") {
+        await page.getByRole("button", { name: "Undo Sort rows" }).click();
+        await expect.poll(async () => (await saved()).document.activeDraft.blocks)
+          .toEqual(baseline.document.activeDraft.blocks);
+        await page.reload();
+        await page.locator("#script-rows").waitFor();
+        expect((await order())[0]).toBe(fixture.targetId);
+      } else {
+        await page.reload();
+        await page.locator("#script-rows").waitFor();
+        expect((await order())[0]).toBe(expectedFirst);
+      }
+    } finally { await page.close(); }
+  }, 60_000);
 
   it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

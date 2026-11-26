@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import {
   applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
   LEGACY_VISUAL_HOLD_MS, placeResearchQuoteV2, projectPrimarySequenceV2, spokenTokensV2, validateScriptDocumentV2,
-  type ResearchQuotePlacementV2, type RowEditCommandV2, type VisualSequenceEditCommandV2,
+  type ResearchQuotePlacementV2, type RowEditCommandV2, type RowEditResultV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ResearchQuotePictureV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "@vera/contracts/v2";
 import { EV24_QUOTE_BOX_TEMPLATE_REVISION } from "@vera/contracts/compiler-core-v2";
@@ -28,6 +28,8 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/stash-actions.js", ["stash-actions.js", "text/javascript; charset=utf-8"]],
   ["/stash-panel.js", ["stash-panel.js", "text/javascript; charset=utf-8"]],
+  ["/stash-row-editor.js", ["stash-row-editor.js", "text/javascript; charset=utf-8"]],
+  ["/stash-row-editor.css", ["stash-row-editor.css", "text/css; charset=utf-8"]],
   ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
   ["/research-still-panel.js", ["research-still-panel.js", "text/javascript; charset=utf-8"]],
   ["/footage-player.js", ["footage-player.js", "text/javascript; charset=utf-8"]],
@@ -158,6 +160,40 @@ function sortingMove(value: unknown): value is Extract<RowEditCommandV2, { kind:
     Object.values(value.destination).every((item) => item === null || uuid(item));
 }
 
+type SortingOperation =
+  | { kind: "command"; command: RowEditCommandV2 }
+  | { kind: "visual"; command: VisualSequenceEditCommandV2; expectedSequenceVersion: number }
+  | { kind: "undo" }
+  | { kind: "batch"; operations: Array<Exclude<SortingOperation, { kind: "batch" | "undo" }>> };
+
+function sortingOperation(value: unknown): SortingOperation | null {
+  if (!record(value) || typeof value.kind !== "string") return null;
+  if (value.kind === "undo") return exact(value, ["kind"]) ? { kind: "undo" } : null;
+  if (value.kind === "command") {
+    return exact(value, ["kind", "command"]) && record(value.command)
+      ? { kind: "command", command: value.command as RowEditCommandV2 } : null;
+  }
+  if (value.kind === "visual") {
+    if (!exact(value, ["kind", "command", "expectedSequenceVersion"]) ||
+        !Number.isSafeInteger(value.expectedSequenceVersion) || (value.expectedSequenceVersion as number) < 0) return null;
+    const command = visualCommand(value.command);
+    return command ? { kind: "visual", command, expectedSequenceVersion: value.expectedSequenceVersion as number } : null;
+  }
+  if (value.kind === "batch") {
+    if (!exact(value, ["kind", "operations"]) || !Array.isArray(value.operations) ||
+        value.operations.length === 0 || value.operations.length > 1000) return null;
+    const operations: Array<Exclude<SortingOperation, { kind: "batch" | "undo" }>> = [];
+    for (const item of value.operations) {
+      if (!record(item) || (item.kind !== "command" && item.kind !== "visual")) return null;
+      const operation = sortingOperation(item);
+      if (!operation || operation.kind === "batch" || operation.kind === "undo") return null;
+      operations.push(operation);
+    }
+    return { kind: "batch", operations };
+  }
+  return null;
+}
+
 function researchReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
   if (!thumbnail && params.size === 0) return 0;
   const raw = params.get(thumbnail ? "version" : "offset");
@@ -191,6 +227,11 @@ function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & {
         !exact(destination, ["sectionId", "afterRowId", "beforeRowId"]) ||
         !["sectionId", "afterRowId", "beforeRowId"].every((key) =>
           destination[key] === null || uuid(destination[key]))) return null;
+  } else if (placement.kind === "stash") {
+    if (!exact(placement, ["kind", "sectionId", "noteRowId", "replace"]) ||
+        !(placement.sectionId === null || uuid(placement.sectionId)) ||
+        !(placement.noteRowId === null || uuid(placement.noteRowId)) ||
+        typeof placement.replace !== "boolean") return null;
   } else if (placement.kind === "unattached" || placement.kind === "selected_words") {
     if (!exact(placement, placement.kind === "unattached"
       ? ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"]
@@ -531,11 +572,25 @@ export function createAuthoringHandler(
     if (isSortingTrial) {
       let body: unknown;
       try { body = await request.json(); } catch { body = null; }
-      if (!record(body) || !exact(body, ["expectedRevision", "expectedDigest", "moves", "action"]) ||
+      const legacy = record(body) && exact(body, ["expectedRevision", "expectedDigest", "moves", "action"]);
+      const current = record(body) && (exact(body, ["expectedRevision", "expectedDigest", "operations", "action"]) ||
+        exact(body, ["expectedRevision", "expectedDigest", "operations", "action", "outcome"]));
+      const withinBodyLimit = !!body && record(body) && JSON.stringify(body).length <= 5_000_000;
+      const operationList: unknown[] | null = record(body) && Array.isArray(body.operations) ? body.operations : null;
+      const withinOperationLimit = !!operationList && operationList.length <= 1000 &&
+        operationList.reduce<number>((count, item) => count + (record(item) && item.kind === "batch" && Array.isArray(item.operations)
+          ? item.operations.length : 1), 0) <= 1000;
+      if (!record(body) || (!legacy && !current) ||
           !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
           typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest) ||
-          (body.action !== "preview" && body.action !== "accept") ||
-          !Array.isArray(body.moves) || body.moves.length > 1000 || !body.moves.every(sortingMove)) {
+          !["preview", "accept", "discard"].includes(body.action as string) ||
+          (legacy ? !Array.isArray(body.moves) || body.moves.length > 1000 || !body.moves.every(sortingMove) :
+            !withinBodyLimit || !withinOperationLimit ||
+            !operationList || !operationList.every((item) => sortingOperation(item) !== null) ||
+            body.action === "accept" && Object.hasOwn(body, "outcome") &&
+              !["all", "edits_only", "sorting_only"].includes(body.outcome as string) ||
+            body.action !== "accept" && Object.hasOwn(body, "outcome")) ||
+          !withinBodyLimit) {
         return researchResponse(400, { error: "invalid_sorting_trial" });
       }
       try {
@@ -562,16 +617,52 @@ export function createAuthoringHandler(
           }] });
         }
         const baseline = head.document as ScriptDocumentV2;
-        const trial = createSortingTrialV2(baseline);
-        for (const move of body.moves) {
-          const result = trial.apply(move);
-          if (!result.ok) return researchResponse(200, result);
+        const operations: SortingOperation[] = legacy
+          ? (body.moves as unknown[]).map((move) => ({ kind: "command", command: move as RowEditCommandV2 }))
+          : body.operations as SortingOperation[];
+        const flat = operations.flatMap((item) => item.kind === "batch" ? item.operations : [item]);
+        const needsProjectHold = flat.some((item) => item.kind === "visual"
+          ? item.command.kind === "move_visual_to_row"
+          : item.kind === "command" && ["add_visual_to_wordless_row", "move_wordless_visual"].includes(item.command.kind));
+        const projectHoldMs = needsProjectHold ? await projectVisualHoldMs(projectId) : LEGACY_VISUAL_HOLD_MS;
+        const trial = createSortingTrialV2(baseline, projectHoldMs);
+        const maxOperations = (items: SortingOperation[]): number => items.reduce((count, item) =>
+          count + (item.kind === "batch" ? item.operations.length : 1), 0);
+        if (maxOperations(operations) > 1000) return researchResponse(400, { error: "invalid_sorting_trial" });
+        let placementCounts: RowEditResultV2["placementCounts"];
+        const apply = (item: SortingOperation): RowEditResultV2 | null => {
+          if (item.kind === "batch") {
+            for (const nested of item.operations) {
+              const result = apply(nested);
+              if (result && !result.ok) return result;
+            }
+            return null;
+          }
+          if (item.kind === "undo") return trial.undo();
+          const result = item.kind === "visual"
+            ? trial.applyVisual(item.command, item.expectedSequenceVersion)
+            : trial.apply(item.command);
+          if (result.ok) placementCounts = result.placementCounts;
+          return result;
+        };
+        for (const operation of operations) {
+          const result = apply(operation);
+          if (result && !result.ok) return researchResponse(200, result);
         }
         if (body.action === "preview") {
-          return researchResponse(200, { ok: true, document: trial.document, movedRowIds: trial.movedRowIds });
+          const document = trial.preview();
+          return researchResponse(200, { ok: true, document, movedRowIds: trial.movedRowIds,
+            undoDepth: trial.undoDepth, projection: projectPrimarySequenceV2(document),
+            ...(placementCounts ? { placementCounts } : {}) });
+        }
+        if (body.action === "discard") {
+          const result = trial.discard(baseline);
+          return researchResponse(200, { ...result, changed: false, movedRowIds: [],
+            projection: projectPrimarySequenceV2(baseline) });
         }
         // The normal authorized document PUT still uses the original revision.
-        return researchResponse(200, trial.accept(baseline, "sorting_only"));
+        const outcome = body.outcome as "all" | "edits_only" | "sorting_only" | undefined;
+        return researchResponse(200, trial.accept(baseline, outcome ?? (legacy ? "sorting_only" : "all")));
       } catch {
         return researchResponse(503, { error: "sorting_trial_unavailable" });
       }

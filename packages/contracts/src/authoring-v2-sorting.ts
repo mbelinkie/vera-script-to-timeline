@@ -1,10 +1,12 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import type { VisualSequenceEditCommandV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { createSortingProjectionV2, updateSortingProjectionV2, projectSortingDocumentV2 } from "./authoring-v2-sorting-projection.js";
 import { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
 import type { CommentStateV2 } from "./authoring-v2-comments.js";
 import { isInsertStashNoteWordsCommandV2, isStashSelectedWordsCommandV2 } from "./authoring-v2-stash-words.js";
 import {
+  applyRowEditV2,
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
   isStashGroupCommandV2,
@@ -12,10 +14,12 @@ import {
   type RowEditCommandV2,
   type RowEditResultV2,
 } from "./authoring-v2-rows.js";
+import { LEGACY_VISUAL_HOLD_MS } from "./authoring-v2-wordless.js";
 
 const MAX_EDITS = 1000;
 const MAX_SAVED_CHARACTERS = 5_000_000;
-type Action = RowEditCommandV2 | { kind: "undo" };
+type VisualAction = { kind: "visual"; command: VisualSequenceEditCommandV2; expectedSequenceVersion: number };
+type Action = RowEditCommandV2 | VisualAction | { kind: "undo" };
 type Phase = "sorting" | "preview" | "accepted" | "discarded";
 export type SortingAcceptanceV2 = "all" | "edits_only" | "sorting_only";
 export type SortingResultV2 = RowEditResultV2 & { changed: boolean; comments?: CommentStateV2 };
@@ -122,6 +126,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     trim_research_clip: ["kind", "clipRowId", "edge"],
     place_attached_footage: ["kind", "noteRowId", "destination"],
     edit_row: ["kind", "rowId", "row"],
+    edit_narration_text: ["kind", "rowId", "startOffset", "endOffset", "insertedText", "editId"],
     create_row: ["kind", "row", "destination"],
     delete_rows: ["kind", "rowIds"],
     create_stash_note: ["kind", "bundleId", "row", "sectionId", "parentRowId", "afterRowId"],
@@ -129,16 +134,46 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     make_stage_direction: ["kind", "blockId", "startOffset", "endOffset"],
     make_spoken: ["kind", "blockId", "startOffset", "endOffset"],
     delete_direction_delimiter: ["kind", "blockId", "offset"],
+    create_section: ["kind", "sectionId", "title", "destination"],
+    rename_section: ["kind", "sectionId", "title"],
+    delete_section_break: ["kind", "sectionId"],
+    stash_visual: ["kind", "rowId", "slotId", "bundleId", "stashRowId", "sectionId", "parentRowId", "afterRowId"],
+    rename_visual_placement: ["kind", "rowId", "payloadId", "name"],
+    reorder_visual_only: ["kind", "rowId", "payloadIds"],
+    set_visual_only_hold: ["kind", "rowId", "payloadId", "holdSeconds"],
+    add_visual_to_wordless_row: ["kind", "rowId", "payloadId", "slotId", "visualType"],
+    move_wordless_visual: ["kind", "sourceRowId", "payloadId", "destinationRowId"],
+    set_visual_only_audio_match: ["kind", "rowId", "payloadId", "cueId"],
+    delete_row_audio_span: ["kind", "cueId"],
+    insert_stash_visual: ["kind", "stashRowId", "destinationRowId", "destinationSlotId"],
+    split_row: ["kind", "rowId", "newRowId", "at"],
+    join_rows: ["kind", "rowId", "direction", "words"],
   };
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
-  const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
-    kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
+  const optional = kind === "create_stash_note" ? ["mode"] : kind === "create_stash_clip" ? ["atStart"] :
+    kind === "cleanup_blank_stash_note" ? ["clearText"] : kind === "detach_stash_footage" ? ["destination"] :
+    kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
+    kind === "delete_rows" ? ["stashBranch"] :
+    kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] :
+      kind === "move_wordless_visual" ? ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
   if (kind === "set_stash_completion") return typeof value.rowId === "string" && value.rowId.length > 0 && typeof value.completed === "boolean";
   if (kind === "edit_row") return typeof value.rowId === "string";
+  if (kind === "edit_narration_text") return typeof value.rowId === "string" && Number.isSafeInteger(value.startOffset) &&
+    (value.startOffset as number) >= 0 && Number.isSafeInteger(value.endOffset) && (value.endOffset as number) >= (value.startOffset as number) &&
+    typeof value.insertedText === "string" && typeof value.editId === "string";
+  if (kind === "create_section" || kind === "rename_section") return typeof value.sectionId === "string" && typeof value.title === "string";
+  if (kind === "delete_section_break") return typeof value.sectionId === "string";
+  if (kind === "rename_visual_placement") return typeof value.rowId === "string" && typeof value.payloadId === "string" && typeof value.name === "string";
+  if (kind === "reorder_visual_only") return typeof value.rowId === "string" && Array.isArray(value.payloadIds) && value.payloadIds.every((id) => typeof id === "string");
+  if (kind === "set_visual_only_hold") return typeof value.rowId === "string" && typeof value.payloadId === "string" && Number.isFinite(value.holdSeconds);
+  if (kind === "add_visual_to_wordless_row") return typeof value.rowId === "string" && typeof value.payloadId === "string" && typeof value.slotId === "string";
+  if (kind === "move_wordless_visual") return typeof value.sourceRowId === "string" && typeof value.payloadId === "string" && typeof value.destinationRowId === "string";
+  if (kind === "set_visual_only_audio_match") return typeof value.rowId === "string" && typeof value.payloadId === "string" && (value.cueId === null || typeof value.cueId === "string");
+  if (kind === "delete_row_audio_span") return typeof value.cueId === "string";
   if (kind === "place_stash_rows" && Object.hasOwn(value, "includeDescendants") && typeof value.includeDescendants !== "boolean") return false;
   if (kind === "attach_stash_footage" || kind === "replace_stash_footage" || kind === "detach_stash_footage" || kind === "cleanup_blank_stash_note" || kind === "place_attached_footage") {
     if (typeof value.noteRowId !== "string" || !value.noteRowId) return false;
@@ -153,6 +188,12 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   if (kind === "make_stage_direction" || kind === "make_spoken" || kind === "delete_direction_delimiter") {
     return typeof value.blockId === "string" && (kind === "delete_direction_delimiter" ? Number.isSafeInteger(value.offset) : Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset));
   }
+  if (kind === "split_row" || kind === "join_rows") return true; // applyRowEditV2 performs the shared exact command validation.
+  if (kind === "stash_visual") return typeof value.rowId === "string" && typeof value.slotId === "string" &&
+    typeof value.bundleId === "string" && typeof value.stashRowId === "string" &&
+    [value.sectionId, value.parentRowId, value.afterRowId].every((id) => id === null || typeof id === "string");
+  if (kind === "insert_stash_visual") return typeof value.stashRowId === "string" &&
+    typeof value.destinationRowId === "string" && typeof value.destinationSlotId === "string";
   if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows" || kind === "place_stash_rows" || kind === "delete_rows") {
     if (!Array.isArray(value.rowIds) || !value.rowIds.every((id: unknown) => typeof id === "string")) return false;
   }
@@ -197,7 +238,12 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
 }
 
 /** Local trial only. The caller owns the canonical document and installs an accepted result once. */
-export function createSortingTrialV2(initial: ScriptDocumentV2) {
+function isStashVisualTransfer(command: RowEditCommandV2): boolean {
+  const kind = (command as { kind: string }).kind;
+  return kind === "stash_visual" || kind === "insert_stash_visual";
+}
+
+export function createSortingTrialV2(initial: ScriptDocumentV2, projectHoldMs = LEGACY_VISUAL_HOLD_MS) {
   const baselineJson = serializeAuthoringDocumentV2(initial);
   const baseline = JSON.parse(baselineJson) as ScriptDocumentV2;
   const originalPositions = positions(baseline);
@@ -207,11 +253,12 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     ids.push(id);
     containers.set(position.container, ids);
   }
-  const session = createRowEditSessionV2(baseline);
+  const session = createRowEditSessionV2(baseline, projectHoldMs);
   let projection = createSortingProjectionV2(baseline);
   const projectionHistory: typeof projection[] = [];
   const actions: Action[] = [];
   const markHistory: Set<string>[] = [];
+  const activeTransfers: Array<RowEditCommandV2 | null> = [];
   let movedRows = new Set<string>();
   let phase: Phase = "sorting";
   let finalDocument: ScriptDocumentV2 | undefined;
@@ -276,6 +323,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
         projection = updateSortingProjectionV2(projection, beforeDocument, result.document, command);
         actions.push(structuredClone(command));
         markHistory.push(movedRows);
+        activeTransfers.push(isStashVisualTransfer(command) ? structuredClone(command) : null);
         const current = positions(result.document);
         const unchanged = originalRowPositions(originalPositions, containers, current);
         // Only deliberately selected rows get marks; rows displaced by them do not.
@@ -283,16 +331,91 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       }
       return result;
     },
+    applyVisual(command: VisualSequenceEditCommandV2, expectedSequenceVersion: number, expectedRevision = session.revision): RowEditResultV2 {
+      if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial content.");
+      const row = "blockId" in command
+        ? session.document.activeDraft.blocks.find((block) => block.id === command.blockId)
+        : undefined;
+      if (!row || row.type !== "narration" || !row.primaryVisualSequence ||
+          row.primaryVisualSequence.version !== expectedSequenceVersion) {
+        return failure("SEQUENCE_VERSION_STALE", "The visual sequence changed before this Sorting edit.");
+      }
+      const beforeDocument = session.document;
+      let result: RowEditResultV2;
+      try {
+        const edited = session.applyVisualEdit(command, expectedRevision);
+        result = { ...edited, document: edited.document };
+      } catch {
+        return failure("SORTING_COMMAND_INVALID", "Provide a supported, complete visual edit command.");
+      }
+      if (result.ok) {
+        projectionHistory.push(projection);
+        projection = updateSortingProjectionV2(projection, beforeDocument, result.document, command);
+        actions.push({ kind: "visual", command: structuredClone(command), expectedSequenceVersion });
+        markHistory.push(movedRows);
+        activeTransfers.push(null);
+      }
+      return result;
+    },
     undo(): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before undoing a trial operation.");
       const result = session.undo();
-      if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; projection = projectionHistory.pop()!; }
+      if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; projection = projectionHistory.pop()!; activeTransfers.pop(); }
       return result;
     },
     accept(canonical: ScriptDocumentV2, outcome: SortingAcceptanceV2 = "all", comments?: SortingCommentContextV2): SortingResultV2 {
       if (!pending()) return { ...failure("SORTING_TRIAL_CLOSED", "This trial has already been accepted or discarded.", canonical), changed: false };
       if (!sameJson(canonical, baseline)) return { ...failure("SORTING_BASELINE_CHANGED", "The saved script or Stash changed. Start a new trial from that document.", canonical), changed: false };
       if (!["all", "edits_only", "sorting_only"].includes(outcome)) return { ...failure("SORTING_OUTCOME_INVALID", "Choose all changes, edits only, or sorting only.", canonical), changed: false };
+      if (outcome !== "all" && actions.some((action) => action.kind === "stash_visual" ||
+          action.kind === "insert_stash_visual")) {
+        const withoutTransfers = createSortingTrialV2(baseline, projectHoldMs);
+        const active: boolean[] = [];
+        for (const action of actions) {
+          let replay: RowEditResultV2 | null = null;
+          if (action.kind === "undo") {
+            const wasTransfer = active.pop();
+            if (wasTransfer === undefined) return { ...failure("SORTING_UNDO_INVALID", "The Sorting history is incomplete.", canonical), changed: false };
+            if (!wasTransfer) replay = withoutTransfers.undo();
+          } else if (action.kind === "visual") {
+            active.push(false);
+            replay = withoutTransfers.applyVisual(action.command, action.expectedSequenceVersion);
+          } else {
+            const transfer = isStashVisualTransfer(action);
+            active.push(transfer);
+            if (!transfer) replay = withoutTransfers.apply(action);
+          }
+          if (replay && !replay.ok) return { ...failure("SORTING_PROJECTION_DEPENDENCY_INVALID",
+            "A selective result depends on the Stash visual transfer. Accept all changes or undo the dependent operation.", canonical), changed: false };
+        }
+        const projected = withoutTransfers.accept(baseline, outcome, comments);
+        if (!projected.ok) return { ...projected, document: canonical, changed: false };
+        let intended = projected.document;
+        if (outcome === "sorting_only") {
+          for (const transfer of activeTransfers) {
+            if (!transfer) continue;
+            const moved = applyRowEditV2(intended, intended.rowEditRevision ?? 0, transfer, projectHoldMs);
+            if (!moved.ok) return { ...failure("SORTING_PROJECTION_DEPENDENCY_INVALID",
+              "A Stash visual transfer cannot be applied to the selected organization. Accept all changes or undo the transfer.", canonical), changed: false };
+            intended = moved.document;
+          }
+        }
+        const content = (document: ScriptDocumentV2) => {
+          const copy = { ...document };
+          delete copy.rowEditRevision;
+          if (copy.stash?.length === 0) delete copy.stash;
+          return copy;
+        };
+        const changed = !sameJson(content(intended), content(baseline));
+        if (changed && (baseline.rowEditRevision ?? 0) === Number.MAX_SAFE_INTEGER) {
+          return { ...failure("ROW_REVISION_STALE", "The document revision cannot advance.", canonical), changed: false };
+        }
+        const document = changed ? { ...intended, rowEditRevision: (baseline.rowEditRevision ?? 0) + 1 } : canonical;
+        phase = "accepted";
+        finalDocument = structuredClone(document);
+        return { ok: true, document, diagnostics: [], changed,
+          ...(projected.comments ? { comments: projected.comments } : {}) };
+      }
       const projected = outcome === "all" ? { ok: true, document: session.document, diagnostics: [] } : projectSortingDocumentV2(projection, session.document, outcome);
       if (!projected.ok) return { ...projected, document: canonical, changed: false };
       const intended = projected.document;
@@ -330,15 +453,24 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
 }
 
 /** Replay complete public operations so local Undo and projection provenance survive reload. */
-export function resumeSortingTrialV2(json: string): ReturnType<typeof createSortingTrialV2> {
+export function resumeSortingTrialV2(json: string, projectHoldMs = LEGACY_VISUAL_HOLD_MS): ReturnType<typeof createSortingTrialV2> {
   if (json.length > MAX_SAVED_CHARACTERS) throw new Error("The saved Sorting trial exceeds the bounded local size limit.");
   const saved = JSON.parse(json) as { format: string; baseline: ScriptDocumentV2; actions: Action[]; phase: Phase };
   if (!saved || saved.format !== "sorting-trial/v1" || !Array.isArray(saved.actions) || saved.actions.length > MAX_EDITS * 2 || !["sorting", "preview"].includes(saved.phase)) throw new Error("Invalid saved Sorting trial.");
   const loaded = deserializeAuthoringDocumentV2(JSON.stringify(saved.baseline));
   if (!loaded.ok) throw new Error("Invalid Sorting baseline.");
-  const trial = createSortingTrialV2(loaded.document);
+  const trial = createSortingTrialV2(loaded.document, projectHoldMs);
   for (const action of saved.actions) {
-    const result = action && action.kind === "undo" && Object.keys(action).length === 1 ? trial.undo() : trial.apply(action as RowEditCommandV2);
+    let result: RowEditResultV2;
+    if (action?.kind === "undo") {
+      if (Object.keys(action).length !== 1) throw new Error("Invalid saved Sorting operation.");
+      result = trial.undo();
+    } else if (action?.kind === "visual") {
+      if (Object.keys(action).length !== 3) throw new Error("Invalid saved Sorting operation.");
+      result = trial.applyVisual(action.command, action.expectedSequenceVersion);
+    } else {
+      result = trial.apply(action);
+    }
     if (!result.ok) throw new Error(`Invalid saved Sorting operation: ${result.diagnostics.map((item) => item.code).join(", ")}`);
   }
   if (saved.phase === "preview") trial.preview();

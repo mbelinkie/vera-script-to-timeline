@@ -285,11 +285,14 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     attach.type = "button";
     attach.dataset.attachVisual = "";
     attach.setAttribute("aria-pressed", String(options.attaching === true));
-    attach.addEventListener("click", (event) => {
-      event.stopPropagation();
-      options.attach?.(blockId, slotId);
-    });
-    meta.append(waiting, attach);
+    meta.append(waiting);
+    if (options.attach) {
+      attach.addEventListener("click", (event) => {
+        event.stopPropagation();
+        options.attach(blockId, slotId);
+      });
+      meta.append(attach);
+    }
   }
   if (options.holdSeconds !== undefined) {
     const hold = makeElement(document, "label", "visual-card__hold", "Hold");
@@ -390,7 +393,15 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
       });
       menu.append(reselectAction);
     }
-    menu.append(change, remove);
+    menu.append(change);
+    if (options.stashable) {
+      const stash = makeElement(document, "button", "", "Stash visual");
+      stash.type = "button";
+      stash.dataset.visualStash = "";
+      stash.setAttribute("role", "menuitem");
+      menu.append(stash);
+    }
+    menu.append(remove);
     const types = makeElement(document, "div", "visual-card__types");
     types.dataset.visualTypes = "";
     types.setAttribute("role", "menu");
@@ -434,7 +445,7 @@ function quoteBoxRangeLabel(row, event) {
   return start >= 0 && end >= start ? `Range · words ${start + 1}–${end + 1}` : "Range · words need review";
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -457,6 +468,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       if (entry.overlay) {
         const event = overlays.get(entry.overlay.overlayEventId);
         if (event) list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
+          slotId: entry.overlay.overlayEventId, startTokenIndex: entry.overlay.startTokenIndex,
           footagePlacementId: entry.overlay.overlayEventId, quoteBox: event.quoteBox,
           rowId: block.id, rowVersion: block.version, overlayId: event.id,
           overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
@@ -491,11 +503,12 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
         startTokenIndex: card.startTokenIndex,
         flash: flashIds?.has(card.slotId),
-        draggable: card.kind === "visual" || card.kind === "unattached_visual",
+        draggable: Boolean(visualCommand) && (card.kind === "visual" || card.kind === "unattached_visual"),
         waiting: card.kind === "unattached_visual",
         attaching: attaching?.rowId === block.id && attaching.slotId === card.slotId,
         attach, quotePicture,
-        editable: card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual",
+        editable: Boolean(visualCommand) && (card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual"),
+        stashable: allowStash && payload.kind === "visual",
       }));
     }
     if (!projectedRow?.renderable) {
@@ -531,9 +544,9 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     for (const visual of [block, ...(block.additionalVisuals ?? [])]) {
       const timing = visual.visualOnlyTiming;
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
-        payloadId: visual.payload.payloadId, draggable: true,
+        payloadId: visual.payload.payloadId, draggable: Boolean(visualCommand),
         footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
-        holdSeconds: timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
+        holdSeconds: visualCommand && timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
           visual.payload.pictureKind !== "clip" ? (timing.durationOverrideMs ?? implicitHoldMs) / 1000 : undefined,
       }));
     }
@@ -617,7 +630,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -642,11 +655,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, quoteBoxEdit, quoteBoxRangeEdit, quotePicture } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, allowStash = false, quoteBoxEdit, quoteBoxRangeEdit, quotePicture } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -668,7 +681,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
       rowCount += 1;
     }
   }
@@ -677,7 +690,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
 }
 
 /** The card DOM is ephemeral; one delegated menu handler survives rerenders. */
-export function mountVisualCardMenus(root, command) {
+export function mountVisualCardMenus(root, command, stashVisual) {
   const close = () => {
     for (const actions of root.querySelectorAll(".visual-card__actions")) {
       actions.querySelector("[data-visual-action-menu]").hidden = true;
@@ -706,6 +719,9 @@ export function mountVisualCardMenus(root, command) {
       menu.hidden = true;
       types.hidden = false;
       types.querySelector("[role='menuitem']:not(:disabled)")?.focus();
+    } else if (button.matches("[data-visual-stash]")) {
+      close();
+      void stashVisual?.(rowId, slotId);
     } else if (button.matches("[data-visual-delete], [data-visual-new-type]")) {
       const type = button.dataset.visualNewType;
       close();

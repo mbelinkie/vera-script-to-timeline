@@ -205,6 +205,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   let mode = "browse";
   let selection = null;
   let opener = openButton;
+  let returnToStash = null;
   let committing = false;
 
   const currentKind = () => kindButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.footageKind ?? "all";
@@ -276,7 +277,10 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     results.replaceChildren();
     loadMore.hidden = true;
     openButton.setAttribute("aria-expanded", "false");
-    if (opener?.isConnected) opener.focus();
+    const restoreStash = returnToStash;
+    returnToStash = null;
+    if (restoreStash) restoreStash();
+    else if (opener?.isConnected) opener.focus();
     else openButton.focus();
   };
   const currentUsage = () => [
@@ -416,7 +420,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
         try {
           const placement = typeof selection.placement === "function"
             ? selection.placement(getDocument()) : selection.placement;
-          if (placement?.kind === "selected_words") void commit(clip, selection.placement);
+          if (placement?.kind === "selected_words" || placement?.kind === "stash") void commit(clip, selection.placement);
           else pickClip(clip);
         } catch {
           onStatus("The selected script target changed. Choose the words again.");
@@ -473,7 +477,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       const success = await insert(clip, placement);
       if (success) {
         if (generation === started) close();
-        onStatus("Footage added to script.");
+        onStatus(placement?.kind === "stash" ? "Footage added to Stash." : "Footage added to script.");
       } else onStatus("Footage was not added. The source or script may have changed.");
     } catch {
       onStatus("Footage was not added. The source or script may have changed.");
@@ -742,16 +746,22 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       if (visible && quotesNextOffset !== null) void loadMoreQuotes({ auto: true, searchRequest: quoteSearchGeneration });
     }, 180);
   };
-  const open = async ({ quick = false, placement = null, seed = "", from = openButton } = {}) => {
+  const open = async ({ quick = false, placement = null, seed = "", from = openButton, onClose = null } = {}) => {
     player.hide();
     opener = from;
+    returnToStash = onClose;
     mode = quick ? "quick" : "browse";
     selection = quick ? { placement, seed } : null;
-    if (quick) setKind("all");
+    if (placement?.kind === "stash") {
+      setKind("footage");
+      search.value = "";
+      showUsed.checked = true;
+    } else if (quick) setKind("all");
     visible = true;
     root.hidden = false;
     openButton.setAttribute("aria-expanded", "true");
-    root.querySelector("[data-footage-heading]").textContent = quick ? "Choose from Library" : "Library";
+    root.querySelector("[data-footage-heading]").textContent = placement?.kind === "stash"
+      ? "Choose logged footage for Stash" : quick ? "Choose from Library" : "Library";
     chooser.hidden = true;
     clearQuoteChoice();
     status.textContent = "Loading Research projects…";
