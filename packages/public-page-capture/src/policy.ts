@@ -339,6 +339,7 @@ export interface TransportRequest {
   readonly headers: Readonly<Record<string, string>>;
   readonly maxBytes: number;
   readonly timeoutMilliseconds: number;
+  readonly signal?: AbortSignal;
 }
 
 export interface TransportResponse {
@@ -414,12 +415,17 @@ export class PublicEgressGuard {
     this.limits = { ...defaultLimits, ...limits };
   }
 
-  async fetch(raw: string, method: "GET" | "HEAD" = "GET"): Promise<GuardedResponse> {
+  async fetch(
+    raw: string,
+    method: "GET" | "HEAD" = "GET",
+    options: { readonly signal?: AbortSignal; readonly accept?: string } = {},
+  ): Promise<GuardedResponse> {
     const dnsAdmissions: DnsAdmissionEvidence[] = [];
     const peerConnections: EgressTrace["peerConnections"][number][] = [];
     const redirectChain: RedirectEvidence[] = [];
     let current = raw;
     for (let sequence = 0; sequence <= this.limits.maxRedirects; sequence += 1) {
+      options.signal?.throwIfAborted();
       const inspected = inspectPublicUrl(current);
       let rawAnswers: readonly DnsAnswer[];
       try {
@@ -427,6 +433,7 @@ export class PublicEgressGuard {
       } catch {
         deny("dns_unavailable", "The destination could not be resolved safely.", "dns");
       }
+      options.signal?.throwIfAborted();
       if (rawAnswers.length === 0) {
         deny("dns_no_answers", "The destination returned no usable DNS answers.", "dns");
       }
@@ -475,9 +482,10 @@ export class PublicEgressGuard {
           family: selected.family,
           method,
           headers: {
-            accept: "text/html,application/xhtml+xml,image/*;q=0.8,*/*;q=0.5",
+            accept: options.accept ?? "text/html,application/xhtml+xml,image/*;q=0.8,*/*;q=0.5",
             "user-agent": "VERA Public Page Capture/1",
           },
+          ...(options.signal ? { signal: options.signal } : {}),
           maxBytes: this.limits.maxResponseBytes,
           timeoutMilliseconds: this.limits.timeoutMilliseconds,
         });
@@ -555,6 +563,7 @@ export class NodePinnedTransport implements PinnedTransport {
       const client = request.url.protocol === "https:" ? https : http;
       const options: https.RequestOptions = {
         agent: false,
+        ...(request.signal ? { signal: request.signal } : {}),
         // Request a single address from the pinned lookup on dual-stack Node.
         family: request.family,
         headers: request.headers,
