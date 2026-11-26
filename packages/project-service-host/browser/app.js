@@ -1594,14 +1594,14 @@ function mountResearchDragging(root) {
       selection: { start: offset, end: offset }, selected: false,
     }) };
   };
-  const showCue = (next, mode) => {
+  const showCue = (next, mode, kind = "quote") => {
     clear();
     target = next;
     target.classList.add(target.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
     cue = ownerDocument.createElement("span");
     cue.className = "research-quote-drop-cue";
     cue.dataset.quoteDropMode = mode;
-    cue.textContent = mode === "attach" ? "Attach quote · narration unchanged" :
+    cue.textContent = mode === "attach" ? `Attach ${kind} · narration unchanged` :
       target.matches("[data-row-gap]") ? "Insert quote as new row" : "Insert quote";
     cue.setAttribute("role", "status");
     cue.setAttribute("aria-live", "polite");
@@ -1638,8 +1638,8 @@ function mountResearchDragging(root) {
       if (!next) { clear(); return; }
       event.preventDefault();
       event.stopPropagation();
-      showCue(next.target, next.mode);
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      showCue(next.target, next.mode, saved?.kind);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = saved ? "move" : "copy";
       return;
     }
     if (!draggingFootage(event)) return;
