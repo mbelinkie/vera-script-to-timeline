@@ -24,7 +24,7 @@ function reply(status: number, body: unknown): Response {
   } });
 }
 function matches(a: string | null, b: string): boolean {
-  return a !== null && a.length === b.length &&
+  return a !== null && Buffer.byteLength(a) === Buffer.byteLength(b) &&
     timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 

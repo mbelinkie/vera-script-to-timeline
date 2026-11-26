@@ -45,7 +45,7 @@ export function mountAccountPanel({ root, request, onAccess, onSessionEnded, bef
     try {
       const response = await accountRequest();
       if (response.status === 404) { root.hidden = true; return; }
-      mode = "account";
+      mode = "account"; root.hidden = false;
       const result = await response.json();
       if (!response.ok) {
         status.textContent = response.status === 401 ? "Signed out" : "Account sign-in unavailable";
@@ -56,7 +56,7 @@ export function mountAccountPanel({ root, request, onAccess, onSessionEnded, bef
       status.textContent = "Signed in";
       member.textContent = `Member code: ${actorId}`;
       logout.hidden = false;
-    } catch { mode = "account"; status.textContent = "Account service unavailable"; }
+    } catch { mode = "account"; root.hidden = false; status.textContent = "Account service unavailable"; }
   }
   login.onclick = async () => {
     login.disabled = true;
@@ -128,7 +128,7 @@ export function mountAccountPanel({ root, request, onAccess, onSessionEnded, bef
       // Never let a changed login adopt the previous actor's pending edits.
       if (access.actorId !== actorId) { onSessionEnded(); return; }
       role = access.role;
-      status.textContent = `${roleName(role)}${role === "viewer" ? " · read and comment" : ""}`;
+      status.textContent = `${roleName(role)}${role === "viewer" ? " · read only" : ""}`;
       manage.hidden = role !== "producer";
       if (manage.hidden && dialog.open) dialog.close();
       onAccess({ role, actorId });
