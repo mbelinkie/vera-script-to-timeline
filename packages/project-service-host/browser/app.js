@@ -32,6 +32,7 @@ const visualCommandKinds = new Set([
 const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
   "reorder_visual_only", "set_visual_only_hold"]);
 let project;
+let projectVisualHoldMs;
 let activeProjectId;
 let scriptDocument;
 let flashVisualIds = new Set();
@@ -284,10 +285,11 @@ async function showScript(projectId) {
   setSortingMode(false);
   clearPreparedPrompter();
   if (prompterDialog.open) prompterDialog.close();
-  const [{ project: savedProject }, savedScript] = await Promise.all([
-    api(`/${projectId}`), api(`/${projectId}/document`),
+  const [{ project: savedProject }, savedScript, { milliseconds }] = await Promise.all([
+    api(`/${projectId}`), api(`/${projectId}/document`), api(`/${projectId}/visual-hold-default`),
   ]);
   scriptDocument = savedScript.document;
+  projectVisualHoldMs = milliseconds;
   flashVisualIds = new Set();
   visualFeedback = "";
   documentRevision = savedScript.revision;
@@ -418,7 +420,7 @@ function renderEditor() {
   renderRows(root, scriptDocument, {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
-    addWordless: addWordlessVisual,
+    addWordless: addWordlessVisual, projectVisualHoldMs,
     flashIds: flashVisualIds,
   });
   renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
@@ -1783,7 +1785,10 @@ function queueCommand(command, label, options = {}) {
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied), previousProjection);
+    // Clearing narration can change the row's controls while its editor still has focus.
+    const clearedNarration = resolved.kind === "edit_narration_text" && resolved.insertedText === "" &&
+      scriptDocument.activeDraft.blocks.some((row) => row.id === resolved.rowId && row.type === "visual_only");
+    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied) || clearedNarration, previousProjection);
     return true;
   }).catch((error) => {
     typingGroup = null;

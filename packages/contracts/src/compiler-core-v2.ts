@@ -1,3 +1,4 @@
+import { defaultWordlessHoldV2 } from "./authoring-v2-wordless.js";
 import { createHash } from "node:crypto";
 
 import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
@@ -623,7 +624,7 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
             const targetRate = rateFraction(dependencies.timeline.frameRate);
             durationFrames = safe(ceil(BigInt(selected.durationFrames) * sourceRate.d * targetRate.n, sourceRate.n * targetRate.d), "visual-only duration");
           } else {
-            const durationMs = timing.durationOverrideMs ?? (block.additionalVisuals?.length ? 4000 : dependencies.authoringDefaults.visualOnlyStillDurationMs);
+            const durationMs = timing.durationOverrideMs ?? defaultWordlessHoldV2(block, dependencies.authoringDefaults.visualOnlyStillDurationMs);
             if (!Number.isSafeInteger(durationMs) || durationMs <= 0) throw new RangeError("visual-only still duration must be a positive safe integer");
             durationFrames = safe(ceil(BigInt(durationMs) * BigInt(dependencies.timeline.frameRate.numerator), 1000n * BigInt(dependencies.timeline.frameRate.denominator)), "visual-only duration");
           }

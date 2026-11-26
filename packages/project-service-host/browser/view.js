@@ -309,7 +309,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -394,14 +394,14 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     }
   }
   if (block.type === "visual_only") {
+    const implicitHoldMs = block.additionalVisuals?.length ? 4000 : projectVisualHoldMs;
     for (const visual of [block, ...(block.additionalVisuals ?? [])]) {
       const timing = visual.visualOnlyTiming;
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
         payloadId: visual.payload.payloadId, draggable: true,
         footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
-        holdSeconds: timing?.durationOverrideMs !== undefined && !timing.matchAudioDuration &&
-          !timing.selectedSourceRange && visual.payload.pictureKind !== "unresolved_visual" &&
-          visual.payload.pictureKind !== "clip" ? timing.durationOverrideMs / 1000 : undefined,
+        holdSeconds: timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
+          visual.payload.pictureKind !== "clip" ? (timing.durationOverrideMs ?? implicitHoldMs) / 1000 : undefined,
       }));
     }
   }
@@ -484,7 +484,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -509,11 +509,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000 } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -534,7 +534,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs));
       rowCount += 1;
     }
   }
