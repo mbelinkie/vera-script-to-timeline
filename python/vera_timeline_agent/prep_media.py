@@ -6,7 +6,6 @@ import argparse
 import sys
 import tempfile
 import unicodedata
-import uuid
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from time import monotonic
@@ -38,7 +37,12 @@ from .prep_media_research_still import (
     materialize_research_still,
 )
 from .quote_box_inputs import freeze_quote_box_inputs
-from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
+from .research_cut_binding import (
+    bind_research_cut,
+    copy_cut,
+    find_cached_research_cut,
+    research_clip_folder,
+)
 from .v2_package import _compiler_hash
 
 Json = dict[str, Any]
@@ -76,31 +80,6 @@ def failed_fetch_slate(row: Json) -> None:
         audioPolicy="mute",
     )
     row["visualOnlyTiming"] = {"kind": "visual_only", "durationOverrideMs": duration}
-
-
-def _clip_folder(media: Path, snapshot: Json) -> Path:
-    clip_id = str(uuid.UUID(snapshot["clipId"]))
-    version = snapshot["clipVersion"]
-    if type(version) is not int or version < 1:
-        raise ValueError("Invalid Research revision")
-    return _plain(media / "Research Clips" / clip_id / str(version))
-
-
-def _cached_cut(directory: Path, snapshot: Json) -> Path | None:
-    if not directory.exists():
-        return None
-    candidates = sorted(
-        path for path in directory.iterdir() if not path.name.startswith(".")
-    )
-    if not candidates:
-        return None
-    if len(candidates) != 1:
-        raise ValueError("Several copies claim the same Research clip revision")
-    cut = candidates[0]
-    _, digest = verify_cut(cut, snapshot)
-    if cut.name != digest.removeprefix("sha256:"):
-        raise ValueError("Project Research copy has a different content identity")
-    return cut
 
 
 def _handoff_hash(root: Path) -> str:
@@ -141,7 +120,12 @@ def _reuse_handoff(
             if row["type"] == "visual_only" and row.get("researchClip"):
                 started = monotonic()
                 snapshot = row["researchClip"]
-                if _cached_cut(_clip_folder(media_root, snapshot), snapshot) is None:
+                if (
+                    find_cached_research_cut(
+                        research_clip_folder(media_root, snapshot), snapshot
+                    )
+                    is None
+                ):
                     raise ValueError("A verified project Research copy is missing")
                 report(f"{_label(snapshot)}: reused ({monotonic() - started:.2f}s)")
         for timing in read_json_object(path / "compiler-dependencies.json")[
@@ -402,8 +386,8 @@ def prepare_project(
         item_start = monotonic()
         name = _label(snapshot)
         payload_id = row["payload"]["payloadId"]
-        directory = _clip_folder(media_root, snapshot)
-        cut = _cached_cut(directory, snapshot)
+        directory = research_clip_folder(media_root, snapshot)
+        cut = find_cached_research_cut(directory, snapshot)
         status = "reused"
         if cut is None:
             revision = (snapshot["clipId"], snapshot["clipVersion"])

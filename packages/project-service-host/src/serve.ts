@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import type { Server } from "node:http";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
@@ -15,6 +15,7 @@ import { CollaborationHub, createCollaborationUpgradeHandler,
 import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService,
   SubtitleCopyService } from "@vera/project-documents";
 
+import type { ResearchMediaConfig } from "./research-media-authoring.js";
 import { listenQaHttp } from "./http.js";
 import { loadQaIdentity } from "./qa-identity.js";
 import { parseQaConfig, type QaConfig } from "./qa-config.js";
@@ -55,6 +56,7 @@ export interface QaHostInfrastructure {
   evidenceInspector?: IndependentEvidenceInspector;
   /** Optional, host-owned read-only Research interface; never exposed as a proxy. */
   researchCatalog?: AuthoringReadOnlyResearchCatalog;
+  researchMedia?: ResearchMediaConfig;
 }
 
 /** Fail before binding if credentials, migrations or database checks fail. */
@@ -159,7 +161,7 @@ export async function startQaServer(
       catalog: infrastructure.researchCatalog, authorizeTimelineProject,
     } : undefined;
     const authoring = authorization === undefined ? undefined :
-      createAuthoringHandler(origin, authorization, handleApi, research, authorizeTimelineProject);
+      createAuthoringHandler(origin, authorization, handleApi, research, authorizeTimelineProject, infrastructure.researchMedia);
     server = await listenQaHttp(config.bindHost, config.port,
       async (request) => await authoring?.handle(request) ?? await handleApi(request),
       createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
@@ -206,8 +208,24 @@ export async function serveQaFromEnvironment(
         // An unavailable Research service must not prevent local authoring.
       }
     }
-    return await startQaServer({ ...config, authoringToken },
-      researchCatalog ? { researchCatalog } : {});
+    const projectId = env.VERA_RESEARCH_MEDIA_PROJECT;
+    const mediaRoot = env.VERA_RESEARCH_MEDIA_ROOT;
+    const python = env.VERA_RESEARCH_MEDIA_PYTHON;
+    const exportRoot = env.VERA_RESEARCH_EXPORT_ROOT;
+    let researchMedia: ResearchMediaConfig | undefined;
+    if (projectId || mediaRoot || python) {
+      if (!projectId || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(projectId) ||
+          !mediaRoot || !isAbsolute(mediaRoot) || !python || !isAbsolute(python) ||
+          (exportRoot !== undefined && !isAbsolute(exportRoot))) {
+        throw new QaStartupRefusal();
+      }
+      researchMedia = { projectId, mediaRoot, python, cwd: REPOSITORY_ROOT,
+        ...(exportRoot ? { exportRoot } : {}) };
+    }
+    return await startQaServer({ ...config, authoringToken }, {
+      ...(researchCatalog ? { researchCatalog } : {}),
+      ...(researchMedia ? { researchMedia } : {}),
+    });
   } catch {
     throw new QaStartupRefusal();
   }

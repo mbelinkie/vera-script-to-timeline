@@ -1,18 +1,20 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
+import { ResearchReadError } from "@vera/contracts/research-clip-client";
+import { resolveMediaRequirementsV2 } from "@vera/contracts/compiler-core-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
 import { boundPrimaryFixture, researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
 import {
@@ -30,6 +32,8 @@ import type { QaConfig } from "../src/qa-config.js";
 import type { QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, type QaHostInfrastructure, type QaRunningServer } from "../src/serve.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
+import type { ResearchMediaConfig } from "../src/research-media-authoring.js";
+import { makeResearchBindingProofMedia } from "./research-binding-proof-media.js";
 import { pasteParagraphBlocks } from "../browser/narration-editor.js";
 
 const execFile = promisify(execFileCallback);
@@ -533,6 +537,7 @@ describe("browser authoring over the local project service", () => {
   let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
   let researchClips = [loggedClip];
   let browserTrimCues = false;
+  let researchMedia: ResearchMediaConfig | undefined;
   let directory: string;
   let databaseDirectory: string;
   let browser: Browser;
@@ -547,6 +552,7 @@ describe("browser authoring over the local project service", () => {
     await database.waitReady;
     const pool = pglitePool(database);
     host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite,
+      ...(researchMedia ? { researchMedia } : {}),
       researchCatalog: {
         projects: () => Promise.resolve(researchVisible ? researchProjects : []),
         clips: (projectId) => Promise.resolve(researchVisible ? researchClips.filter((clip) =>
@@ -555,7 +561,7 @@ describe("browser authoring over the local project service", () => {
           const clip = researchClips.find((candidate) => candidate.projectId.toLowerCase() === projectId.toLowerCase() &&
             candidate.id.toLowerCase() === clipId.toLowerCase());
           if (!researchVisible || !clip) {
-            return Promise.reject(new Error("The Research clip is no longer accessible."));
+            return Promise.reject(new ResearchReadError(403, "The Research clip is no longer accessible."));
           }
           return Promise.resolve(structuredClone(clip));
         },
@@ -1481,6 +1487,194 @@ describe("browser authoring over the local project service", () => {
       block.type === "visual_only" && block.researchClip?.clipId === loggedClip.id)).toBe(true);
     await page.close();
   });
+
+  it("#83 configured media binds ordinary placements and plays exact generated frames", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const originalCatalog = researchClips;
+    researchClips = [{ ...loggedClip, selection: { ...loggedClip.selection,
+      exportStartMs: 500, exportEndMs: 834, transcriptStartMs: 542, transcriptEndMs: 792 } }];
+    try {
+      const projectId = await createProject(page, origin, "Generated cut binding proof");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor();
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const status = (action: string, occurrenceId: string, basis: SavedDocument) =>
+        appRequest(page, "/authoring/research-media", "POST", {
+          timelineProjectId: projectId, ...(occurrenceId === rootId ? { clipRowId: occurrenceId } : { payloadId: occurrenceId }),
+          action, expectedRevision: basis.revision, expectedDigest: basis.digest,
+          expectedRowEditRevision: basis.document.rowEditRevision ?? 0,
+        });
+      const loadOwners = async () => {
+        const head = await read();
+        const root = head.document.activeDraft.blocks.find(item =>
+          item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+        const narration = head.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
+        const slot = narration?.type === "narration" && narration.primaryVisualSequence?.slots.find(item =>
+          item.kind === "content" && item.payload.kind === "visual" && item.payload.researchClip?.clipId === loggedClip.id);
+        return {
+          head,
+          root: root?.type === "visual_only" ? root : undefined,
+          slot: slot && slot.kind === "content" && slot.payload.kind === "visual" ? slot.payload : undefined,
+          anchor: slot && slot.kind === "content" ? slot.boundaryBefore : undefined,
+        };
+      };
+      const row = seeded.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
+      if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("Missing seeded narration");
+      const picker = { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version };
+      const token = row.tokens[1]!.id;
+      const insert = (placement: unknown) => page.evaluate(({ picker, placement }) =>
+        window.__veraVisualTest!.queueResearchClipInsert({ ...picker, placement }), { picker, placement });
+      expect(await insert({ kind: "selected_words", rowId: row.id, expectedRowVersion: row.version,
+        expectedSequenceVersion: row.primaryVisualSequence.version, startTokenId: token, endTokenId: token })).toBe(true);
+      await expect.poll(async () => !!(await loadOwners()).slot).toBe(true);
+      const next = seeded.document.activeDraft.blocks[seeded.document.activeDraft.blocks.indexOf(row) + 1];
+      expect(await insert({ kind: "gap", destination: { sectionId: null, afterRowId: row.id,
+        beforeRowId: next?.id ?? null } })).toBe(true);
+      await expect.poll(async () => !!(await loadOwners()).root).toBe(true);
+      const initial = await loadOwners();
+      expect(initial.root?.frameBinding).toBeUndefined();
+      expect(initial.slot?.frameBinding).toBeUndefined();
+      const rootId = initial.root!.id;
+      const slotId = initial.slot!.payloadId;
+
+      const python = process.env.VERA_PROOF_PYTHON ?? join(REPOSITORY_ROOT, ".venv", "bin", "python");
+      const media = await makeResearchBindingProofMedia(directory, initial.root!.researchClip!, rootId, initial.root!.payload.payloadId);
+      const mediaRoot = await realpath(directory);
+      const exportRoot = join(mediaRoot, "exports");
+      researchMedia = { projectId, mediaRoot, exportRoot, python, cwd: REPOSITORY_ROOT };
+      await restartHostAndDatabase();
+      expect((await status("bind", rootId, initial.head)).status).toBe(404);
+      const cutParent = join(mediaRoot, "Research Clips", loggedClip.id, String(loggedClip.version));
+      await mkdir(exportRoot);
+      const exported = join(exportRoot, loggedClip.id);
+      await cp(dirname(media.path), exported, { recursive: true });
+      expect((await status("bind", rootId, initial.head)).status).toBe(200);
+      expect((await status("bind", slotId, initial.head)).status).toBe(409);
+      const latest = await read();
+      researchVisible = false;
+      try {
+        expect((await status("bind", slotId, latest)).status).toBe(403);
+      } finally {
+        researchVisible = true;
+      }
+      expect((await status("bind", slotId, latest)).status).toBe(200);
+      await page.reload();
+      await page.locator(`[data-row-id="${rootId}"]`).waitFor();
+      const bound = await loadOwners();
+      expect(bound.root!.frameBinding).toMatchObject({ loggedStartFrame: 0, loggedEndFrame: 8 });
+      expect(bound.slot!.frameBinding).toEqual(bound.root!.frameBinding);
+      expect(bound.anchor).toEqual(initial.anchor);
+      expect(bound.root!.researchClip).toEqual(initial.root!.researchClip);
+      expect(bound.slot!.researchClip).toEqual(initial.slot!.researchClip);
+      expect(bound.slot!.selectedSourceRange).toEqual({ startFrame: 0, durationFrames: 8 });
+
+      await expect.poll(() => page.evaluate(() => !!window.__veraVisualTest?.researchTrimBasis())).toBe(true);
+      expect(await page.evaluate(id => window.__veraVisualTest!.queueResearchTrim(
+        window.__veraVisualTest!.researchTrimBasis(),
+        { kind: "trim_research_clip", clipRowId: id, edge: "range", startFrame: 2, endFrame: 5 },
+      ), rootId)).toBe(true);
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await page.reload();
+      await page.locator(`[data-row-id="${rootId}"]`).waitFor();
+      const refined = await loadOwners();
+      expect(refined.slot).toEqual(bound.slot);
+      expect(refined.root!.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 2, durationFrames: 3 });
+      expect((await status("bind", rootId, refined.head)).status).toBe(200);
+      expect((await read()).revision).toBe(refined.head.revision);
+      const descriptor = await media.rebind(refined.root!);
+      expect(descriptor.sourceSnapshot.contentHash).toBe(media.digest);
+      expect(descriptor).toMatchObject({
+        owner: { kind: "visual_only_block", blockId: rootId },
+        occurrenceSourceInFrame: 2, selectedSourceRange: { startFrame: 2, endFrame: 5 },
+      });
+      const dependencyTemplate = JSON.parse(await readFile(new URL(
+        "../../../tests/data/authoring_v2/compiler-dependencies-v2.json", import.meta.url,
+      ), "utf8")) as CompilerDependenciesV2;
+      const standaloneDocument = {
+        ...refined.head.document,
+        activeDraft: { blocks: [refined.root!], supportingItems: [] },
+      };
+      const needs = resolveMediaRequirementsV2(standaloneDocument, {
+        timing: [], defaults: dependencyTemplate.authoringDefaults,
+        sourceDescriptors: [descriptor], frameRate: descriptor.logicalSourceBounds.frameRate,
+      });
+      expect(needs.ok, JSON.stringify(needs)).toBe(true);
+      if (!needs.ok) throw new Error("Compiler rejected the measured media descriptor");
+      expect(needs.requirements.map(item => item.requiredSourceRange)).toEqual([{ startFrame: 2, endFrame: 5 }]);
+      const frames = await page.evaluate(async ({ projectId, rootId, revision, digest, rowRevision }) => {
+        const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+        const frame = (picture: CanvasImageSource) => {
+          context.drawImage(picture, 0, 0);
+          return [4, 12, 20].reduce((value, x, index) =>
+            value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << index : 0), 0);
+        };
+        const load = async (action: string, frame?: number) => {
+          const response = await fetch("/authoring/research-media", {
+            method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1",
+              "X-VERA-Session": localStorage.getItem("vera.authoring.sessionProof") ?? "" },
+            body: JSON.stringify({ timelineProjectId: projectId, clipRowId: rootId, action,
+              expectedRevision: revision, expectedDigest: digest, expectedRowEditRevision: rowRevision,
+              ...(frame === undefined ? {} : { frame }) }),
+          });
+          if (!response.ok) throw new Error(`Proof media HTTP ${response.status}`);
+          return await response.blob();
+        };
+        const loadVideo = async (action: string) => {
+          const url = URL.createObjectURL(await load(action));
+          const video = document.createElement("video");
+          video.muted = true;
+          video.playsInline = true;
+          document.body.append(video);
+          await new Promise<void>((resolve, reject) => {
+            video.addEventListener("loadeddata", () => resolve(), { once: true });
+            video.addEventListener("error", () => reject(new Error(video.error?.message)), { once: true });
+            video.src = url;
+          });
+          return { video, close: () => { video.remove(); URL.revokeObjectURL(url); } };
+        };
+        const stepped = [];
+        for (const index of [2, 3, 2]) {
+          const single = await createImageBitmap(await load("frame", index));
+          stepped.push(frame(single));
+          single.close();
+        }
+        const selected = await loadVideo("saved");
+        const played: number[] = [];
+        selected.video.playbackRate = 0.25;
+        const ended = new Promise<void>(resolve => selected.video.addEventListener("ended", () => resolve(), { once: true }));
+        const nextFrame = () => {
+          const index = frame(selected.video);
+          if (played.at(-1) !== index) played.push(index);
+          if (!selected.video.ended) selected.video.requestVideoFrameCallback(nextFrame);
+        };
+        selected.video.requestVideoFrameCallback(nextFrame);
+        await selected.video.play();
+        await ended;
+        const last = frame(selected.video);
+        if (played.at(-1) !== last) played.push(last);
+        selected.close();
+        return { stepped, played };
+      }, { projectId, rootId, revision: refined.head.revision, digest: refined.head.digest, rowRevision: refined.head.document.rowEditRevision ?? 0 });
+      expect(frames).toEqual({ stepped: [2, 3, 2], played: [2, 3, 4] });
+      console.info("Verified decoded frame indices", frames, "compiler media requirements",
+        needs.requirements.map(item => item.requiredSourceRange));
+      await rm(exported, { recursive: true });
+      await rm(join(cutParent, media.digest.slice("sha256:".length)), { recursive: true });
+      expect((await status("describe", rootId, refined.head)).status).toBe(404);
+      expect(await loadOwners()).toEqual(refined);
+    } finally {
+      researchClips = originalCatalog;
+      researchMedia = undefined;
+      await restartHostAndDatabase();
+      await page.close();
+    }
+  }, 60_000);
 
   it("#83 inspects and refines one saved use without changing its sibling or Library preview", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

@@ -15,6 +15,7 @@ import {
   insertResearchStillBrowserV2, type ResearchStillBrowserInsertV2,
 } from "@vera/contracts/research-still-browser-insert";
 import { ProjectAuthError } from "@vera/project-authorization";
+import { handleResearchMedia, type ResearchMediaConfig } from "./research-media-authoring.js";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
 
@@ -329,6 +330,7 @@ export function createAuthoringHandler(
   projects: (request: Request) => Promise<Response>,
   research?: AuthoringResearchAccess,
   authorizeTimelineProject = research?.authorizeTimelineProject.bind(research),
+  researchMedia?: ResearchMediaConfig,
 ) {
   const launchProof = randomBytes(32);
   // Keep the enrolled browser working after host restart. Tie it to the
@@ -354,6 +356,7 @@ export function createAuthoringHandler(
         "Content-Type": mime,
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; " +
           "connect-src 'self'; frame-src https://www.youtube-nocookie.com; " +
+          (researchMedia ? "media-src blob:; " : "") +
           "img-src 'self' data: blob:; font-src 'self' data:; " +
           "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         "Cross-Origin-Resource-Policy": "same-origin",
@@ -373,6 +376,7 @@ export function createAuthoringHandler(
     const isSortingTrial = !!sortingRoute && request.method === "POST";
     const isExtrasOperation = EXTRAS.test(path) && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
+    const isResearchMedia = path === "/research-media" && request.method === "POST";
     const isTrim = path === "/research-trim" && request.method === "POST";
     const isTrimTiming = path === "/research-trim-timing" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
@@ -386,7 +390,7 @@ export function createAuthoringHandler(
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isTrim && !isTrimTiming && !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
+        !isResearchMedia && !isTrim && !isTrimTiming && !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial && !isExtrasOperation) ||
         (stillRoute ? stillNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -411,16 +415,28 @@ export function createAuthoringHandler(
     if (isExtrasOperation && request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
       return Response.json({ error: "invalid_request" }, { status: 400 });
     }
+    if (isResearchMedia) {
+      if (!researchMedia || !research) return researchResponse(404, { error: "research_media_unconfigured" });
+      try {
+        return await handleResearchMedia(request, researchMedia, research, projects, authorization);
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        if (error instanceof ResearchReadError && [401, 403, 404].includes(error.status)) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        return researchResponse(503, { error: "research_media_unavailable" });
+      }
+    }
     if (isTrim || isTrimTiming) {
       let body: unknown;
       try { body = await request.json(); } catch { body = null; }
       if (!record(body) || !exact(body, ["timelineProjectId", "expectedRevision", "expectedDigest",
-        "expectedRowEditRevision", isTrim ? "command" : "clipRowId"]) ||
+        "expectedRowEditRevision", isTrim ? "command" : Object.hasOwn(body, "payloadId") ? "payloadId" : "clipRowId"]) ||
         !uuid(body.timelineProjectId) || !Number.isSafeInteger(body.expectedRevision) ||
         (body.expectedRevision as number) < 0 || typeof body.expectedDigest !== "string" ||
         !SAVED_DIGEST.test(body.expectedDigest) || !Number.isSafeInteger(body.expectedRowEditRevision) ||
         (body.expectedRowEditRevision as number) < 0 ||
-        (isTrim ? !trimCommand(body.command) : !uuid(body.clipRowId))) {
+        (isTrim ? !trimCommand(body.command) : !uuid(body.payloadId ?? body.clipRowId))) {
         return researchResponse(400, { error: "invalid_research_trim" });
       }
       if (!authorizeTimelineProject) return researchResponse(503, { error: "timeline_authorization_unavailable" });
@@ -443,8 +459,9 @@ export function createAuthoringHandler(
           return researchResponse(409, { error: "research_trim_stale" });
         }
         const command = body.command as TrimCommand;
-        const clip = isTrim && command.payloadId !== undefined
-          ? findPrimaryResearchOwnerV2(document, command.payloadId)?.payload
+        const payloadId = isTrim ? command.payloadId : body.payloadId;
+        const clip = typeof payloadId === "string"
+          ? findPrimaryResearchOwnerV2(document, payloadId)?.payload
           : occurrence(document, isTrim ? command.clipRowId! : body.clipRowId as string);
         if (!clip?.researchClip) return researchResponse(404, { error: "research_occurrence_unavailable" });
         if (isTrim) {

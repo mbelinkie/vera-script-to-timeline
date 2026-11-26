@@ -105,6 +105,38 @@ def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:
     return destination
 
 
+def research_clip_folder(media: Path, snapshot: Json) -> Path:
+    clip_id = str(uuid.UUID(snapshot["clipId"]))
+    version = snapshot["clipVersion"]
+    if type(version) is not int or version < 1:
+        raise ValueError("Invalid Research revision")
+    path = media / "Research Clips" / clip_id / str(version)
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or any(part.is_symlink() for part in (path, *path.parents))
+    ):
+        raise ValueError("Research cache path must be local and cannot use symlinks")
+    return path
+
+
+def find_cached_research_cut(directory: Path, snapshot: Json) -> Path | None:
+    if not directory.exists():
+        return None
+    candidates = sorted(
+        path for path in directory.iterdir() if not path.name.startswith(".")
+    )
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise ValueError("Several copies claim the same Research clip revision")
+    cut = candidates[0]
+    _, digest = verify_cut(cut, snapshot)
+    if cut.name != digest.removeprefix("sha256:"):
+        raise ValueError("Project Research copy has a different content identity")
+    return cut
+
+
 def bind_research_cut(
     row: Json, folder: Path, tools: MediaTools
 ) -> tuple[Path, MediaInspection, Json]:
