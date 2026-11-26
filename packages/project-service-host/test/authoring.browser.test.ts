@@ -5591,6 +5591,148 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#677 transition saves at the chosen divider, reloads, removes and supports session Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Transition divider project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["First clip", "Second clip", "Third clip", "Fourth clip", "Fifth clip"]);
+    seeded.document.activeDraft.blocks.splice(4, 0, {
+      type: "section", id: randomUUID(), title: "Another act", orderKey: "section-transition-test", version: 1,
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => {
+      const response = await appRequest(page, path);
+      expect(response.status).toBe(200);
+      return response.body as SavedDocument;
+    };
+    const before = await read();
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const divider = (index: number) => page.locator(
+      `[data-after-row-id="${seeded.rowIds[index]}"][data-before-row-id="${seeded.rowIds[index + 1]}"]`);
+    const chosen = divider(0);
+    const other = divider(2);
+    const add = chosen.getByRole("button", { name: /^Add transition /u });
+    const remove = chosen.getByRole("button", { name: /^Remove transition /u });
+    await add.waitFor({ state: "visible" });
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    expect(await chosen.getByRole("button", { name: "Add row", exact: true }).count()).toBe(1);
+    expect(await chosen.locator("[data-row-add-options]").count()).toBe(1);
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    const waitRevision = async (revision: number) => {
+      await expect.poll(async () => (await read()).revision).toBe(revision);
+      const saved = await read();
+      expect(saved.document.activeDraft).toEqual(before.document.activeDraft);
+      return saved;
+    };
+    await add.focus();
+    await add.press("Enter");
+    const first = await waitRevision(before.revision + 1);
+    const intent = first.document.rowTransitions?.[0];
+    expect(intent?.id).toEqual(expect.any(String));
+    expect(first.document.rowTransitions).toEqual([{ id: intent?.id, fromRowId: seeded.rowIds[0],
+      toRowId: seeded.rowIds[1], effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" }]);
+    expect(first.document.rowEditRevision).toBe((before.document.rowEditRevision ?? 0) + 1);
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    expect(await divider(1).locator("[data-row-transition]").count()).toBe(0);
+    await page.getByRole("button", { name: "Undo Add transition", exact: true }).click();
+    expect((await waitRevision(before.revision + 2)).document.rowTransitions ?? []).toEqual([]);
+    await add.click();
+    const again = await waitRevision(before.revision + 3);
+    const savedIntent = again.document.rowTransitions?.[0];
+    expect(savedIntent?.id).toEqual(expect.any(String));
+    expect(savedIntent).toMatchObject({ ...intent, id: savedIntent?.id });
+    await page.reload();
+    await remove.waitFor({ state: "visible" });
+    expect(await chosen.locator("[data-row-transition-id]").textContent()).toContain("Cross Dissolve");
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    await remove.click();
+    expect((await waitRevision(before.revision + 4)).document.rowTransitions ?? []).toEqual([]);
+    await page.getByRole("button", { name: "Undo Remove transition", exact: true }).click();
+    expect((await waitRevision(before.revision + 5)).document.rowTransitions).toEqual([savedIntent]);
+    expect(puts).toBe(5);
+    await page.reload();
+    await remove.waitFor({ state: "visible" });
+    expect(await other.locator("[data-row-transition-id]").count()).toBe(0);
+    expect(await divider(3).locator("[data-row-transition]").count()).toBe(0);
+    const current = await read();
+    const row = current.document.activeDraft.blocks.find((block) => block.id === seeded.rowIds[2])!;
+    const next = current.document.activeDraft.blocks.find((block) => block.id === seeded.rowIds[3])!;
+    const stale = await appRequest(page, "/authoring/command", "POST", {
+      document: current.document, expectedRowEditRevision: current.document.rowEditRevision ?? 0,
+      command: { kind: "add_row_transition", transitionId: randomUUID(), fromRowId: row.id, toRowId: next.id,
+        expectedFromVersion: row.version, expectedToVersion: next.version + 1 },
+    });
+    expect(stale.status).toBe(200);
+    expect(stale.body).toMatchObject({ ok: false, document: current.document,
+      diagnostics: [{ code: "ROW_TRANSITION_STALE" }] });
+    expect(await read()).toEqual(current);
+    expect(puts).toBe(5);
+    expect(await page.locator("#undo").isEnabled()).toBe(false);
+    await page.close();
+  }, 90_000);
+
+  it("#677 transition uses current row versions after typing and can remove a separated reviewed intent", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Transition review project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["First clip", "Second clip", "Third clip"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const [a, b, c] = seeded.rowIds;
+    const row = page.locator(`[data-row-id="${a}"]`);
+    const chosen = page.locator(`[data-after-row-id="${a}"][data-before-row-id="${b}"]`);
+    const add = chosen.getByRole("button", { name: /^Add transition /u });
+    const remove = chosen.getByRole("button", { name: /^Remove transition /u });
+    const editor = row.locator("[data-narration-editor]");
+    await page.goto(`${origin}/?project=${projectId}`);
+    await add.waitFor({ state: "visible" });
+    await editor.click();
+    await editor.press("End");
+    await editor.press("x");
+    await waitForNarrationText(page, projectId, a!, "First clipx");
+    await add.click();
+    await expect.poll(async () => (await read()).document.rowTransitions?.length ?? 0).toBe(1);
+    await editor.click();
+    await editor.press("End");
+    await editor.press("y");
+    await waitForNarrationText(page, projectId, a!, "First clipxy");
+    await remove.click();
+    await expect.poll(async () => (await read()).document.rowTransitions?.length ?? 0).toBe(0);
+    await add.click();
+    await expect.poll(async () => (await read()).document.rowTransitions?.length ?? 0).toBe(1);
+    const savedIntent = (await read()).document.rowTransitions?.[0];
+    await page.locator("#open-sorting").click();
+    await page.getByRole("button", { name: "Move Third clip up" }).click();
+    await page.locator("#sorting-accept").click();
+    await expect.poll(async () => (await read()).document.rowTransitions?.[0]?.state).toBe("needs_review");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((item) => item.id)).toEqual([a, c, b]);
+    await page.reload();
+    const openReview = async () => {
+      await row.hover();
+      await row.locator("[data-row-action-trigger]").click();
+      return row.getByRole("menuitem", { name: /^Remove reviewed transition /u });
+    };
+    await (await openReview()).click({ timeout: 5_000 });
+    await expect.poll(async () => (await read()).document.rowTransitions?.length ?? 0).toBe(0);
+    await page.getByRole("button", { name: "Undo Remove transition", exact: true }).click();
+    await expect.poll(async () => (await read()).document.rowTransitions).toEqual([{ ...savedIntent, state: "needs_review" }]);
+    await page.reload();
+    await (await openReview()).click();
+    await expect.poll(async () => (await read()).document.rowTransitions?.length ?? 0).toBe(0);
+    await row.hover();
+    await row.locator("[data-row-action-trigger]").click();
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await row.getByRole("menuitem", { name: "Delete row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((item) => item.id)).toEqual([c, b]);
+    await page.close();
+  }, 90_000);
+
   it("adds and deletes rows, with one Undo restoring each row operation", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

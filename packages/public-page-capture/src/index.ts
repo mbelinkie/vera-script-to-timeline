@@ -15,3 +15,6 @@ export * from "./raster.js";
 export * from "./service.js";
 export * from "./worker.js";
 export * from "./supplied-picture.js";
+export * from "./direct-image.js";
+export { pillowDirectImageInspector, type DirectImageInspector } from "./direct-image-inspection.js";
+export { ProjectDirectImageStore } from "./direct-image-store.js";

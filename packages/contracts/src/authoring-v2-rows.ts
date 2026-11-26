@@ -8,6 +8,7 @@ import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./autho
 import { copyStashNoteAsSpokenV2, invalidateChangedStashSourceLinksV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
 import { findPrimaryResearchOwnerV2, trimNarratedResearchPayloadV2, trimResearchClipOccurrenceV2, type ResearchClipTrimChangeV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { ordinaryTransitionPairV2, qualifiedTransitionRowShapeV2 } from "./authoring-v2-row-transitions.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
@@ -189,6 +190,8 @@ export type RowEditCommandV2 =
   | { kind: "set_visual_only_audio_match"; rowId: string; payloadId: string; cueId: string | null }
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
   | { kind: "delete_row_audio_span"; cueId: string }
+  | { kind: "add_row_transition"; transitionId: string; fromRowId: string; toRowId: string; expectedFromVersion: number; expectedToVersion: number }
+  | { kind: "remove_row_transition"; transitionId: string; fromRowId: string; toRowId: string; expectedFromVersion: number; expectedToVersion: number }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
   | { kind: "delete_rows"; rowIds: string[]; stashBranch?: { attachedClipIds: string[] } }
   | SplitRowCommandV2
@@ -360,6 +363,14 @@ function documentUuids(value: unknown, result = new Set<string>()): Set<string> 
     for (const child of Object.values(value)) documentUuids(child, result);
   }
   return result;
+}
+
+function validTransitionCommand(value: unknown): boolean {
+  if (!plainObject(value) || !isJsonValue(value) ||
+      !exactKeys(value, ["kind", "transitionId", "fromRowId", "toRowId", "expectedFromVersion", "expectedToVersion"])) return false;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+  return [value.transitionId, value.fromRowId, value.toRowId].every((item) => typeof item === "string" && uuid.test(item)) &&
+    [value.expectedFromVersion, value.expectedToVersion].every((item) => typeof item === "number" && Number.isSafeInteger(item) && item > 0);
 }
 
 function validVisualOnlyCommand(value: unknown): boolean {
@@ -1473,6 +1484,9 @@ export function applyRowEditV2(
 ): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
+    if ((command.kind === "add_row_transition" || command.kind === "remove_row_transition") && !validTransitionCommand(command)) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide the exact transition ID, ordered row IDs and current row versions.");
+    }
     if (command.kind === "stash_rows" && (!isJsonValue(command) ||
       !exactKeys(command, Object.hasOwn(command, "destination") ? ["kind", "rowIds", "bundleId", "destination"] : ["kind", "rowIds", "bundleId"]) ||
       !rowIdsPayload(command.rowIds) || typeof command.bundleId !== "string" || command.bundleId.length === 0 ||
@@ -1566,7 +1580,42 @@ export function applyRowEditV2(
   let moved: Row[] = [];
   let placementCounts: RowEditResultV2["placementCounts"];
   let operationDiagnostics: AuthoringDiagnosticV2[] = [];
-  if (command.kind === "stash_selected_words") {
+  if (command.kind === "add_row_transition" || command.kind === "remove_row_transition") {
+    const transitions = working.rowTransitions ?? [];
+    const reviewed = command.kind === "remove_row_transition" && transitions.some((intent) =>
+      intent.state === "needs_review" && intent.id === command.transitionId &&
+      intent.fromRowId === command.fromRowId && intent.toRowId === command.toRowId);
+    const from = blocks.find((block): block is Row => block.type !== "section" && block.id === command.fromRowId);
+    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId);
+    const pair = ordinaryTransitionPairV2(working, command.fromRowId, command.toRowId) ??
+      (reviewed && from && to ? { from, to } : null);
+    if (!pair) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the same two consecutive rows within one script section, or an exact saved transition that needs review.");
+    if (pair.from.version !== command.expectedFromVersion || pair.to.version !== command.expectedToVersion) {
+      return refused(document, "ROW_TRANSITION_STALE", "A neighboring row changed. Choose the current divider again.");
+    }
+    const samePair = (intent: (typeof transitions)[number]) => intent.fromRowId === pair.from.id && intent.toRowId === pair.to.id;
+    if (command.kind === "add_row_transition") {
+      if (!qualifiedTransitionRowShapeV2(pair.from) || !qualifiedTransitionRowShapeV2(pair.to)) {
+        return refused(document, "ROW_TRANSITION_INELIGIBLE", "Both rows need one full-row muted video clip for this transition.");
+      }
+      if (documentUuids(document).has(command.transitionId.toLowerCase())) {
+        return refused(document, "ROW_TRANSITION_ID_OCCUPIED", "Use a new transition ID.");
+      }
+      if (transitions.some((intent) => samePair(intent) || intent.state === "active" &&
+          [intent.fromRowId, intent.toRowId].some((id) => id === pair.from.id || id === pair.to.id))) {
+        return refused(document, "ROW_TRANSITION_PAIR_OCCUPIED", "Review the existing transition before adding another one to these rows.");
+      }
+      (working.rowTransitions ??= []).push({
+        id: command.transitionId, fromRowId: pair.from.id, toRowId: pair.to.id,
+        effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active",
+      });
+    } else {
+      const index = transitions.findIndex((intent) => intent.id === command.transitionId && samePair(intent) && (intent.state === "active" || intent.state === "needs_review"));
+      if (index < 0) return refused(document, "ROW_TRANSITION_NOT_FOUND", "The named transition is not saved for these rows.");
+      transitions.splice(index, 1);
+      if (transitions.length === 0) delete working.rowTransitions;
+    }
+  } else if (command.kind === "stash_selected_words") {
     // Construct both sides before writing: an unsafe selection never leaves
     // half a note in Stash or removes only part of the narration text.
     const cut = prepareStashWordCutV2(document, command, documentUuids(document));
@@ -2684,17 +2733,20 @@ export function applyRowEditV2(
     };
     blocks.splice(index, 0, ...moved);
   } else return refused(document, "ROW_COMMAND_INVALID", "Unknown row edit command.");
-  if (working.stashSections?.length === 0) delete working.stashSections;
-  if (working.stashOutline?.length === 0 && !working.stashSections?.length) delete working.stashOutline;
-  if (working.stash?.length === 0 && document.stash === undefined) delete working.stash;
+  const transitionOnly = command.kind === "add_row_transition" || command.kind === "remove_row_transition";
+  if (!transitionOnly) {
+    if (working.stashSections?.length === 0) delete working.stashSections;
+    if (working.stashOutline?.length === 0 && !working.stashSections?.length) delete working.stashOutline;
+    if (working.stash?.length === 0 && document.stash === undefined) delete working.stash;
+  }
   if (JSON.stringify(working) === JSON.stringify(document)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave Stash and Draft unchanged.");
   // A split or join has already moved each transition and music cue to the row that holds its words.
-  const relationshipProblem = command.kind === "split_row" || command.kind === "join_rows"
+  const relationshipProblem = transitionOnly || command.kind === "split_row" || command.kind === "join_rows"
     ? null
     : updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };
   working.rowEditRevision = expectedRevision + 1;
-  invalidateChangedStashSourceLinksV2(document, working);
+  if (!transitionOnly) invalidateChangedStashSourceLinksV2(document, working);
   const after = validateScriptDocumentV2(working);
   const signature = (document: ScriptDocumentV2, item: AuthoringDiagnosticV2) => {
     if (item.code === "MUSIC_MATCH_INVALID") return JSON.stringify([item.code, item.blockId, item.entityId, item.message]);
@@ -2715,7 +2767,7 @@ export function applyRowEditV2(
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "add_visual_to_wordless_row" || command.kind === "move_wordless_visual" || command.kind === "delete_row_audio_span" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (transitionOnly || command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "add_visual_to_wordless_row" || command.kind === "move_wordless_visual" || command.kind === "delete_row_audio_span" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
