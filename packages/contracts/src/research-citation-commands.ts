@@ -25,7 +25,7 @@ export async function refreshScriptCitations(document: ScriptDocumentV2, project
     sources.set(sourceKey, source);
     citations.set(key, researchQuoteCitation(source, item.content));
   }
-  return refreshResearchQuoteCitations(document, citations);
+  return refreshResearchQuoteCitations(document, citations, projectId);
 }
 
 export async function editScriptCitation(

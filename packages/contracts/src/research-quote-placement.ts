@@ -20,7 +20,6 @@ import { attachVisualToWordsV2 } from "./authoring-v2-visual-lifecycle.js";
 import { retypeVisualPayloadV2 } from "./authoring-v2-visual-type.js";
 
 type QuoteRowCommand = Extract<RowEditCommandV2, { kind: "edit_row" | "create_row" }>;
-type VisualSource = NarratedVisualPayloadV2["source"];
 
 /** The host has already authorized and resolved the quote. The box's fields remain editable per use. */
 export type AuthorizedResearchQuoteV2 = Omit<QuoteBoxV2,
@@ -346,7 +345,7 @@ export function prepareResearchQuotePlacementV2(
   makeId: () => string = randomUUID,
 ): PreparedResearchQuotePlacementV2 {
   if (!request || !quote || !safeText(quote.spokenText, true) ||
-      quote.spokenText.includes("[") || quote.spokenText.includes("]") ||
+      (request.destination?.kind !== "selected_words" && /[[\]]/u.test(quote.spokenText)) ||
       !UUID.test(quote.researchQuoteId ?? "") || !UUID.test(quote.researchProjectId ?? "") ||
       !UUID.test(quote.researchSourceId ?? "") || !Number.isSafeInteger(quote.researchQuoteVersion) ||
       quote.researchQuoteVersion < 1 || !safeText(quote.displayText, true) ||
@@ -382,7 +381,6 @@ export function prepareResearchQuotePlacementV2(
 
   try {
     const useId = nextId();
-    const provenance = quoteProvenance(quote, useId);
     const insertedText = quoteForNarration(quote.spokenText);
 
     if (destination.kind === "gap") {

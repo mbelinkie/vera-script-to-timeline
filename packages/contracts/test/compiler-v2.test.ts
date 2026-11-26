@@ -3021,12 +3021,11 @@ describe("Quote box compiler bindings", () => {
     const compiled = compileTimelineV2(doc, deps);
     if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
     expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
-    expect(compiled.manifest.events).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "quote_box", provenance: expect.objectContaining({ overlayEventId: overlayId }) }),
-      expect.objectContaining({ kind: "placeholder", pictureTreatment: {
-        kind: "slate", purpose: "unresolved", text: "Find a picture for this Research quote.",
-      } }),
-    ]));
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box" &&
+      event.provenance.overlayEventId === overlayId)).toBe(true);
+    expect(compiled.manifest.events.find((event) => event.kind === "placeholder")?.pictureTreatment).toEqual({
+      kind: "slate", purpose: "unresolved", text: "Find a picture for this Research quote.",
+    });
   });
 
   it("reports a timing repair when two quote boxes overlap on V4", () => {

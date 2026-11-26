@@ -120,7 +120,7 @@ describe("Research source list", () => {
     const retainedSource = { id: sourceId, projectId, label: "Retained quote source" };
     const client = {
       item: vi.fn(),
-      source: vi.fn(async () => retainedSource),
+      source: vi.fn(() => Promise.resolve(retainedSource)),
     };
 
     await expect(exportScriptSources(doc, projectId, client as never)).resolves.toBe("Retained quote source");

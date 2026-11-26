@@ -319,8 +319,8 @@ describe("place Research quote as one document edit", () => {
     if (!thirdRow || thirdRow.type !== "narration") throw new Error("Expected third quote row");
     const boxes = thirdRow.overlayEvents.map((event) => event.quoteBox).filter((box) => box !== undefined);
     expect(boxes).toHaveLength(3);
-    expect(new Set(boxes.map((box) => box!.researchQuoteUseId)).size).toBe(3);
-    expect(new Set(boxes.map((box) => box!.backgroundPayloadId))).toHaveLength(1);
+    expect(new Set(boxes.map((box) => box.researchQuoteUseId)).size).toBe(3);
+    expect(new Set(boxes.map((box) => box.backgroundPayloadId))).toHaveLength(1);
     const finalSlot = thirdRow.primaryVisualSequence!.slots.find((slot) =>
       slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.payloadId === firstBox.backgroundPayloadId);
     expect(finalSlot).toEqual(expect.objectContaining({ id: initialSlot.id, boundaryBefore: initialSlot.boundaryBefore }));
@@ -346,7 +346,7 @@ describe("place Research quote as one document edit", () => {
     const boxes = secondRow.overlayEvents.map((event) => event.quoteBox).filter((box) => box !== undefined);
     expect(boxes).toHaveLength(2);
     expect(boxes[0]!.backgroundPayloadId).toBe(firstBox.backgroundPayloadId);
-    expect(new Set(boxes.map((box) => box!.researchQuoteUseId)).size).toBe(2);
+    expect(new Set(boxes.map((box) => box.researchQuoteUseId)).size).toBe(2);
     expect(secondRow.text).toBe(row.text);
     expect(validateScriptDocumentV2(second.document).valid).toBe(true);
 
@@ -366,7 +366,6 @@ describe("place Research quote as one document edit", () => {
     const current = first.document.activeDraft.blocks[0];
     if (!current || current.type !== "narration") throw new Error("Expected first quote row");
     const placedFirst = structuredClone(current);
-    const lastQuoteToken = placedFirst.tokens.find((token) => token.value === "line”")!;
     const otherToken = placedFirst.tokens.find((token) => token.value === "closer")!;
     const otherSlot = researchId(950001);
     placedFirst.unattachedVisuals = [{ slotId: otherSlot, version: 1, payload: {

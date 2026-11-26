@@ -964,10 +964,38 @@ describe("protected Research quote placement", () => {
     expect((await publish()).status).toBe(409);
     expect(h.fake.calls.some(({ method }) => method === "PATCH")).toBe(false);
     h.fake.state.quoteVersion = 10;
+    const priorDisplayText = h.fake.state.quoteDisplayText;
     h.projects.mockResolvedValueOnce(Response.json(head));
-    expect((await publish()).status).toBe(204);
+    const written = await publish();
+    expect(written.status).toBe(200);
+    const receipt = (await written.json() as { undo: string }).undo;
     expect(h.fake.state.quoteVersion).toBe(11);
     expect(h.fake.state.quoteDisplayText).toBe("The use I just saved.");
+
+    event.quoteBox!.displayText = "My earlier per-use wording.";
+    const undo = (proof: string) => h.read("research-quote-display-default", {
+      method: "POST", body: { ...intent, expectedRevision: 13, undo: proof },
+    });
+    expect((await undo(`${receipt}tampered`)).status).toBe(400);
+    h.fake.state.quoteDisplayText = "A newer Research edit.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(409);
+    h.fake.state.quoteDisplayText = "The use I just saved.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(204);
+    expect(h.fake.state.quoteDisplayText).toBe(priorDisplayText);
+  });
+
+  it("uses original narration when the latest display text contains direction brackets", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteDisplayText = "[A speaker] described the finding.";
+    const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    expect(placed.status).toBe(200);
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.text).toBe("“This is the longer original quotation.”");
+    expect(row.overlayEvents[0]?.quoteBox?.displayText).toBe(h.fake.state.quoteDisplayText);
   });
 
   it("publishes an immutable kept picture only after verifying its size and hash", async () => {

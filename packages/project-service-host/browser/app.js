@@ -934,11 +934,12 @@ async function updateQuoteDisplayDefaultAfterSave({ projectId, rowId, overlayId,
   const use = row?.type === "narration" ? row.overlayEvents.find((item) => item.id === overlayId) : null;
   if (use?.quoteBox?.displayText !== displayText) return;
   try {
-    await authoringVisualPost("research-quote-display-default", {
+    const result = await authoringVisualPost("research-quote-display-default", {
       timelineProjectId: projectId, rowId, overlayId,
       expectedRevision: documentRevision, expectedDigest: documentDigest,
     });
-    await researchPanel?.refresh?.();
+    void researchPanel?.refresh?.();
+    if (result.undo) return { projectId, rowId, overlayId, undo: result.undo };
   } catch {
     if (activeProjectId === projectId) setSaveStatus("Quote box saved. Its latest Library display text did not update.");
   }
@@ -2091,7 +2092,8 @@ function queueCommand(command, label, options = {}) {
       }
       const previousProjection = visualProjection;
       scriptDocument = result.document;
-      undoStack.push({ document: prior, label });
+      const undoEntry = { document: prior, label };
+      undoStack.push(undoEntry);
       researchPanel?.update();
       lastSplit = null;
       updateUndo();
@@ -2099,7 +2101,7 @@ function queueCommand(command, label, options = {}) {
       void saveDocument();
       void refreshProjection(scriptDocument, true, previousProjection);
       if (typeof resolved.edit?.displayText === "string") {
-        void updateQuoteDisplayDefaultAfterSave({ projectId: options.expectedProjectId,
+        undoEntry.quoteDefault = updateQuoteDisplayDefaultAfterSave({ projectId: options.expectedProjectId,
           rowId: resolved.rowId, overlayId: resolved.overlayId, displayText: resolved.edit.displayText });
       }
       return true;
@@ -2266,11 +2268,14 @@ function undo() {
   typingGroup = null;
   commandsPending += 1;
   setSaveStatus();
-  commandQueue = commandQueue.then(() => {
+  commandQueue = commandQueue.then(async () => {
     // Earlier requests may have completed after Undo was queued, restoring
     // a typing group. Undo is a history boundary at *execution* as well.
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length || undoStack.at(-1)?.durable) return;
+    const undone = undoStack.at(-1);
+    const restoreQuoteDefault = await undone.quoteDefault;
+    if (conflicted || editRefused || undoStack.at(-1) !== undone) return;
     const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
     researchPanel?.update();
@@ -2282,6 +2287,18 @@ function undo() {
     documentDirty = true;
     void saveDocument();
     void refreshProjection(scriptDocument, true, previousProjection);
+    if (restoreQuoteDefault && await waitForDocumentSave() && activeProjectId === restoreQuoteDefault.projectId) {
+      const { projectId, rowId, overlayId, undo } = restoreQuoteDefault;
+      try {
+        await authoringVisualPost("research-quote-display-default", {
+          timelineProjectId: projectId, rowId, overlayId, undo,
+          expectedRevision: documentRevision, expectedDigest: documentDigest,
+        });
+        void researchPanel?.refresh?.();
+      } catch {
+        setSaveStatus("Quote box undo saved. The Library display default could not be restored.");
+      }
+    }
   }).finally(() => {
     commandsPending -= 1;
     setSaveStatus();

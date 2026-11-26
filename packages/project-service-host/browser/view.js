@@ -196,11 +196,12 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     const citation = makeElement(document, "cite", "visual-card__quote-citation");
     const source = quoteBox.citationText ?? "";
     const span = quoteBox.italicSpan;
+    const characters = [...source];
     if (span && Number.isSafeInteger(span.start) && Number.isSafeInteger(span.end) &&
-        span.start >= 0 && span.end > span.start && span.end <= source.length) {
-      citation.append(document.createTextNode(source.slice(0, span.start)));
-      citation.append(makeElement(document, "em", "", source.slice(span.start, span.end)));
-      citation.append(document.createTextNode(source.slice(span.end)));
+        span.start >= 0 && span.end > span.start && span.end <= characters.length) {
+      citation.append(document.createTextNode(characters.slice(0, span.start).join("")));
+      citation.append(makeElement(document, "em", "", characters.slice(span.start, span.end).join("")));
+      citation.append(document.createTextNode(characters.slice(span.end).join("")));
     } else citation.textContent = source;
     if (source) meta.append(citation);
     meta.append(makeElement(document, "span", "visual-card__quote-template", "EV24 Quote Box"));
@@ -493,7 +494,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         draggable: card.kind === "visual" || card.kind === "unattached_visual",
         waiting: card.kind === "unattached_visual",
         attaching: attaching?.rowId === block.id && attaching.slotId === card.slotId,
-        attach,
+        attach, quotePicture,
         editable: card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual",
       }));
     }
@@ -503,7 +504,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       for (const slot of block.primaryVisualSequence?.slots ?? []) {
         if (slot.kind === "content") {
           list.append(renderVisualCard(document, slot.payload, slot.payload.researchClip, {
-            footagePlacementId: slot.id,
+            footagePlacementId: slot.id, quotePicture,
           }));
         } else if (slot.kind === "return") {
           const parent = byId.get(slot.parentSlotId);

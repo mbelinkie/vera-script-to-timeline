@@ -1607,8 +1607,8 @@ describe("browser authoring over the local project service", () => {
     const search = page.getByRole("searchbox", { name: "Search Library" });
     await search.fill("English text");
     await expect.poll(() => page.locator(".footage-item").count()).toBe(1);
-    await search.fill("synthetic"); // URL and other metadata must not be searchable.
-    await expect.poll(() => page.locator(".footage-item").count()).toBe(0);
+    await search.fill("synthetic"); // The clip's URL and other metadata must not be searchable.
+    await expect.poll(() => page.getByRole("button", { name: "Choose footage: Frozen research source" }).count()).toBe(0);
     await search.fill("Frozen research source");
     await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
     await page.getByRole("button", { name: "Cancel choice" }).click();
@@ -1684,7 +1684,7 @@ describe("browser authoring over the local project service", () => {
       const projectId = await createProject(page, origin, "Saved range playback browser proof");
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
-      await expect.poll(() => page.locator(".footage-item").count()).toBe(3);
+      await expect.poll(() => page.locator(".footage-item--clip").count()).toBe(3);
       await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
       expect(externalRequests).toHaveLength(0);
       await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
@@ -2107,9 +2107,10 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(() => typedPictureButton.isVisible()).toBe(true);
       await expect.poll(() => typedMissingButton.isVisible()).toBe(true);
 
-      const previewButton = webQuoteButton.locator("xpath=.. [data-quote-picture-preview]");
+      const webQuoteCard = page.locator(".footage-item--quote").filter({ has: webQuoteButton });
+      const previewButton = webQuoteCard.locator("[data-quote-picture-preview]");
       await previewButton.click();
-      await expect.poll(() => webQuoteButton.locator("xpath=.. img[data-quote-preview-image]").getAttribute("src"))
+      await expect.poll(() => webQuoteCard.locator("img[data-quote-preview-image]").getAttribute("src"))
         .toMatch(/^blob:/u);
 
       const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
@@ -2127,13 +2128,34 @@ describe("browser authoring over the local project service", () => {
       expect(row.overlayEvents.filter((event) => event.quoteBox?.researchQuoteId === loggedQuote.itemId)).toHaveLength(1);
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add quote"]);
       const background = page.locator(`[data-row-id="${seeded.rowId}"] .visual-card[data-kind="image"]`);
-      await expect.poll(() => background.locator(".visual-card__image img").getAttribute("src"))
+      await expect.poll(() => background.locator(".visual-card__image img").getAttribute("src", { timeout: 500 }))
         .toMatch(/^blob:/u);
       const quoteBox = page.locator(`[data-row-id="${seeded.rowId}"] .visual-card[data-overlay-id="${row.overlayEvents[0]!.id}"]`);
       await expect.poll(() => quoteBox.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
       expect(await quoteBox.locator(".visual-card__quote-speaker").textContent()).toContain("Mara Vale");
       expect(await quoteBox.locator(".visual-card__quote-citation em").textContent()).toBe("The Harbor Ledger");
       expect(await quoteBox.locator(".visual-card__quote-range").textContent()).toMatch(/^Range · words/u);
+      await quoteBox.getByText("Edit quote box", { exact: true }).click();
+      const editedCitation = "🌊 " + loggedQuote.citationText;
+      await quoteBox.getByLabel("Citation", { exact: true }).fill(editedCitation);
+      await quoteBox.getByRole("button", { name: "Save citation" }).click();
+      await expect.poll(() => quoteBox.locator(".visual-card__quote-citation").textContent()).toBe(editedCitation);
+      expect(await quoteBox.locator(".visual-card__quote-citation em").textContent()).toBe("The Harbor Ledger");
+      expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(row.text);
+      await page.getByRole("button", { name: "Undo Edit quote box" }).click();
+      if (viewport.width === 1280) {
+        const originalDisplay = loggedQuote.displayText;
+        const changedDisplay = "[A clue] surfaced.";
+        await quoteBox.getByText("Edit quote box", { exact: true }).click();
+        await quoteBox.getByLabel("Display text", { exact: true }).fill(changedDisplay);
+        await quoteBox.getByRole("button", { name: "Save display text" }).click();
+        await expect.poll(() => loggedQuote.displayText).toBe(changedDisplay);
+        await expect.poll(() => quoteBox.locator(".visual-card__quote-text").textContent()).toBe(changedDisplay);
+        expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(row.text);
+        await page.getByRole("button", { name: "Undo Edit quote box" }).click();
+        await expect.poll(() => loggedQuote.displayText).toBe(originalDisplay);
+        await expect.poll(() => quoteBox.locator(".visual-card__quote-text").textContent()).toBe(originalDisplay);
+      }
       await page.getByRole("button", { name: "Undo Add quote" }).click();
       await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.text)
         .toBe(seeded.firstRowText);
@@ -2171,6 +2193,11 @@ describe("browser authoring over the local project service", () => {
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add quote"]);
       await page.getByRole("button", { name: "Undo Add quote" }).click();
       await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(1);
+      await webQuoteButton.dragTo(page.locator("#script-rows [data-row-gap]").first());
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(2);
+      await page.reload();
+      await expect.poll(() => page.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
+      await expect.poll(() => page.locator("[data-quote-picture-media] img").count()).toBe(1);
       await page.close();
     },
   120_000);
@@ -2205,7 +2232,7 @@ describe("browser authoring over the local project service", () => {
         contentType: "application/json", body: JSON.stringify({ error: "research_unavailable" }) }));
       await page.getByRole("button", { name: "Library", exact: true }).click();
       await expect.poll(() => page.locator("[data-footage-status]").textContent())
-        .toContain("Research Library is unavailable");
+        .toContain("Research projects could not be loaded");
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
     } finally { researchVisible = true; await page.close(); }
   }, 90_000);

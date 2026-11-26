@@ -330,6 +330,21 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
 }
 
+function quoteDefaultProof(authorization: string, encoded: string): Buffer {
+  return createHmac("sha256", authorization).update("vera-quote-default-undo:").update(encoded).digest();
+}
+
+interface QuoteDefaultUndo {
+  timelineProjectId: string;
+  rowId: string;
+  overlayId: string;
+  researchProjectId: string;
+  researchQuoteId: string;
+  before: string;
+  after: string;
+  revision: number;
+}
+
 /** Host-only Research authority. No request transport or bearer reaches the browser. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
@@ -744,7 +759,9 @@ export function createAuthoringHandler(
             picture.ownerKind === "quote" && picture.ownerId !== quoteId)) picture = null;
         const result = placeResearchQuoteV2(document, {
           researchQuoteId: quoteId, researchProjectId, researchSourceId: quote.sourceId,
-          researchQuoteVersion: quoteVersion, spokenText: quote.displayText, displayText: quote.displayText,
+          researchQuoteVersion: quoteVersion,
+          spokenText: /[[\]]/u.test(quote.displayText) ? quote.text : quote.displayText,
+          displayText: quote.displayText,
           speakerName: quote.speakerName ?? "", speakerTitle: quote.speakerTitle ?? "",
           citationText: quote.citationText, italicSpan: quote.italicSpan,
           templateRevision: EV24_QUOTE_BOX_TEMPLATE_REVISION,
@@ -800,10 +817,20 @@ export function createAuthoringHandler(
     if (isQuoteDisplayDefault) {
       let body: unknown;
       try { body = await request.json(); } catch { body = null; }
-      if (!record(body) || !exact(body, ["timelineProjectId", "rowId", "overlayId", "expectedRevision", "expectedDigest"]) ||
+      const displayKeys = ["timelineProjectId", "rowId", "overlayId", "expectedRevision", "expectedDigest"];
+      if (!record(body) || !exact(body, Object.hasOwn(body, "undo") ? [...displayKeys, "undo"] : displayKeys) ||
           !uuid(body.timelineProjectId) || !uuid(body.rowId) || !uuid(body.overlayId) ||
           !revision(body.expectedRevision) || typeof body.expectedDigest !== "string" ||
           !SAVED_DIGEST.test(body.expectedDigest)) return researchResponse(400, { error: "invalid_quote_box_edit" });
+      let undo: QuoteDefaultUndo | undefined;
+      if (Object.hasOwn(body, "undo")) {
+        const wire = typeof body.undo === "string" && body.undo.length <= 400_000
+          ? /^([A-Za-z0-9_-]+)\.([a-f0-9]{64})$/u.exec(body.undo) : null;
+        if (!wire || !matchesProof(wire[2], quoteDefaultProof(authorization, wire[1]!))) {
+          return researchResponse(400, { error: "invalid_quote_box_edit" });
+        }
+        undo = JSON.parse(Buffer.from(wire[1]!, "base64url").toString("utf8")) as QuoteDefaultUndo;
+      }
       if (!research?.catalog.quote || !research.catalog.setQuoteDisplayText) {
         return researchResponse(503, { error: "research_unavailable" });
       }
@@ -840,8 +867,22 @@ export function createAuthoringHandler(
         const current = await research.catalog.quote(researchProjectId, researchQuoteId);
         if (current.researchProjectId !== researchProjectId || current.itemId !== researchQuoteId ||
             current.sourceId !== box.researchSourceId) return researchResponse(409, { error: "research_quote_changed" });
+        if (undo) {
+          if (undo.timelineProjectId !== timelineProjectId || undo.rowId !== rowId || undo.overlayId !== overlayId ||
+              undo.researchProjectId !== researchProjectId || undo.researchQuoteId !== researchQuoteId ||
+              undo.revision >= expectedRevision || box.displayText.trim() === undo.after ||
+              current.displayText !== undo.after) return researchResponse(409, { error: "research_quote_changed" });
+          await research.catalog.setQuoteDisplayText(researchProjectId, researchQuoteId, current.itemVersion, undo.before);
+          return new Response(null, { status: 204, headers: RESEARCH_HEADERS });
+        }
         if (current.displayText !== box.displayText) {
-          await research.catalog.setQuoteDisplayText(researchProjectId, researchQuoteId, current.itemVersion, box.displayText);
+          const after = box.displayText.trim();
+          if (after === current.displayText) return new Response(null, { status: 204, headers: RESEARCH_HEADERS });
+          await research.catalog.setQuoteDisplayText(researchProjectId, researchQuoteId, current.itemVersion, after);
+          const receipt: QuoteDefaultUndo = { timelineProjectId, rowId, overlayId,
+            researchProjectId, researchQuoteId, before: current.displayText, after, revision: expectedRevision };
+          const encoded = Buffer.from(JSON.stringify(receipt)).toString("base64url");
+          return researchResponse(200, { undo: `${encoded}.${quoteDefaultProof(authorization, encoded).toString("hex")}` });
         }
         return new Response(null, { status: 204, headers: RESEARCH_HEADERS });
       } catch (error) {
