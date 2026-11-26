@@ -299,6 +299,27 @@ describe("Stash group organization transactions (issue 366 phase 2)", () => {
     expect(session.document.stashGroups).toEqual(withoutAttachment.stashGroups);
   });
 
+  it("deletes a whole Stash group with its exact attached footage and restores both with Undo", () => {
+    const { doc, members } = groupedDocument();
+    const note = doc.stash![1]!.rows[0];
+    if (note.type !== "narration" || !note.attachedFootage) throw new Error("expected a note with attached footage");
+    const session = createRowEditSessionV2(doc);
+    const stale = session.apply({ kind: "delete_rows", rowIds: members, stashBranch: { attachedClipIds: [] } });
+    expect(stale.ok).toBe(false);
+    expect(stale.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_REVIEW_REQUIRED");
+    const attachment = { attachedClipIds: [note.attachedFootage.clip.id] };
+    const partial = session.apply({ kind: "delete_rows", rowIds: [note.id], stashBranch: attachment });
+    expect(partial.ok).toBe(false);
+    expect(partial.diagnostics[0]?.code).toBe("STASH_GROUP_ATOMIC_REQUIRED");
+    const deleted = session.apply({ kind: "delete_rows", rowIds: members, stashBranch: attachment });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(deleted.document.stash).toEqual([]);
+    expect(deleted.document.stashGroups).toBeUndefined();
+    expect(session.undo().ok).toBe(true);
+    expect(session.document.stashGroups).toEqual(doc.stashGroups);
+    expect(session.document.stash).toEqual(doc.stash);
+  });
+
   it("refuses legacy partial placement, restore, deletion, outline reorder, section move and direct member edits", () => {
     const { doc, members } = groupedDocument();
     const original = structuredClone(doc);

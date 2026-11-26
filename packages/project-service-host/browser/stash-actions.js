@@ -421,11 +421,13 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
     deleteSaved: (rowId) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
       (current) => {
         const outline = outlineFor(current);
-        const group = current.stashGroups?.find((item) => item.rowIds.includes(rowId));
-        if (group) return { kind: "delete_stash_group", groupId: group.id };
         if (!outline.some((entry) => entry.rowId === rowId)) throw new Error("Choose a current saved item.");
-        const selected = descendantsOf(outline, [rowId]);
-        return { kind: "delete_rows", rowIds: outline.filter((entry) => selected.has(entry.rowId)).map((entry) => entry.rowId) };
+        const group = current.stashGroups?.find((item) => item.rowIds.includes(rowId));
+        const selected = descendantsOf(outline, group?.rowIds ?? [rowId]);
+        const rowIds = outline.filter((entry) => selected.has(entry.rowId)).map((entry) => entry.rowId);
+        const attachedClipIds = (current.stash ?? []).flatMap((bundle) => bundle.rows).flatMap((row) =>
+          selected.has(row.id) && row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []);
+        return { kind: "delete_rows", rowIds, stashBranch: { attachedClipIds } };
       }, "Delete saved Stash material"),
     stashRows: (rowIds, destination, expectedModel) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
       (current, idFactory) => {

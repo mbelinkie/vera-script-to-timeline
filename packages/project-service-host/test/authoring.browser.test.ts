@@ -5576,6 +5576,15 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(attachment).toBeUndefined();
       await page.getByRole("button", { name: "Undo Detach Stash footage" }).click();
       await expect.poll(attachment).toBe(replacement);
+
+      const beforeDelete = (await saved()).document;
+      await entry.getByRole("button", { name: "Delete saved item" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual([]);
+      await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("Frozen research source");
+      await page.getByRole("button", { name: "Undo Delete saved Stash material" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual(beforeDelete.stash);
+      expect((await saved()).document.stashOutline).toEqual(beforeDelete.stashOutline);
+
       await entry.getByRole("button", { name: "Edit note", exact: true }).click();
       await entry.getByRole("textbox", { name: /^Edit note:/u }).fill("");
       await entry.getByRole("button", { name: "Save note", exact: true }).click();

@@ -191,7 +191,7 @@ export type RowEditCommandV2 =
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
   | { kind: "delete_row_audio_span"; cueId: string }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
-  | { kind: "delete_rows"; rowIds: string[] }
+  | { kind: "delete_rows"; rowIds: string[]; stashBranch?: { attachedClipIds: string[] } }
   | SplitRowCommandV2
   | JoinRowsCommandV2
   | StageDirectionEditCommandV2;
@@ -339,7 +339,10 @@ function validAuthoredRowCommand(value: unknown): boolean {
         !Object.hasOwn(value.row, "clearedNarration") && rowGapPayload(value.destination);
     }
     if (value.kind === "delete_rows") {
-      return exactKeys(value, ["kind", "rowIds"]) && rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
+      const branch = value.stashBranch;
+      return exactKeys(value, Object.hasOwn(value, "stashBranch") ? ["kind", "rowIds", "stashBranch"] : ["kind", "rowIds"]) &&
+        (!Object.hasOwn(value, "stashBranch") || plainObject(branch) && exactKeys(branch, ["attachedClipIds"]) && rowIdsPayload(branch.attachedClipIds)) &&
+        rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
     }
     return false;
   } catch {
@@ -1239,7 +1242,7 @@ function audioSpanTouchesRows(document: ScriptDocumentV2, selected: Set<string>)
   });
 }
 
-function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] } | AuthoringDiagnosticV2 {
+function deleteRows(working: ScriptDocumentV2, rowIds: string[], stashBranch?: { attachedClipIds: string[] }): { rows: Row[] } | AuthoringDiagnosticV2 {
   const activeRows = working.activeDraft.blocks.filter((block): block is Row => block.type !== "section");
   const stashedRows = (working.stash ?? []).flatMap((bundle) => bundle.rows);
   const activeIds = new Set(activeRows.map((row) => row.id));
@@ -1252,7 +1255,20 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
 
   const selected = new Set(rowIds);
   const removedRows = [...activeRows, ...stashedRows].filter((row) => selected.has(row.id));
-  if (removedRows.some((row) => row.type === "narration" && row.attachedFootage)) {
+  const attached = removedRows.flatMap((row) => row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []);
+  if (stashBranch) {
+    const expected = new Set(stashBranch.attachedClipIds);
+    if (activeSelected.length || attached.length !== stashBranch.attachedClipIds.length || attached.some((id) => !expected.has(id))) {
+      return diagnostic("STASH_ATTACHMENT_REVIEW_REQUIRED", "Delete only saved Stash items with their current attached footage.");
+    }
+    for (const group of working.stashGroups ?? []) {
+      if (!group.rowIds.some((id) => selected.has(id))) continue;
+      if (!group.rowIds.every((id) => selected.has(id))) {
+        return diagnostic("STASH_GROUP_ATOMIC_REQUIRED", "Delete all rows of a Stash group together.");
+      }
+      removeGroup(working, group.id);
+    }
+  } else if (attached.length) {
     return diagnostic("STASH_ATTACHMENT_REVIEW_REQUIRED", "Detach the owned footage or use explicit blank-note cleanup before deleting its note.");
   }
   if (audioSpanTouchesRows(working, selected)) return diagnostic("AUDIO_REVIEW_REQUIRED", "A saved row audio span touches these rows. Review or remove that audio intent before deleting them.");
@@ -2197,7 +2213,7 @@ export function applyRowEditV2(
     blocks.splice(index, 0, row);
     moved = [row];
   } else if (command.kind === "delete_rows") {
-    const deleted = deleteRows(working, command.rowIds);
+    const deleted = deleteRows(working, command.rowIds, command.stashBranch);
     if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
     moved = deleted.rows;
   } else if (command.kind === "split_row" || command.kind === "join_rows") {

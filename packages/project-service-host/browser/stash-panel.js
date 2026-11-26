@@ -759,8 +759,11 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           move("Nest under previous note", previousNote ? { sectionId: item.id, parentRowId: previousNote.rowId, afterRowId: null } : null);
           const remove = make(doc, "button", entry.group ? "Delete group" : "Delete saved item");
           remove.type = "button";
+          const attachedClip = row.attachedFootage?.clip;
+          const attachedTitle = attachedClip?.researchClip?.video?.title ?? attachedClip?.payload?.displayName;
           remove.addEventListener("click", () => void runMutation(() => actions.deleteSaved(entry.rowId),
-            "Deleted from Stash.", "The item was not deleted. See script status."));
+            attachedTitle ? `Deleted note and ${attachedTitle} from Stash.` : "Deleted from Stash.",
+            "The item was not deleted. See script status."));
           controls.append(remove);
           li.append(controls);
         }
