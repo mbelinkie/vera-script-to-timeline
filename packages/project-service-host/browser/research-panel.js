@@ -157,6 +157,39 @@ export function researchQuoteUsage(model, fallbackProjectId = "") {
   return [...entries.values()];
 }
 
+/** Count saved Draft image occurrences, not quote pictures or parked rows. */
+export function researchStillUsage(model) {
+  const entries = new Map();
+  const seen = new Set();
+  function add(rowId, placementId, payload) {
+    const still = payload?.researchStill;
+    if (payload?.kind !== "visual" || !still?.researchProjectId ||
+        !still.itemId || !payload.payloadId) return;
+    const project = still.researchProjectId.toLowerCase();
+    const item = still.itemId.toLowerCase();
+    const key = JSON.stringify([project, item]);
+    const occurrence = JSON.stringify([project, item, payload.payloadId.toLowerCase()]);
+    if (seen.has(occurrence)) return;
+    seen.add(occurrence);
+    if (!entries.has(key)) entries.set(key, {
+      kind: "still", researchProjectId: project, itemId: item,
+      scriptCount: 0, scriptUses: [],
+    });
+    const entry = entries.get(key);
+    entry.scriptUses.push({ rowId, placementId });
+    entry.scriptCount = entry.scriptUses.length;
+  }
+  for (const row of model?.activeDraft?.blocks ?? []) {
+    if (row.type !== "narration") continue;
+    for (const slot of row.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind === "content") add(row.id, slot.id, slot.payload);
+    }
+    for (const loose of row.unattachedVisuals ?? []) add(row.id, loose.slotId, loose.payload);
+    for (const overlay of row.overlayEvents ?? []) add(row.id, overlay.id, overlay.payload);
+  }
+  return [...entries.values()];
+}
+
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
 export function mountResearchPanel({ root, catalog, quotesCatalog = async () => ({ quotes: [], nextOffset: null }),
   quoteThumbnail, getDocument, insert, insertQuote, onPlaceQuote, gapChoices, rowChoices, onStatus }) {
@@ -286,11 +319,12 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const currentUsage = () => [
     ...footageUsage(getDocument()).map((item) => ({ ...item, kind: "footage", itemId: item.clipId })),
     ...researchQuoteUsage(getDocument(), projects.value),
+    ...researchStillUsage(getDocument()),
   ];
   const usageOf = (kind, item) => currentUsage().find((entry) =>
     entry.kind === kind && entry.researchProjectId.toLowerCase() ===
-      String(kind === "quote" ? item.researchProjectId : item.projectId).toLowerCase() &&
-    entry.itemId.toLowerCase() === String(kind === "quote" ? item.itemId : item.id).toLowerCase());
+      String(kind === "footage" ? item.projectId : item.researchProjectId).toLowerCase() &&
+    entry.itemId.toLowerCase() === String(kind === "footage" ? item.id : item.itemId).toLowerCase());
   const renderUsageJumps = (card, usage) => {
     const count = usage?.scriptCount ?? 0;
     card.append(make(doc, "span", "footage-item__usage", count ? `Used ${count}×` : "Unused"));

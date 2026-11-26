@@ -618,7 +618,7 @@ describe("browser authoring over the local project service", () => {
             return Promise.reject(new Error("The Research still project is no longer accessible."));
           }
           return Promise.resolve({ stills: [{ itemId: loggedStill.itemId, itemVersion: loggedStill.itemVersion,
-            title: loggedStill.title, credit: loggedStill.credit }], nextOffset: null });
+            researchProjectId: loggedStill.researchProjectId, title: loggedStill.title, credit: loggedStill.credit, topics: [] }], nextOffset: null });
         },
         still: (projectId, itemId, itemVersion) => {
           if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase() ||
