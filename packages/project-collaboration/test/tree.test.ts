@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
@@ -77,6 +77,30 @@ describe("shared document mapping", () => {
     expect(narration(a, 0).text).toBe("hello big world today");
     expect(sameJson(readRoot(a), readRoot(b))).toBe(true);
     expect(validateScriptDocumentV2(draft(a)).diagnostics).toEqual([]);
+  });
+
+  it.fails("keeps concurrent typing when a row moves from Draft to Extras (#539)", () => {
+    const document = scriptFor(randomUUID(), ["hello world"]);
+    const rowId = document.activeDraft.blocks[1]!.id;
+    const mover = shared(document);
+    const writer = copy(mover);
+    const before = readRoot(mover);
+    const parked = applyRowEditV2(draft(mover), 0, {
+      kind: "stash_rows", rowIds: [rowId], bundleId: randomUUID(),
+    });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    mover.transact(() => {
+      applyRootChange(mover, before, { ...before, document: parked.document as unknown as JsonObject });
+    });
+    edit(writer, (next) => { (next.activeDraft.blocks[1] as NarrationBlockV2).text = "hello brave world"; });
+
+    merge(mover, writer);
+
+    expect(sameJson(readRoot(mover), readRoot(writer))).toBe(true);
+    expect(draft(mover).activeDraft.blocks.some((block) => block.id === rowId)).toBe(false);
+    expect(draft(mover).stash?.flatMap((bundle) => bundle.rows)).toEqual([
+      expect.objectContaining({ id: rowId, text: "hello brave world" }),
+    ]);
   });
 
   it("never duplicates or drops a row when two people move it at once", () => {
