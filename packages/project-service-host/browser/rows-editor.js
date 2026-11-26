@@ -111,8 +111,8 @@ function transitionClipRow(row) {
     mutedClip(slot.payload);
 }
 
-// Capture the identities and versions from the rendered document, rather
-// than looking up a new neighbor when the command eventually runs.
+// Capture exact identities; resolve their versions only when the queued
+// command runs, after preceding narration edits have been applied.
 const transitionCommands = new WeakMap();
 
 function decorateTransition(state, divider, gap, blocks) {
@@ -357,6 +357,28 @@ function makeRowActions(state, rowElement) {
   selectButton.dataset.rowAction = "select-range";
   selectButton.setAttribute("role", "menuitem");
   menu.append(selectButton);
+
+  const index = rowIndex(blocksOf(state.scriptDocument));
+  for (const intent of state.scriptDocument.rowTransitions ?? []) {
+    if (intent.state !== "needs_review" || (intent.fromRowId !== rowId && intent.toRowId !== rowId)) continue;
+    const from = index.get(intent.fromRowId)?.row;
+    const to = index.get(intent.toRowId)?.row;
+    if (!from || !to) continue;
+    trigger.classList.add("row-actions__trigger--review");
+    trigger.textContent = "Review ⋯";
+    trigger.setAttribute("aria-label", `Row actions for “${label}” — transition needs review`);
+    const counterpart = rowId === from.id ? to : from;
+    const actionLabel = `Remove reviewed transition with “${rowLabel(counterpart)}”`;
+    const remove = button(state.root.ownerDocument, "", actionLabel);
+    remove.dataset.rowTransition = "remove";
+    remove.setAttribute("role", "menuitem");
+    transitionCommands.set(remove, {
+      kind: "remove_row_transition", transitionId: intent.id,
+      fromRowId: from.id, toRowId: to.id,
+      expectedFromVersion: from.version, expectedToVersion: to.version,
+    });
+    menu.append(remove);
+  }
 
   const groupDelete = button(state.root.ownerDocument, "", "Delete group");
   groupDelete.dataset.rowRangeAction = "delete-group";
@@ -623,8 +645,17 @@ function handleClick(state, event) {
     const intent = transitionCommands.get(transition);
     if (!intent || state.busy) return;
     const adding = intent.kind === "add_row_transition";
-    void emit(state, adding ? { ...intent, transitionId: randomId(state) } : intent,
-      adding ? "Add transition" : "Remove transition");
+    const captured = adding ? { ...intent, transitionId: randomId(state) } : intent;
+    void emit(state, (latest) => {
+      const rows = rowIndex(blocksOf(latest));
+      const from = rows.get(captured.fromRowId)?.row;
+      const to = rows.get(captured.toRowId)?.row;
+      // The model still checks the exact pair, eligibility, and named intent.
+      // Missing rows are refused rather than retargeted to new neighbors.
+      return { ...captured,
+        expectedFromVersion: from?.version ?? captured.expectedFromVersion,
+        expectedToVersion: to?.version ?? captured.expectedToVersion };
+    }, adding ? "Add transition" : "Remove transition");
     return;
   }
 

@@ -348,9 +348,37 @@ describe("#677 ordinary row transitions", () => {
     refuse(saved, { ...remove, fromRowId: a.id, toRowId: b.id }, "ROW_TRANSITION_NOT_FOUND");
     refuse(saved, { ...remove, expectedToVersion: 2 }, "ROW_TRANSITION_STALE");
     refuse(saved, { ...remove, expectedFromVersion: 2 }, "ROW_TRANSITION_STALE");
-    refuse(documentWith([a, b, c, d], { rowTransitions: [{ ...intentFor(add), state: "needs_review" }] }), remove, "ROW_TRANSITION_NOT_FOUND");
     refuse(initial, remove, "ROW_TRANSITION_NOT_FOUND");
   });
+  it("removes the exact reviewed transition after a move across sections and supports Undo and deletion", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000), d = clipRow(40000);
+    const heading = section(99010, "Next");
+    const add = commandFor(a, b);
+    const other = intentFor(commandFor(c, d, 99002));
+    const session = createRowEditSessionV2(documentWith([a, b, heading, c, d], { rowTransitions: [other] }));
+    expect(session.apply(add).ok).toBe(true);
+    const moved = session.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(heading.id, d.id, null) });
+    expect(moved.ok).toBe(true);
+    const reviewed = { ...intentFor(add), state: "needs_review" };
+    expect(moved.document.rowTransitions).toEqual([other, reviewed]);
+    const remove = { ...add, kind: "remove_row_transition" as const,
+      expectedFromVersion: moved.document.activeDraft.blocks.find((block) => block.id === a.id)!.version,
+      expectedToVersion: moved.document.activeDraft.blocks.find((block) => block.id === b.id)!.version };
+    expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(session.apply({ ...remove, transitionId: other.id }).ok).toBe(false);
+    expect(session.apply({ ...remove, toRowId: c.id }).ok).toBe(false);
+    expect(session.apply({ ...remove, toRowId: id(99999) }).ok).toBe(false);
+    expect(session.apply({ ...remove, expectedToVersion: remove.expectedToVersion + 1 }).ok).toBe(false);
+    const removed = session.apply(remove);
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document.rowTransitions).toEqual([other]);
+    expect(removed.document.activeDraft).toEqual(moved.document.activeDraft);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(removed.document))).toEqual({ ok: true, document: removed.document });
+    expect(session.undo().document.rowTransitions).toEqual([other, reviewed]);
+    expect(session.redo().document.rowTransitions).toEqual([other]);
+    expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).ok).toBe(true);
+  });
+
 });
 
 describe("#588 visual placement names", () => {

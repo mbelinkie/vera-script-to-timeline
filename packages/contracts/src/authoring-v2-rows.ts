@@ -1547,12 +1547,18 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   let placementCounts: RowEditResultV2["placementCounts"];
   let operationDiagnostics: AuthoringDiagnosticV2[] = [];
   if (command.kind === "add_row_transition" || command.kind === "remove_row_transition") {
-    const pair = ordinaryTransitionPairV2(working, command.fromRowId, command.toRowId);
-    if (!pair) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the same two consecutive rows within one script section.");
+    const transitions = working.rowTransitions ?? [];
+    const reviewed = command.kind === "remove_row_transition" && transitions.some((intent) =>
+      intent.state === "needs_review" && intent.id === command.transitionId &&
+      intent.fromRowId === command.fromRowId && intent.toRowId === command.toRowId);
+    const from = blocks.find((block): block is Row => block.type !== "section" && block.id === command.fromRowId);
+    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId);
+    const pair = ordinaryTransitionPairV2(working, command.fromRowId, command.toRowId) ??
+      (reviewed && from && to ? { from, to } : null);
+    if (!pair) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the same two consecutive rows within one script section, or an exact saved transition that needs review.");
     if (pair.from.version !== command.expectedFromVersion || pair.to.version !== command.expectedToVersion) {
       return refused(document, "ROW_TRANSITION_STALE", "A neighboring row changed. Choose the current divider again.");
     }
-    const transitions = working.rowTransitions ?? [];
     const samePair = (intent: (typeof transitions)[number]) => intent.fromRowId === pair.from.id && intent.toRowId === pair.to.id;
     if (command.kind === "add_row_transition") {
       if (!qualifiedTransitionRowShapeV2(pair.from) || !qualifiedTransitionRowShapeV2(pair.to)) {
@@ -1570,8 +1576,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active",
       });
     } else {
-      const index = transitions.findIndex((intent) => intent.id === command.transitionId && samePair(intent) && intent.state === "active");
-      if (index < 0) return refused(document, "ROW_TRANSITION_NOT_FOUND", "The named active transition is not saved at this divider.");
+      const index = transitions.findIndex((intent) => intent.id === command.transitionId && samePair(intent) && (intent.state === "active" || intent.state === "needs_review"));
+      if (index < 0) return refused(document, "ROW_TRANSITION_NOT_FOUND", "The named transition is not saved for these rows.");
       transitions.splice(index, 1);
       if (transitions.length === 0) delete working.rowTransitions;
     }

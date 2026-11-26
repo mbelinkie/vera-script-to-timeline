@@ -150,6 +150,16 @@
   pointer-events: auto;
 }
 
+.row-actions__trigger--review {
+  width: auto;
+  padding-inline: 0.45rem;
+  opacity: 1;
+  pointer-events: auto;
+  color: #704f1a;
+  background: #fff8e9;
+  font-size: 0.72rem;
+}
+
 .row-actions__trigger:hover,
 .row-actions__trigger[aria-expanded="true"] {
   border-color: #b58a3d;
