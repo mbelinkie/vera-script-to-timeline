@@ -228,3 +228,30 @@ def bind_research_cut(
         "preparedMediaRequirementKey": None,
     }
     return video, media, descriptor
+
+
+def bind_narrated_research_cut(
+    payload: Json, owner: Json, folder: Path, tools: MediaTools
+) -> tuple[Path, MediaInspection, Json]:
+    """Verify a bound primary occurrence without editing the authored payload."""
+    binding = payload.get("frameBinding")
+    selection = payload.get("selectedSourceRange")
+    if binding is None or selection is None:
+        raise ValueError("Narrated Research clip needs a verified binding and range")
+    if payload.get("source") != {
+        "kind": "media_reference",
+        "mediaReferenceId": binding["mediaReferenceId"],
+    } or payload.get("sourceUsage") != {"sourceInFrame": selection["startFrame"]}:
+        raise ValueError(
+            "Narrated Research source differs from its saved range or binding"
+        )
+    row = {
+        "id": owner["slotId"],
+        "researchClip": payload["researchClip"],
+        "frameBinding": binding,
+        "payload": {"payloadId": payload["payloadId"]},
+        "visualOnlyTiming": {"selectedSourceRange": selection},
+    }
+    video, media, descriptor = bind_research_cut(row, folder, tools)
+    descriptor["owner"] = owner
+    return video, media, descriptor

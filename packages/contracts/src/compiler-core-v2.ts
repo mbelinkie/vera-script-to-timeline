@@ -1120,7 +1120,9 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           if (desc && authoredSourceIn === desc.occurrenceSourceInFrame) {
             const sourceRate = rateFraction(desc.logicalSourceBounds.frameRate);
             const targetRate = rateFraction(dependencies.timeline.frameRate);
-            const remaining = BigInt(desc.logicalSourceBounds.endFrame - desc.occurrenceSourceInFrame);
+            const selection = controlled.payload.selectedSourceRange;
+            const endFrame = selection ? selection.startFrame + selection.durationFrames : desc.logicalSourceBounds.endFrame;
+            const remaining = BigInt(endFrame - desc.occurrenceSourceInFrame);
             if (remaining > 0n) {
               const duration = frac(remaining * sourceRate.d, sourceRate.n);
               const frames = safe(ceil(duration.n * targetRate.n, duration.d * targetRate.d), "complete clip frames");
@@ -1291,7 +1293,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         const isClip = payload.pictureKind === "clip";
         const complete = slot.playoutPolicy === "complete_logged_clip" && isClip;
         if (!isClip && payload.audioPolicy === "quiet") diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "A held still frame cannot carry source audio; use mute or choose a clip.", entity("slot", slot.id, "audioPolicy"), undefined, ["repair_document"]));
-        const requiredEnd = complete ? descriptor.logicalSourceBounds.endFrame : isClip ? requiredSourceEnd(descriptor, range.endFrame - range.startFrame, dependencies.timeline.frameRate) : safe(BigInt(sourceIn) + 1n, "still source end");
+        const requiredEnd = complete ? available.endFrame : isClip ? requiredSourceEnd(descriptor, range.endFrame - range.startFrame, dependencies.timeline.frameRate) : safe(BigInt(sourceIn) + 1n, "still source end");
         const required = { startFrame: sourceIn, endFrame: requiredEnd ?? available.endFrame };
         const exactDuration = complete && requiredEnd
           ? sourceDurationInSeconds(requiredEnd - sourceIn, descriptor.logicalSourceBounds.frameRate)

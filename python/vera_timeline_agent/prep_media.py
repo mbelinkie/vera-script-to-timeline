@@ -38,6 +38,7 @@ from .prep_media_research_still import (
 )
 from .quote_box_inputs import freeze_quote_box_inputs
 from .research_cut_binding import (
+    bind_narrated_research_cut,
     bind_research_cut,
     copy_cut,
     find_cached_research_cut,
@@ -128,6 +129,16 @@ def _reuse_handoff(
                 ):
                     raise ValueError("A verified project Research copy is missing")
                 report(f"{_label(snapshot)}: reused ({monotonic() - started:.2f}s)")
+        for payload, _ in _narrated_research_occurrences(document):
+            snapshot = payload["researchClip"]
+            if (
+                find_cached_research_cut(
+                    research_clip_folder(media_root, snapshot), snapshot
+                )
+                is None
+            ):
+                raise ValueError("A verified project Research copy is missing")
+            report(f"{_label(snapshot)}: reused")
         for timing in read_json_object(path / "compiler-dependencies.json")[
             "narrationTimingMaps"
         ]:
@@ -153,6 +164,25 @@ def _check_narrated_research(document: Json) -> None:
                     f"RESEARCH_MEDIA_UNRESOLVED: {_label(snapshot)} on narration "
                     f"row {row['id']} needs a verified source binding"
                 )
+
+
+def _narrated_research_occurrences(document: Json) -> list[tuple[Json, Json]]:
+    """Only active primary slots compile; the attached note is their mirror."""
+    return [
+        (
+            slot["payload"],
+            {
+                "kind": "primary_slot",
+                "sequenceId": sequence["id"],
+                "slotId": slot["id"],
+            },
+        )
+        for row in document["activeDraft"]["blocks"]
+        if row["type"] == "narration" and row["state"] == "active"
+        if (sequence := row.get("primaryVisualSequence")) is not None
+        for slot in sequence["slots"]
+        if slot["kind"] == "content" and slot["payload"].get("researchClip")
+    ]
 
 
 def _research_still_occurrences(document: Json) -> list[tuple[Json, Json]]:
@@ -359,7 +389,7 @@ def prepare_project(
     root.mkdir(exist_ok=True)
     key = identity_hash(
         {
-            "version": 3,
+            "version": 4 if _narrated_research_occurrences(raw_document) else 3,
             "document": raw_document,
             "dependencies": dependencies,
             "preparations": preparations,
@@ -416,6 +446,26 @@ def prepare_project(
         clip_times[payload_id] = (name, status, monotonic() - item_start)
         ready += 1
         reused += status == "reused"
+
+    for payload, owner in _narrated_research_occurrences(document):
+        item_start = monotonic()
+        snapshot = payload["researchClip"]
+        payload_id = payload["payloadId"]
+        cut = find_cached_research_cut(
+            research_clip_folder(media_root, snapshot), snapshot
+        )
+        if cut is None:
+            raise ValueError(
+                f"RESEARCH_MEDIA_UNRESOLVED: {_label(snapshot)} "
+                "needs its verified project cut"
+            )
+        path, _, descriptor = bind_narrated_research_cut(payload, owner, cut, tools)
+        mappings[:] = [entry for entry in mappings if entry["payloadId"] != payload_id]
+        mappings.append(descriptor)
+        cut_sources[payload_id] = path
+        clip_times[payload_id] = (_label(snapshot), "reused", monotonic() - item_start)
+        ready += 1
+        reused += 1
 
     if cut_sources or failed:
         document.pop("liveContentHash")

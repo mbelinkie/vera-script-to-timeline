@@ -11,6 +11,7 @@ from vera_timeline_agent.media_preparation import MediaTools
 from vera_timeline_agent.prep_media import failed_fetch_slate
 from vera_timeline_agent.research_cut_binding import (
     Json,
+    bind_narrated_research_cut,
     bind_research_cut,
     copy_cut,
     cut_identity,
@@ -171,3 +172,86 @@ def test_bound_research_use_range_survives_rebinding_without_changing_source(
         "startFrame": 24,
         "durationFrames": 36,
     }
+
+
+def test_narrated_occurrence_uses_actual_slot_and_independent_ranges(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import vera_timeline_agent.research_cut_binding as binder
+    from vera_timeline_agent.prep_media import _narrated_research_occurrences
+
+    snapshot = {**SNAPSHOT, "clipVersion": 7}
+    digest = "sha256:" + "a" * 64
+    probe = "sha256:" + "b" * 64
+    video = tmp_path / "fixture.mp4"
+    monkeypatch.setattr(binder, "verify_cut", lambda *_: (video, digest))
+    monkeypatch.setattr(
+        binder,
+        "inspect_media",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            content_hash=digest,
+            probe_hash=probe,
+            video_frames=[None] * 96,
+            audio={"index": 1, "sample_rate": 48000},
+            audio_origin=Fraction(0),
+            audio_hash="sha256:" + "c" * 64,
+            rate=Fraction(24000, 1001),
+            pts_origin=Fraction(0),
+            time_base=Fraction(1001, 24000),
+        ),
+    )
+    clip = {
+        "id": "clip",
+        "researchClip": snapshot,
+        "payload": {"payloadId": "one"},
+        "visualOnlyTiming": {},
+    }
+    bind_research_cut(clip, tmp_path, MediaTools())
+    payloads = [
+        dict(
+            clip["payload"],
+            payloadId=key,
+            researchClip=snapshot,
+            frameBinding=clip["frameBinding"],
+            selectedSourceRange={"startFrame": start, "durationFrames": 12},
+            sourceUsage={"sourceInFrame": start},
+        )
+        for key, start in [("one", 12), ("two", 36)]
+    ]
+    sequence = {
+        "id": "seq",
+        "slots": [
+            {"kind": "content", "id": key, "payload": payload}
+            for key, payload in zip(["slot-one", "slot-two"], payloads, strict=True)
+        ],
+    }
+    row = {
+        "type": "narration",
+        "state": "active",
+        "primaryVisualSequence": sequence,
+        "attachedFootage": {"clip": clip},
+        "unattachedVisuals": [{"payload": payloads[0]}],
+    }
+    document = {"activeDraft": {"blocks": [row, dict(row, state="inactive")]}}
+    frozen = json.dumps(document)
+    results = [
+        bind_narrated_research_cut(payload, owner, tmp_path, MediaTools())[2]
+        for payload, owner in _narrated_research_occurrences(document)
+    ]
+    assert [item["owner"]["slotId"] for item in results] == ["slot-one", "slot-two"]
+    assert [item["selectedSourceRange"] for item in results] == [
+        {"startFrame": 12, "endFrame": 24},
+        {"startFrame": 36, "endFrame": 48},
+    ]
+    assert results[0]["logicalSourceBounds"]["frameRate"] == {
+        "numerator": 24000,
+        "denominator": 1001,
+    }
+    assert json.dumps(document) == frozen
+    with pytest.raises(ValueError, match="needs a verified binding"):
+        bind_narrated_research_cut(
+            dict(payloads[0], frameBinding=None),
+            results[0]["owner"],
+            tmp_path,
+            MediaTools(),
+        )

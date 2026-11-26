@@ -2977,3 +2977,70 @@ describe("Quote box compiler bindings", () => {
     expect(compiled.manifest.events.some((event) => event.kind === "quote_box")).toBe(true);
   });
 });
+
+it("checkpoint B preserves the fixed interval and refuses insufficient selected frames", () => {
+  const {document: clips, dependenciesFor} = researchTrimBuildFixture();
+  const clip = clips.activeDraft.blocks[0] as VisualOnlyBlockV2;
+  const doc = document();
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const sequence = row.primaryVisualSequence!;
+  const slot = sequence.slots[0]!;
+  if (slot.kind !== "content") throw new Error("Expected root content");
+  const deps = dependencies();
+  const rate = {numerator: 24000, denominator: 1001};
+  deps.timeline.frameRate = rate;
+  const descriptor = dependenciesFor(clips).occurrenceResolutions[0]!;
+  descriptor.owner = {kind:"primary_slot", sequenceId:sequence.id, slotId:slot.id};
+  descriptor.logicalSourceBounds.frameRate = rate;
+  descriptor.sourceFrameMap.decodedPackageFrameRate = rate;
+  descriptor.sourceFrameMap.packageVideoTimeBase = {numerator:1001, denominator:24000};
+  const run = (startFrame: number, endFrame: number) => {
+    slot.payload = {
+      ...structuredClone(clip.payload),
+      researchClip: structuredClone(clip.researchClip!),
+      frameBinding: structuredClone(clip.frameBinding!),
+      selectedSourceRange: {startFrame, durationFrames:endFrame-startFrame},
+      sourceUsage: {sourceInFrame:startFrame},
+    };
+    descriptor.occurrenceSourceInFrame = startFrame;
+    descriptor.selectedSourceRange = {startFrame,endFrame};
+    return resolveMediaRequirementsV2(doc, {
+      timing:deps.narrationTimingMaps, defaults:deps.authoringDefaults,
+      sourceDescriptors:[descriptor], frameRate:rate,
+    });
+  };
+  const baseline = run(12,108);
+  const trimmed = run(24,60);
+  expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+  expect(trimmed).toMatchObject({ok:false,diagnostics:[{code:"SOURCE_INSUFFICIENT"}]});
+});
+
+
+it("checkpoint B complete clip media-end follows the selected exclusive out at fractional rate", () => {
+  const { doc, deps } = completeClipBoundaryFixture([
+    { value: "alpha", start: { numerator: 0, denominator: 1 } },
+    { value: "beta", start: { numerator: 10, denominator: 1 } },
+  ]);
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const root = row.primaryVisualSequence!.slots[0]!;
+  if (root.kind !== "content" || root.payload.kind !== "visual") throw new Error("Expected clip");
+  const descriptor = deps.occurrenceResolutions[0]!;
+  root.payload.sourceUsage = { sourceInFrame: 50 };
+  root.payload.selectedSourceRange = { startFrame: 50, durationFrames: 100 };
+  descriptor.occurrenceSourceInFrame = 50;
+  descriptor.selectedSourceRange = { startFrame: 50, endFrame: 150 };
+  const frozen = JSON.stringify([doc, deps]);
+  const needs = resolveMediaRequirementsV2(doc, {
+    timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+    sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate,
+  });
+  expect(needs.ok, JSON.stringify(needs)).toBe(true);
+  if (!needs.ok) throw new Error(JSON.stringify(needs));
+  expect(needs.requirements[0]).toMatchObject({
+    requiredSourceRange: { startFrame: 50, endFrame: 150 },
+    recordRange: { startFrame: 0, endFrame: 96 },
+    requestedRange: { sourceInFrame: 50, duration: { numerator: 4, denominator: 1 } },
+  });
+  expect(needs.requirements[1]?.recordRange.startFrame).toBe(96);
+  expect(JSON.stringify([doc, deps])).toBe(frozen);
+});
