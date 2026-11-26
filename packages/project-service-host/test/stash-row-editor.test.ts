@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 
 import { createStashRowEditorDocument } from "../browser/stash-row-editor.js";
@@ -25,6 +25,10 @@ function researchNote(n: number, text = "Look closer"): NarrationBlockV2 {
 
 function groupedDocument() {
   const members = [researchNote(720100), researchNote(720200)];
+  for (const member of members) {
+    delete member.plainDirection;
+    member.tokens.forEach((token) => { token.spoken = true; });
+  }
   const ids: [string, string] = [members[0]!.id, members[1]!.id];
   const sectionId = researchId(790001);
   const groupId = researchId(790002);
@@ -49,7 +53,7 @@ function expectValid(document: ScriptDocumentV2) {
 
 describe("detached saved-row editor document", () => {
   it("moves a named Stash group to a private Draft lane without changing its source document", () => {
-    const { doc, ids, groupId, sectionId } = groupedDocument();
+    const { doc, groupId, sectionId } = groupedDocument();
     const before = structuredClone(doc);
     const members = doc.stash!.flatMap((bundle) => bundle.rows);
 
@@ -71,7 +75,8 @@ describe("detached saved-row editor document", () => {
     delete singleDoc.stashGroups;
     singleDoc.stashOutline = singleDoc.stashOutline!.filter((entry) => entry.rowId !== researchId(720200));
     singleDoc.stash = singleDoc.stash!.filter((bundle) => bundle.rows[0]?.id !== researchId(720200));
-    const anchor = singleDoc.stash![0]!.rows[0]!;
+    const anchor = singleDoc.stash?.[0]?.rows[0];
+    if (!anchor) throw new Error("Expected one remaining saved row.");
     const member = anchor;
 
     const stage = createStashRowEditorDocument(singleDoc, [member]);
@@ -79,5 +84,23 @@ describe("detached saved-row editor document", () => {
     expect(stage.activeDraft.blocks.at(-1)).toEqual(member);
     expect(() => createStashRowEditorDocument(doc, [member], groupId)).toThrow(/membership changed/u);
     expect(() => createStashRowEditorDocument(singleDoc, [{ ...member, orderKey: "stale" }])).toThrow(/saved rows changed/u);
+  });
+
+  it("applies text edits to the detached Draft members while the saved source stays unchanged", () => {
+    const { doc, groupId } = groupedDocument();
+    const original = structuredClone(doc);
+    const members = doc.stash!.flatMap((bundle) => bundle.rows);
+    const stage = createStashRowEditorDocument(doc, members, groupId);
+    const row = members[0]!;
+
+    const result = applyRowEditV2(stage, stage.rowEditRevision ?? 0, {
+      kind: "edit_narration_text", rowId: row.id, startOffset: 0, endOffset: 4,
+      insertedText: "Watch", editId: researchId(790004),
+    });
+
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks.at(-2)).toMatchObject({ id: row.id, text: "Watch closer" });
+    expect(stage.activeDraft.blocks.at(-2)).toMatchObject({ id: row.id, text: "Look closer" });
+    expect(doc).toEqual(original);
   });
 });

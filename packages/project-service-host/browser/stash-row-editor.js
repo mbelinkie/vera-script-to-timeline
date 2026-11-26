@@ -4,6 +4,10 @@ import { mountVisualCardMenus, renderRows } from "./view.js";
 
 const rowKinds = new Set(["narration", "direction", "note_draft", "visual_only"]);
 const markerTitle = "Saved rows";
+const visualCommandKinds = new Set([
+  "add_visual_on_selection", "change_visual_type", "delete_visual", "set_visual_range",
+  "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
+]);
 
 function clone(value) {
   return structuredClone(value);
@@ -170,12 +174,11 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
   keep.textContent = "Keep editing";
   prompt.append(promptText, promptSave, discard, keep);
   dialog.append(header, rowsRoot, add, status, footer, prompt);
-  document.body.append(dialog);
+  host.append(dialog);
 
   let session = null;
   let stageDocument = null;
   let baselineMembers = [];
-  let inactiveIds = new Set();
   let projection = null;
   let cleanup = [];
   let pending = false;
@@ -185,7 +188,7 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
   let requestedFocus = null;
 
   const allStageRows = () => stagedRows(stageDocument);
-  const currentMembers = () => allStageRows().filter((row) => !inactiveIds.has(row.id));
+  const currentMembers = () => allStageRows();
   const dirty = () => JSON.stringify(currentMembers()) !== JSON.stringify(baselineMembers);
   const label = () => session?.groupId ? "this group" : "this row";
 
@@ -267,13 +270,9 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
   }
 
   function projectedSequenceVersion(command) {
+    if (!visualCommandKinds.has(command.kind)) return undefined;
     const id = command.blockId ?? command.rowId ?? command.sourceRowId;
     return allStageRows().find((row) => row.id === id)?.primaryVisualSequence?.version;
-  }
-
-  function syncMembersFromModel() {
-    const presentIds = new Set(allStageRows().map((row) => row.id));
-    inactiveIds = new Set([...inactiveIds].filter((id) => presentIds.has(id)));
   }
 
   async function stageCommand(command, caption, meta = {}) {
@@ -281,19 +280,36 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     const focusAtInput = captureFocus();
     const task = queued.then(async () => {
       if (!sessionAtInput || session !== sessionAtInput) return false;
-      const splitProof = command.kind === "join_rows" ? sessionAtInput.splitProof : undefined;
+      const current = getDocument();
+      if (current?.projectId !== sessionAtInput.projectId ||
+          (current?.rowEditRevision ?? 0) !== sessionAtInput.expectedRevision) {
+        status.textContent = "The saved rows changed while you were editing. Reopen them before continuing.";
+        return false;
+      }
       try {
-        const result = await applyCommand(stageDocument, command, splitProof,
-          projectedSequenceVersion(command));
+        if (meta.expectedRow) {
+          const expected = meta.expectedRow;
+          const currentRow = stageDocument.activeDraft.blocks.find((item) => item.id === expected.id);
+          const matchesNarration = currentRow?.type === "narration" && currentRow.text === expected.text &&
+            Boolean(currentRow.plainDirection) === expected.plainDirection;
+          const matchesCleared = currentRow?.type === "visual_only" && currentRow.clearedNarration &&
+            expected.text === "" && !expected.plainDirection;
+          if (!matchesNarration && !matchesCleared) {
+            throw new Error("The saved row changed while you were typing. Your unsaved text is still here.");
+          }
+        }
+        const resolved = typeof command === "function" ? command(stageDocument) : command;
+        const splitProof = resolved.kind === "join_rows" ? sessionAtInput.splitProof : undefined;
+        const result = await applyCommand(stageDocument, resolved, splitProof,
+          projectedSequenceVersion(resolved));
         if (session !== sessionAtInput) return false;
         if (!result?.ok || !result.document) throw new Error("The saved row edit was refused.");
         stageDocument = result.document;
-        sessionAtInput.splitProof = result.splitProof;
-        syncMembersFromModel();
-        if (["split_row", "join_rows"].includes(command.kind) && meta.focusAfter) {
+        sessionAtInput.splitProof = resolved.kind === "split_row" ? result.splitProof : undefined;
+        if (["split_row", "join_rows"].includes(resolved.kind) && meta.focusAfter) {
           requestedFocus = { rowId: meta.focusAfter.rowId, offset: meta.focusAfter.offset };
         }
-        const textOnly = ["edit_narration_text", "delete_direction_delimiter"].includes(command.kind) &&
+        const textOnly = ["edit_narration_text", "delete_direction_delimiter"].includes(resolved.kind) &&
           document.activeElement?.matches?.("[data-narration-editor]");
         if (!textOnly) {
           await refreshProjection();
@@ -348,19 +364,56 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     if (!session?.groupId || pending) return;
     try {
       const row = createBlankNarrationRow();
-      const blocks = [...stageDocument.activeDraft.blocks];
-      const anchorIndex = afterRowId ? blocks.findIndex((item) => item.id === afterRowId) : -1;
-      const insertAt = anchorIndex >= 0 ? anchorIndex + 1 : blocks.length;
-      blocks.splice(insertAt, 0, row);
-      stageDocument = { ...stageDocument, activeDraft: { ...stageDocument.activeDraft, blocks } };
-      void refreshProjection().then(() => render());
-      status.textContent = "Blank row added to this group.";
+      const blocks = stageDocument.activeDraft.blocks;
+      const markerIndex = blocks.findLastIndex((block) => block.type === "section" && block.title === markerTitle);
+      if (markerIndex < 0) throw new Error("The saved-row editor stage is unavailable.");
+      const members = blocks.slice(markerIndex + 1).filter(isRow);
+      const memberIndex = afterRowId === null ? -1 : members.findIndex((item) => item.id === afterRowId);
+      if (afterRowId !== null && memberIndex < 0) throw new Error("The saved group changed. Add the row again.");
+      const nextRow = members[memberIndex + 1];
+      void stageCommand({ kind: "create_row", row, destination: {
+        sectionId: blocks[markerIndex].id, afterRowId, beforeRowId: nextRow?.id ?? null,
+      } }, "Add row");
     } catch (error) { status.textContent = error.message; }
   }
 
   function removeRow(rowId) {
     if (!session?.groupId || pending) return;
-    inactiveIds.add(rowId);
+    const row = allStageRows().find((member) => member.id === rowId);
+    if (!row) return;
+    const staged = clone(stageDocument);
+    staged.activeDraft.blocks = staged.activeDraft.blocks.filter((block) => block.id !== rowId);
+    const sourceBundle = session.originalBundles.find((bundle) => bundle.rows.some((member) => member.id === rowId));
+    const sourceOutline = session.originalOutline.find((entry) => entry.rowId === rowId);
+    if (sourceBundle) {
+      staged.stash ??= [];
+      let bundle = staged.stash.find((candidate) => candidate.id === sourceBundle.id);
+      if (!bundle) {
+        bundle = { ...clone(sourceBundle), rows: [] };
+        staged.stash.push(bundle);
+      }
+      const sourceIds = sourceBundle.rows.map((member) => member.id);
+      const sourceIndex = sourceIds.indexOf(rowId);
+      const nextId = sourceIds.slice(sourceIndex + 1).find((id) => bundle.rows.some((member) => member.id === id));
+      const insertIndex = nextId ? bundle.rows.findIndex((member) => member.id === nextId) : bundle.rows.length;
+      bundle.rows.splice(insertIndex, 0, clone(row));
+    }
+    if (sourceOutline && Array.isArray(staged.stashOutline)) {
+      staged.stashOutline.push(clone(sourceOutline));
+      const sourceOrder = new Map(session.originalOutline.map((entry, index) => [entry.rowId, index]));
+      staged.stashOutline.sort((left, right) => (sourceOrder.get(left.rowId) ?? Number.MAX_SAFE_INTEGER) -
+        (sourceOrder.get(right.rowId) ?? Number.MAX_SAFE_INTEGER));
+    }
+    if (sourceOutline && Array.isArray(staged.stashSections)) {
+      for (const section of staged.stashSections) {
+        const originalSection = session.originalSections.find((item) => item.id === section.id);
+        if (!Array.isArray(section.rowIds) || !originalSection?.rowIds.includes(rowId)) continue;
+        section.rowIds.push(rowId);
+        section.rowIds.sort((left, right) => originalSection.rowIds.indexOf(left) - originalSection.rowIds.indexOf(right));
+      }
+    }
+    stageDocument = staged;
+    void refreshProjection().then(() => render());
     render();
     status.textContent = "Row removed from the staged group. Save to keep the change.";
     add.focus();
@@ -378,7 +431,6 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     session = null;
     stageDocument = null;
     baselineMembers = [];
-    inactiveIds = new Set();
     projection = null;
     pending = false;
     if (reopenAfterClose) {
@@ -420,7 +472,7 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     const membershipCurrent = session.groupId
       ? currentGroup && JSON.stringify(currentGroup.rowIds) === JSON.stringify(expectedRowIds)
       : members.length === 1 && currentStashRows.has(expectedRowIds[0]);
-    if (actualRevision !== session.expectedRevision || !membershipCurrent ||
+    if (current?.projectId !== session.projectId || actualRevision !== session.expectedRevision || !membershipCurrent ||
         [...expected].some((id) => !currentStashRows.has(id))) {
       status.textContent = "The saved rows changed while you were editing. Reopen them before saving.";
       return false;
@@ -467,6 +519,11 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     if (session) { requestClose(next); return; }
     const current = getDocument();
     const members = clone(next.members ?? (next.row ? [next.row] : []));
+    const expectedRevision = next.expectedRevision ?? (current?.rowEditRevision ?? 0);
+    if (!current || expectedRevision !== (current.rowEditRevision ?? 0)) {
+      next.onStatus?.("The saved rows changed. Reopen them before editing.");
+      return false;
+    }
     try {
       stageDocument = createStashRowEditorDocument(current, members, next.groupId ?? null);
     } catch (error) {
@@ -475,10 +532,14 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     }
     session = {
       groupId: next.groupId ?? null,
-      expectedRevision: next.expectedRevision ?? (current.rowEditRevision ?? 0),
+      expectedRevision,
       expectedRowIds: next.expectedRowIds ? [...next.expectedRowIds] : members.map((row) => row.id),
       onSave: next.onSave,
       onStatus: next.onStatus,
+      projectId: current.projectId,
+      originalBundles: clone(current.stash ?? []),
+      originalOutline: clone(current.stashOutline ?? []),
+      originalSections: clone(current.stashSections ?? []),
       splitProof: undefined,
     };
     if (JSON.stringify(session.expectedRowIds) !== JSON.stringify(members.map((row) => row.id))) {
@@ -488,7 +549,6 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
       return false;
     }
     baselineMembers = clone(members);
-    inactiveIds = new Set();
     heading.textContent = session.groupId ? "Edit saved rows" : "Edit saved row";
     prompt.hidden = true;
     status.textContent = "Changes are staged until Save.";
@@ -504,7 +564,7 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
 
   close.addEventListener("click", () => requestClose());
   cancel.addEventListener("click", closeNow);
-  save.addEventListener("click", () => { closeAfterSave = false; void commit(); });
+  save.addEventListener("click", () => { closeAfterSave = true; void commit(); });
   promptSave.addEventListener("click", () => { closeAfterSave = true; void commit(); });
   discard.addEventListener("click", closeNow);
   keep.addEventListener("click", () => {

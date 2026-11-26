@@ -140,6 +140,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   let mode = "browse";
   let selection = null;
   let opener = openButton;
+  let returnToStash = null;
   let committing = false;
 
   const close = () => {
@@ -152,7 +153,10 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     chooser.hidden = true;
     root.hidden = true;
     openButton.setAttribute("aria-expanded", "false");
-    if (opener?.isConnected) opener.focus();
+    const restoreStash = returnToStash;
+    returnToStash = null;
+    if (restoreStash) restoreStash();
+    else if (opener?.isConnected) opener.focus();
     else openButton.focus();
   };
   const currentUsage = () => footageUsage(getDocument());
@@ -287,9 +291,10 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
       status.textContent = "Research footage is unavailable or you do not have permission. Retry by choosing a project.";
     }
   };
-  const open = async ({ quick = false, placement = null, seed = "", from = openButton } = {}) => {
+  const open = async ({ quick = false, placement = null, seed = "", from = openButton, onClose = null } = {}) => {
     player.hide();
     opener = from;
+    returnToStash = onClose;
     mode = quick ? "quick" : "browse";
     selection = quick ? { placement, seed } : null;
     visible = true;

@@ -952,6 +952,12 @@ async function saveDocument() {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
     documentDigest = receipt.digest;
+    const last = undoStack.at(-1)?.durable;
+    if (last && last.document === pendingDocument.document) {
+      // Undoing a later text edit saved the exact earlier snapshot again.
+      last.revision = receipt.revision;
+      last.digest = receipt.digest;
+    }
     void refreshMusicWarnings();
     pendingDocument = undefined;
     documentSaveFailure = undefined;
@@ -1117,6 +1123,7 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
 }
 
 function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
+  const projectId = activeProjectId;
   const expected = editorDocument();
   const note = noteRowId && (expected.stash ?? []).flatMap((bundle) => bundle.rows)
     .find((row) => row.id === noteRowId);
@@ -1125,7 +1132,11 @@ function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
     return { kind: "stash", sectionId, noteRowId, replace: Boolean(note?.attachedFootage) };
   }, { kind: "stash" });
   stashPanel.close(false);
-  void researchPanel.open({ quick: true, from: from?.isConnected ? from : element("open-stash"), placement });
+  void researchPanel.open({ quick: true, placement, onClose: () => {
+    if (projectId !== activeProjectId) return;
+    stashPanel.open();
+    if (from?.isConnected) from.focus();
+  } });
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
@@ -1545,7 +1556,8 @@ export async function acceptSortingTrial(outcome = "all") {
       throw new Error("The saved script changed after acceptance. Reload to see the latest script.");
     }
     undoStack.push({ document: scriptDocument, label: "Sort rows",
-      durable: { revision: saved.revision, digest: saved.digest }, sortingBasis: { revision: trial.revision, digest: trial.digest } });
+      durable: { revision: saved.revision, digest: saved.digest, document: saved.document },
+      sortingBasis: { revision: trial.revision, digest: trial.digest } });
     scriptDocument = saved.document;
     documentRevision = saved.revision;
     documentDigest = saved.digest;
@@ -1886,12 +1898,13 @@ function retryExtrasWrite() {
       if (earlier?.revision === pending.sortingBasis.revision && earlier.digest === pending.sortingBasis.digest) {
         earlier.revision = saved.revision;
         earlier.digest = saved.digest;
+        earlier.document = saved.document;
       }
     } else {
       // Older snapshots cannot cross a whole-row Extras mutation boundary.
       undoStack.length = 0;
       if (!isUndo) undoStack.push({ document: prior, label,
-        durable: { revision: saved.revision, digest: saved.digest } });
+        durable: { revision: saved.revision, digest: saved.digest, document: saved.document } });
     }
     typingGroup = null;
     lastSplit = null;
@@ -2448,15 +2461,8 @@ researchPanel = mountResearchPanel({
   root: element("footage-panel"),
   catalog: researchCatalogGet,
   getDocument: editorDocument,
-  insert: async (clip, placement) => {
-    const projectId = activeProjectId;
-    const ok = await queueResearchClipInsert({ researchProjectId: clip.projectId,
-      clipId: clip.id, clipVersion: clip.version, placement });
-    if (ok && placement?.kind === "stash") setTimeout(() => {
-      if (projectId === activeProjectId) stashPanel.open();
-    }, 0);
-    return ok;
-  },
+  insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
+    clipId: clip.id, clipVersion: clip.version, placement }),
   gapChoices: availableGaps, rowChoices: availableNarrationRows,
   onStatus: (message) => setSaveStatus(message),
 });

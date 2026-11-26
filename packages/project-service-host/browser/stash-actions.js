@@ -243,11 +243,26 @@ export function stashOutlineMoveCommand(documentModel, rowId, destination) {
   ] };
 }
 
+export function captureStashGroupPlacement(documentModel, groupId, destination) {
+  const group = documentModel?.stashGroups?.find((item) => item.id === groupId);
+  if (!group || !validRowIds(group.rowIds) || !rowGaps(draftBlocks(documentModel)).some((gap) => sameGap(gap, destination))) return null;
+  return Object.freeze({ projectId: documentModel.projectId, documentId: documentModel.id, groupId,
+    rowIds: Object.freeze([...group.rowIds]), destination: copyGap(destination),
+    stashSnapshot: stashSnapshot(documentModel), draftSnapshot: JSON.stringify(documentModel.activeDraft) });
+}
+
+export function stashGroupPlacementCommand(documentModel, intent) {
+  const fresh = intent && captureStashGroupPlacement(documentModel, intent.groupId, intent.destination);
+  if (!fresh || JSON.stringify(fresh) !== JSON.stringify(intent)) throw new Error("The saved group or Draft destination changed. Choose again.");
+  return { kind: "place_stash_group", groupId: intent.groupId, destination: { ...intent.destination } };
+}
+
 function editedNoteCommand(documentModel, rowId, text, makeId) {
   const entry = outlineFor(documentModel).find((item) => item.rowId === rowId && item.kind === "note");
   const row = (documentModel.stash ?? []).flatMap((bundle) => bundle.rows).find((item) => item.id === rowId);
-  if (!entry || row?.type !== "narration" || row.plainDirection !== true || typeof text !== "string" || !text.trim()) {
-    throw new Error("Enter text for an existing Stash note.");
+  if (!entry || row?.type !== "narration" || row.plainDirection !== true || typeof text !== "string" ||
+    !text.trim() && !row.attachedFootage) {
+    throw new Error("Enter text or keep attached footage on this Stash note.");
   }
   if (row.version >= Number.MAX_SAFE_INTEGER) throw new Error("This note cannot be edited again.");
   const replacement = structuredClone(row);
@@ -400,6 +415,15 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
       (current, idFactory) => editedNoteCommand(current, rowId, text, idFactory), "Edit Stash note"),
     moveOutline: (rowId, destination) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
       (current) => stashOutlineMoveCommand(current, rowId, destination), "Organize Stash"),
+    deleteSaved: (rowId) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
+      (current) => {
+        const outline = outlineFor(current);
+        const group = current.stashGroups?.find((item) => item.rowIds.includes(rowId));
+        if (group) return { kind: "delete_stash_group", groupId: group.id };
+        if (!outline.some((entry) => entry.rowId === rowId)) throw new Error("Choose a current saved item.");
+        const selected = descendantsOf(outline, [rowId]);
+        return { kind: "delete_rows", rowIds: outline.filter((entry) => selected.has(entry.rowId)).map((entry) => entry.rowId) };
+      }, "Delete saved Stash material"),
     stashRows: (rowIds, destination, expectedModel) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
       (current, idFactory) => {
         if (!Array.isArray(rowIds) || !rowIds.length || !rowIds.every((id) => typeof id === "string") ||
@@ -471,9 +495,16 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
           sectionId, parentRowId, afterRowId };
       }, "Stash group", { structural: true });
     },
+    placeGroup: (groupId, destination, expectedModel) => {
+      const model = getDocument();
+      if (!model || expectedModel && model !== expectedModel) return Promise.resolve(false);
+      const intent = captureStashGroupPlacement(model, groupId, destination);
+      if (!intent) return Promise.resolve(false);
+      return queueCommand((current) => stashGroupPlacementCommand(current, intent), "Place Stash group", { structural: true });
+    },
     saveMembers: (members, metadata) => {
       const model = getDocument();
-      if (!model || !Array.isArray(members) || !members.length || !metadata ||
+      if (!model || !Array.isArray(members) || !metadata ||
         metadata.expectedRevision !== (model.rowEditRevision ?? 0) || !Array.isArray(metadata.expectedRowIds)) {
         return Promise.resolve(false);
       }
@@ -489,6 +520,9 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
           if (members.length !== 1 || metadata.expectedRowIds.length !== 1 ||
             members[0]?.id !== metadata.expectedRowIds[0]) throw new Error("Choose one current saved row to edit.");
           return { kind: "edit_row", rowId: members[0].id, row: members[0] };
+        }
+        if (members.length > 4096 || members.some((member) => !member || typeof member.id !== "string")) {
+          throw new Error("Review the saved group members and try again.");
         }
         return { kind: "save_stash_group", groupId: metadata.groupId,
           expectedRevision: metadata.expectedRevision, expectedRowIds: [...metadata.expectedRowIds],

@@ -1084,7 +1084,7 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
-  it("#78 places a compact clip, keeps groups unavailable and refuses a crossing saved citation", async () => {
+  it("#78 places a compact clip, shows one group entry and refuses a crossing saved citation", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
     const projectId = await createProject(page, origin, "Extras compact placement");
@@ -1114,10 +1114,9 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
     await page.locator("#open-stash").click();
     const entry = (id: string) => page.locator(`[data-stash-row-id="${id}"]`);
-    for (const grouped of [first, second]) {
-      expect(await entry(grouped.id).innerText()).toContain("whole-group editing is unavailable");
-      expect(await entry(grouped.id).locator("button").count()).toBe(0);
-    }
+    expect(await entry(first.id).getByRole("button", { name: /^Edit group/u }).isVisible()).toBe(true);
+    expect(await entry(second.id).count()).toBe(0);
+    expect(await entry(first.id).getByRole("button", { name: /^Duplicate as new/u }).count()).toBe(0);
     await entry(a.id).getByRole("button", { name: /^Duplicate as new/ }).click();
     await page.locator("#stash-saved-destination").selectOption("0");
     await page.getByRole("button", { name: "Duplicate as new", exact: true }).click();
@@ -1335,7 +1334,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Stash", exact: true }).click();
     await page.locator("#stash-section").selectOption(sectionId);
     await page.locator("#stash-note").fill("[cold open] now");
-    await page.getByRole("button", { name: "Add note", exact: true }).click();
+    await page.locator("[data-stash-form]").getByRole("button", { name: "Add note", exact: true }).click();
     const ideas = page.locator(`[data-stash-section="${sectionId}"]`);
     await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
     await expect.poll(async () => (await load()).stashOutline?.filter((entry) => entry.sectionId === sectionId).length).toBe(1);
@@ -5157,15 +5156,14 @@ describe("browser authoring over the local project service", () => {
         const groupId = randomUUID();
         const sectionId = randomUUID();
         const noteText = "[keep] these takes";
-        const blank = fixture.document.activeDraft.blocks.find((row) => row.id === first);
-        if (blank?.type !== "narration") throw new Error("Missing Stash note template");
-        const note = { ...structuredClone(blank), id: noteId, text: noteText, tokens: narrationWords(noteText) };
-        note.primaryVisualSequence = {
-          id: randomUUID(), version: 1, slots: [{
+        const note: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> = {
+          type: "narration", id: noteId, orderKey: "saved-note", text: noteText, tokens: narrationWords(noteText),
+          primaryVisualSequence: { id: randomUUID(), version: 1, slots: [{
             kind: "content", id: randomUUID(), version: 1, relation: { kind: "base" },
             boundaryBefore: { kind: "row_start" }, playoutPolicy: "match_structural_interval",
-            payload: { kind: "on_camera", payloadId: randomUUID(), framing: "wide" },
-          }],
+            payload: { kind: "on_camera", presenterChoiceId: null },
+          }] },
+          overlayEvents: [], timingPolicy: "narration_spine", state: "active", notes: [], version: 1,
         };
         const withSection = applyRowEditV2(fixture.document, fixture.document.rowEditRevision ?? 0,
           { kind: "create_stash_section", sectionId, title: "Alternate takes" });
@@ -5173,11 +5171,11 @@ describe("browser authoring over the local project service", () => {
         const withNote = applyRowEditV2(withSection.document, withSection.document.rowEditRevision!,
           { kind: "create_stash_note", row: note, bundleId: randomUUID(), sectionId,
             parentRowId: null, afterRowId: null });
-        expect(withNote.ok).toBe(true);
+        expect(withNote.ok, JSON.stringify(withNote.diagnostics)).toBe(true);
         const withGroup = applyRowEditV2(withNote.document, withNote.document.rowEditRevision!,
           { kind: "stash_group_rows", rowIds: [first, second], groupId, bundleId: randomUUID(),
             sectionId, parentRowId: noteId, afterRowId: null });
-        expect(withGroup.ok).toBe(true);
+        expect(withGroup.ok, JSON.stringify(withGroup.diagnostics)).toBe(true);
         await saveDocumentFixture(page, projectId, withGroup.document);
         const path = `/authoring/projects/${projectId}/document`;
         const saved = async () => (await appRequest(page, path)).body as SavedDocument;
@@ -5186,8 +5184,8 @@ describe("browser authoring over the local project service", () => {
         await page.getByRole("button", { name: "Stash", exact: true }).click();
         const stash = page.locator("#stash-panel");
         const group = stash.locator(`[data-stash-group-id="${groupId}"]`);
-        expect(await group.isVisible()).toBe(true);
-        const edit = group.getByRole("button", { name: /^(Open|Edit)/u }).first();
+        await group.waitFor({ state: "visible" });
+        const edit = group.getByRole("button", { name: /^Edit group/u }).first();
         await edit.click();
         const dialog = page.locator(".stash-row-editor");
         const firstEditor = dialog.locator(`[data-row-id="${first}"] [data-narration-editor]`);
@@ -5201,8 +5199,26 @@ describe("browser authoring over the local project service", () => {
         await edit.click();
         await firstEditor.press("End");
         await firstEditor.press("!");
+        await dialog.locator(".stash-row-editor__add").click();
+        await expect.poll(() => dialog.locator("[data-narration-editor]").count()).toBe(3);
+        const newMember = dialog.locator(`.script-row:not([data-row-id="${first}"], [data-row-id="${second}"]) [data-narration-editor]`);
+        await newMember.press("N");
+        await newMember.press("e");
+        await newMember.press("w");
+        await dialog.locator(`[data-row-id="${second}"]`).getByRole("button", { name: /^Remove .* from group$/u }).click();
+        await expect.poll(() => dialog.locator("[data-narration-editor]").count()).toBe(2);
         await dialog.getByRole("button", { name: "Save", exact: true }).click();
-        await expect.poll(async () => (await saved()).revision).toBe(baseline.revision + 1);
+        await expect.poll(async () => ({
+          revision: (await saved()).revision,
+          status: await dialog.isVisible() ? await dialog.locator(".stash-row-editor__status").textContent() : "",
+          draftStatus: (await page.locator("#save-status").textContent())?.startsWith("Saved") ? "" :
+            await page.locator("#save-status").textContent(),
+        })).toEqual({ revision: baseline.revision + 1, status: "", draftStatus: "" });
+        const edited = await saved();
+        expect(edited.document.stashGroups?.[0]?.rowIds[0]).toBe(first);
+        expect(edited.document.stashGroups?.[0]?.rowIds).not.toContain(second);
+        expect(edited.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === first))
+          .toMatchObject({ text: "Group opening!" });
         await page.getByRole("button", { name: "Undo Save Stash group" }).click();
         await expect.poll(async () => (await saved()).document.stash).toEqual(baseline.document.stash);
         await page.reload();
@@ -5213,6 +5229,132 @@ describe("browser authoring over the local project service", () => {
       } finally { await page.close(); }
     }, 60_000,
   );
+
+  it("#616 keeps completed ancestors visible and restores named Stash structure with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash outline and sections");
+      const fixture = editableDocumentFixture(projectId, "Spoken scene");
+      const sectionId = randomUUID();
+      const parent = researchNestedNote(861000);
+      const child = researchNestedNote(862000);
+      fixture.document.stash = [
+        { id: randomUUID(), rows: [parent], supportingItems: [] },
+        { id: randomUUID(), rows: [child], supportingItems: [] },
+      ];
+      fixture.document.stashSections = [{ id: sectionId, title: "Earlier ideas", rowIds: [] }];
+      fixture.document.stashOutline = [
+        { rowId: parent.id, kind: "note", parentRowId: null, sectionId },
+        { rowId: child.id, kind: "note", parentRowId: parent.id, sectionId },
+      ];
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const parentEntry = page.locator(`[data-stash-row-id="${parent.id}"]`);
+      const childEntry = page.locator(`[data-stash-row-id="${child.id}"]`);
+      const checkbox = (entry: Locator) => entry.locator("input[type=checkbox]").first();
+      const beforeCount = await page.locator("[data-stash-count]").innerText();
+      await checkbox(parentEntry).check();
+      await expect.poll(async () => (await saved()).document.stash?.[0]?.rows[0]).toMatchObject({
+        stashChecklist: { completed: true },
+      });
+      await page.getByRole("checkbox", { name: "Hide completed" }).check();
+      expect(await parentEntry.isVisible()).toBe(true);
+      expect(await childEntry.isVisible()).toBe(true);
+      await checkbox(childEntry).check();
+      await expect.poll(() => parentEntry.count()).toBe(0);
+      expect(await page.locator("[data-stash-count]").innerText()).toBe(beforeCount);
+      await page.getByRole("checkbox", { name: "Hide completed" }).uncheck();
+      const named = page.locator(`[data-stash-section="${sectionId}"]`);
+      await named.getByRole("button", { name: "Rename section" }).click();
+      await named.getByRole("textbox", { name: "Stash section name" }).fill("Renamed ideas");
+      await named.getByRole("button", { name: "Save", exact: true }).click();
+      await expect.poll(async () => (await saved()).document.stashSections?.[0]?.title).toBe("Renamed ideas");
+      await named.getByRole("button", { name: "Delete section" }).click();
+      await expect.poll(async () => (await saved()).document.stashOutline).toEqual([
+        { rowId: parent.id, kind: "note", parentRowId: null, sectionId: null },
+        { rowId: child.id, kind: "note", parentRowId: parent.id, sectionId: null },
+      ]);
+      await page.getByRole("button", { name: "Undo Delete Stash section" }).click();
+      await expect.poll(async () => (await saved()).document.stashSections?.[0]?.title).toBe("Renamed ideas");
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await named.getByRole("heading", { name: "Renamed ideas" }).isVisible()).toBe(true);
+      expect(await childEntry.getAttribute("data-parent-row-id")).toBe(parent.id);
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 adds logged footage to Stash during Sorting and checks the saved result", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      const projectId = await createProject(page, origin, "Sorting with logged footage");
+      const fixture = multiNarrationDocumentFixture(projectId, ["Opening words", "Closing words"]);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      const before = await saved();
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await page.locator("[data-stash-add-clip]").click();
+      await page.getByRole("heading", { name: "Choose logged footage for Stash" }).waitFor();
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      const clip = page.locator('[data-stash-kind="clip"]').filter({ hasText: "Frozen research source" });
+      await clip.waitFor();
+      expect(await saved()).toEqual(before);
+      await page.getByRole("button", { name: "Accept", exact: true }).click();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).waitFor();
+      const after = await saved();
+      expect(after.revision).toBe(before.revision + 1);
+      expect(after.document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+      const added = after.document.stash?.flatMap((bundle) => bundle.rows).find((row) =>
+        row.type === "visual_only" && row.researchClip?.clipId === loggedClip.id);
+      expect(added).toMatchObject({ type: "visual_only", researchClip: { clipId: loggedClip.id } });
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await clip.isVisible()).toBe(true);
+    } finally { await page.close(); }
+  }, 50_000);
+
+  it("#616 moves one visual through Stash and restores its source trim with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash visual transfer");
+      const fixture = draggableVisualFixture(projectId);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      await page.reload();
+      const source = page.locator(`[data-slot-id="${fixture.movedSlotId}"].visual-card`);
+      await source.waitFor();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await source.dragTo(page.locator('[data-stash-drop-section=""]'));
+      const stashed = page.locator('#stash-panel [data-stash-kind="clip"]');
+      await stashed.waitFor();
+      const staged = await saved();
+      const rows = staged.document.stash?.flatMap((bundle) => bundle.rows) ?? [];
+      const clip = rows.find((row) => row.type === "visual_only" && row.payload.payloadId === fixture.movedPayload.payloadId);
+      expect(clip?.type === "visual_only" && clip.visualOnlyTiming.selectedSourceRange)
+        .toEqual(fixture.movedPayload.selectedSourceRange);
+      const receiving = page.locator(`[data-row-id="${fixture.targetId}"] .visuals-cell`);
+      await stashed.dragTo(receiving);
+      await receiving.getByRole("button", { name: "Attach to words" }).waitFor();
+      await expect.poll(async () => {
+        const after = await saved();
+        return after.document.activeDraft.blocks.find((block) => block.id === fixture.targetId);
+      }).toMatchObject({ unattachedVisuals: [{ payload: { payloadId: fixture.movedPayload.payloadId,
+        selectedSourceRange: fixture.movedPayload.selectedSourceRange } }] });
+      await page.getByRole("button", { name: "Undo Add Stash visual" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual(staged.document.stash);
+      expect(await stashed.isVisible()).toBe(true);
+    } finally { await page.close(); }
+  }, 50_000);
 
   it("#616 keeps the pending order when the saved head changes during acceptance", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
@@ -5271,6 +5413,20 @@ describe("browser authoring over the local project service", () => {
       await page.setViewportSize({ width, height });
       const projectId = await createProject(page, origin, "Editable Sorting");
       const fixture = draggableVisualFixture(projectId);
+      const target = fixture.document.activeDraft.blocks.find((row) => row.id === fixture.targetId);
+      if (target?.type !== "narration") throw new Error("The connector test needs a narration row");
+      const firstVisual = target.primaryVisualSequence!.slots[0];
+      if (firstVisual?.kind !== "content" || firstVisual.payload.kind !== "visual") {
+        throw new Error("The connector test needs a visual cue");
+      }
+      const cue = target.tokens[7]!;
+      target.primaryVisualSequence!.slots.push({
+        ...structuredClone(firstVisual), id: randomUUID(), relation: { kind: "sequential" },
+        payload: { ...firstVisual.payload, payloadId: randomUUID() },
+        boundaryBefore: { kind: "spoken_word", anchor: {
+          blockId: target.id, tokenId: cue.id, affinity: "before", quotedWord: cue.value, anchorVersion: 1,
+        } },
+      });
       await saveDocumentFixture(page, projectId, fixture.document);
       const path = `/authoring/projects/${projectId}/document`;
       const saved = async () => (await appRequest(page, path)).body as SavedDocument;
@@ -5280,12 +5436,24 @@ describe("browser authoring over the local project service", () => {
       const first = page.locator(`[data-sorting-row-id="${fixture.targetId}"]`);
       await first.getByRole("button", { name: /^Expand one two/u }).click();
       const lanes = first.locator("[data-lane]");
-      await expect.poll(() => lanes.count()).toBe(2);
+      await expect.poll(() => lanes.count()).toBe(3);
       expect(browserErrors).toEqual([]);
       await expect.poll(() => lanes.evaluateAll((items) => {
         const x = items.map((item) => item.querySelector(".sorting-connector__vertical")!.getBoundingClientRect().left);
-        return x[0]! - x[1]!;
+        return Math.min(x[0]! - x[1]!, x[1]! - x[2]!);
       })).toBeGreaterThan(0);
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const crossing = await lanes.evaluateAll((items) => {
+        const routes = items.map((item) => Array.from(item.querySelectorAll("span"), (part) => part.getBoundingClientRect())
+          .filter(({ width, height }) => width > 0 && height > 0));
+        return routes.some((route, index) => routes.slice(index + 1).some((other) =>
+          route.some((part) => other.some((piece) =>
+            part.left < piece.right && piece.left < part.right && part.top < piece.bottom && piece.top < part.bottom))));
+      });
+      expect(crossing).toBe(false);
+      await page.locator("[data-stash-close]").click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       const editor = first.locator("[data-narration-editor]");
       await editor.press("End");

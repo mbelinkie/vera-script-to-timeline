@@ -65,6 +65,7 @@ export interface StashOutlineDestination {
   sectionId: string | null;
   parentRowId: string | null;
   afterRowId: string | null;
+  beforeRowId?: string | null;
 }
 
 export function projectStash(document: ScriptDocumentV2): StashSectionView[];
@@ -80,6 +81,12 @@ export function captureSavedPlacement<K extends SavedPlacementKind>(document: Sc
   includeDescendants?: boolean): SavedPlacementIntent<K> | null;
 export function savedPlacementCommand<K extends SavedPlacementKind>(document: ScriptDocumentV2,
   intent: SavedPlacementIntent<K>): SavedPlacementCommand<K>;
+export function captureStashGroupPlacement(document: ScriptDocumentV2, groupId: string,
+  destination: DraftGap): Readonly<{ projectId: string; documentId: string; groupId: string;
+    rowIds: readonly string[]; destination: Readonly<DraftGap>; stashSnapshot: string; draftSnapshot: string }> | null;
+export function stashGroupPlacementCommand(document: ScriptDocumentV2,
+  intent: Readonly<{ projectId: string; documentId: string; groupId: string; rowIds: readonly string[];
+    destination: Readonly<DraftGap>; stashSnapshot: string; draftSnapshot: string }>): Extract<RowEditCommandV2, { kind: "place_stash_group" }>;
 export function createStashNoteCommand(document: ScriptDocumentV2, text: string,
   location?: StashLocation, makeId?: () => string): Extract<RowEditCommandV2, { kind: "create_stash_note" }>;
 export function captureStashWords(document: ScriptDocumentV2, rowId: string,
@@ -104,6 +111,7 @@ export function createStashActions(queue: StashEditorQueue, getDocument: () => S
     setCompletion: (rowId: string, completed: boolean) => Promise<boolean>;
     editNote: (rowId: string, text: string) => Promise<boolean>;
     moveOutline: (rowId: string, destination: StashOutlineDestination) => Promise<boolean>;
+    deleteSaved: (rowId: string) => Promise<boolean>;
     stashRows: (rowIds: readonly string[], destination?: StashOutlineDestination | null,
       expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     stashVisual: (rowId: string, slotId: string, destination?: StashOutlineDestination | null,
@@ -116,4 +124,5 @@ export function createStashActions(queue: StashEditorQueue, getDocument: () => S
       parentRowId?: string | null, afterRowId?: string | null) => Promise<boolean>;
     saveMembers: (members: Array<NonNullable<ScriptDocumentV2["stash"]>[number]["rows"][number]>,
       metadata: { groupId: string | null; expectedRevision: number; expectedRowIds: string[] }) => Promise<boolean>;
+    placeGroup: (groupId: string, destination: DraftGap, expectedModel?: ScriptDocumentV2) => Promise<boolean>;
   };
