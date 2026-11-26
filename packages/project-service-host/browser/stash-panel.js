@@ -589,6 +589,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         const card = make(doc, "div");
         card.className = "stash-research-item";
         card.dataset.stashResearchId = saved.id;
+        card.dataset.stashResearchKind = saved.kind;
         card.draggable = !readonly && !sorting();
         const payload = saved.kind === "quote" ? saved.quote : saved.still;
         card.append(make(doc, "strong", saved.kind === "quote" ? "Quote" : "Still Image"));

@@ -1174,16 +1174,15 @@ html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }
 .research-still-panel__hint { margin: 0; color: #67747d; font-size: 0.72rem; }
 .research-still-panel [data-research-still-load-more] { padding: 0.4rem; }
 
-/* Normally zero-height row dividers expand into actual hit targets while a
-   source clip can be dragged from Footage. A zero-height divider cannot be
-   the target of a native drop or accessible keyboard navigation. */
-.authoring-view:has(.footage-panel:not([hidden])) .row-divider {
+/* Normally zero-height row dividers expand into actual hit targets while
+   Library or a saved Stash quote offers a gap placement. */
+.authoring-view:has(.footage-panel:not([hidden]), .stash-panel:not([hidden]) [data-stash-research-kind="quote"][draggable="true"]) .row-divider {
   height: 1.65rem;
   pointer-events: auto;
   border-top: 1px dashed #d1dadd;
   border-bottom: 1px dashed #d1dadd;
 }
-.authoring-view:has(.footage-panel:not([hidden])) .row-divider__add {
+.authoring-view:has(.footage-panel:not([hidden]), .stash-panel:not([hidden]) [data-stash-research-kind="quote"][draggable="true"]) .row-divider__add {
   opacity: 1;
   transform: translate(-50%, 0);
 }
