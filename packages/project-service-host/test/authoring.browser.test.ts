@@ -536,7 +536,6 @@ describe("browser authoring over the local project service", () => {
   let researchVisible = true;
   let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
   let researchClips = [loggedClip];
-  let browserTrimCues = false;
   let researchMedia: ResearchMediaConfig | undefined;
   let directory: string;
   let databaseDirectory: string;
@@ -565,13 +564,6 @@ describe("browser authoring over the local project service", () => {
           }
           return Promise.resolve(structuredClone(clip));
         },
-        matchedClipCues: (pin) => Promise.resolve(browserTrimCues &&
-          pin.clipId === loggedClip.id && pin.clipVersion === loggedClip.version &&
-          pin.loggedSelection.trackId === loggedClip.selection.trackId &&
-          pin.loggedSelection.transcriptVersion === loggedClip.selection.transcriptVersion ? [
-            { startMs: 0, endMs: 1500, text: "First caption" },
-            { startMs: 1500, endMs: 5000, text: "Second caption" },
-          ] : null),
         stills: (projectId) => {
           if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
             return Promise.reject(new Error("The Research still project is no longer accessible."));
@@ -1553,7 +1545,11 @@ describe("browser authoring over the local project service", () => {
       await mkdir(exportRoot);
       const exported = join(exportRoot, loggedClip.id);
       await cp(dirname(media.path), exported, { recursive: true });
-      expect((await status("bind", rootId, initial.head)).status).toBe(200);
+      const panel = page.locator("#occurrence-footage");
+      const rootCard = page.locator(`[data-row-id="${rootId}"] [data-inspect-footage]`);
+      await rootCard.click();
+      await panel.getByRole("button", { name: "Bind verified footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.frameBinding?.loggedEndFrame).toBe(8);
       expect((await status("bind", slotId, initial.head)).status).toBe(409);
       const latest = await read();
       researchVisible = false;
@@ -1573,13 +1569,59 @@ describe("browser authoring over the local project service", () => {
       expect(bound.slot!.researchClip).toEqual(initial.slot!.researchClip);
       expect(bound.slot!.selectedSourceRange).toEqual({ startFrame: 0, durationFrames: 8 });
 
-      await expect.poll(() => page.evaluate(() => !!window.__veraVisualTest?.researchTrimBasis())).toBe(true);
-      expect(await page.evaluate(id => window.__veraVisualTest!.queueResearchTrim(
-        window.__veraVisualTest!.researchTrimBasis(),
-        { kind: "trim_research_clip", clipRowId: id, edge: "range", startFrame: 2, endFrame: 5 },
-      ), rootId)).toBe(true);
+      await rootCard.click();
+      const play = panel.locator("[data-occurrence-play]");
+      const toggle = panel.locator("[data-occurrence-toggle]");
+      await expect.poll(() => play.isEnabled()).toBe(true);
+      expect(await panel.locator("video").count()).toBe(0);
+      await toggle.click();
+      expect(await panel.locator("[data-occurrence-timing]").textContent()).toContain("full transcript");
+      const scrub = panel.locator("[data-occurrence-scrub]");
+      const scrubTo = (frame: number) => scrub.evaluate((element, frame) => {
+        (element as HTMLInputElement).value = String(frame);
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      }, frame);
+      const assertFrame = async (expected: number) => {
+        await expect.poll(async () => ({
+          frame: await panel.locator("[data-occurrence-playhead]").textContent(),
+          status: await panel.locator("[data-occurrence-player-status]").textContent(),
+        }), { timeout: 12_000 }).toEqual({ frame: `Frame ${expected}`, status: "" });
+        const actual = await panel.locator("img").evaluate(image => {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d")!;
+          context.drawImage(image as HTMLImageElement, 0, 0);
+          return [4, 12, 20].reduce((value, x, bit) =>
+            value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << bit : 0), 0);
+        });
+        expect(actual).toBe(expected);
+      };
+      await scrubTo(2);
+      await assertFrame(2);
+      await panel.getByRole("button", { name: "Next source frame" }).click();
+      await assertFrame(3);
+      await panel.getByRole("button", { name: "Previous source frame" }).click();
+      await assertFrame(2);
+      await toggle.press("i");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await expect.poll(() => play.isEnabled()).toBe(true);
+      await scrubTo(5);
+      await assertFrame(5);
+      await panel.getByRole("button", { name: "Set out (O)" }).click();
       await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
         .toEqual({ startFrame: 2, durationFrames: 3 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await expect.poll(() => play.isEnabled()).toBe(true);
+      await scrubTo(5);
+      await assertFrame(5);
+      await toggle.press("o");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await page.keyboard.press("Escape");
+      expect(await panel.isHidden()).toBe(true);
+      expect(await rootCard.evaluate(node => document.activeElement === node)).toBe(true);
       await page.reload();
       await page.locator(`[data-row-id="${rootId}"]`).waitFor();
       const refined = await loadOwners();
@@ -1607,66 +1649,76 @@ describe("browser authoring over the local project service", () => {
       expect(needs.ok, JSON.stringify(needs)).toBe(true);
       if (!needs.ok) throw new Error("Compiler rejected the measured media descriptor");
       expect(needs.requirements.map(item => item.requiredSourceRange)).toEqual([{ startFrame: 2, endFrame: 5 }]);
-      const frames = await page.evaluate(async ({ projectId, rootId, revision, digest, rowRevision }) => {
-        const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
-        const frame = (picture: CanvasImageSource) => {
-          context.drawImage(picture, 0, 0);
-          return [4, 12, 20].reduce((value, x, index) =>
-            value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << index : 0), 0);
-        };
-        const load = async (action: string, frame?: number) => {
-          const response = await fetch("/authoring/research-media", {
-            method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1",
-              "X-VERA-Session": localStorage.getItem("vera.authoring.sessionProof") ?? "" },
-            body: JSON.stringify({ timelineProjectId: projectId, clipRowId: rootId, action,
-              expectedRevision: revision, expectedDigest: digest, expectedRowEditRevision: rowRevision,
-              ...(frame === undefined ? {} : { frame }) }),
+      await rootCard.click();
+      await expect.poll(() => play.isEnabled()).toBe(true);
+      const playAndReadFrames = async () => {
+        const video = panel.locator("video");
+        // Attach before decoding starts, then sample every presented picture.
+        await panel.locator("[data-occurrence-player-mount]").evaluate(mount => {
+          const observer = new MutationObserver(() => {
+            const video = mount.querySelector("video");
+            if (!video) return;
+            observer.disconnect();
+            video.playbackRate = 0.25;
+            const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+            const frames: number[] = [];
+            const sample = () => {
+              context.drawImage(video, 0, 0);
+              const frame = [4, 12, 20].reduce((value, x, bit) =>
+                value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << bit : 0), 0);
+              if (frames.at(-1) !== frame) frames.push(frame);
+              if (!video.ended) video.requestVideoFrameCallback(sample);
+            };
+            video.requestVideoFrameCallback(sample);
+            video.addEventListener("ended", () => {
+              sample();
+              video.dataset.frames = JSON.stringify(frames);
+            }, { once: true });
           });
-          if (!response.ok) throw new Error(`Proof media HTTP ${response.status}`);
-          return await response.blob();
-        };
-        const loadVideo = async (action: string) => {
-          const url = URL.createObjectURL(await load(action));
-          const video = document.createElement("video");
-          video.muted = true;
-          video.playsInline = true;
-          document.body.append(video);
-          await new Promise<void>((resolve, reject) => {
-            video.addEventListener("loadeddata", () => resolve(), { once: true });
-            video.addEventListener("error", () => reject(new Error(video.error?.message)), { once: true });
-            video.src = url;
-          });
-          return { video, close: () => { video.remove(); URL.revokeObjectURL(url); } };
-        };
-        const stepped = [];
-        for (const index of [2, 3, 2]) {
-          const single = await createImageBitmap(await load("frame", index));
-          stepped.push(frame(single));
-          single.close();
+          observer.observe(mount, { childList: true });
+        });
+        await play.click();
+        await expect.poll(async () => ({
+          frames: await video.getAttribute("data-frames", { timeout: 1500 }).catch(() => null),
+          status: await panel.locator("[data-occurrence-player-status]").textContent(),
+        }), { timeout: 12_000 }).toMatchObject({ frames: expect.any(String), status: "Playback finished." });
+        return JSON.parse((await video.getAttribute("data-frames"))!) as number[];
+      };
+      expect(await playAndReadFrames()).toEqual([2, 3, 4]);
+      await toggle.click();
+      expect(await panel.locator("video").count()).toBe(0);
+      expect(await playAndReadFrames()).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+      expect(await loadOwners()).toEqual(refined);
+      const input = panel.locator("[data-occurrence-in]");
+      const handle = (await input.boundingBox())!;
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width - 10, handle.y + handle.height / 2);
+      await input.press("Escape");
+      await page.mouse.up();
+      expect(await input.inputValue()).toBe("2");
+      expect(await loadOwners()).toEqual(refined);
+      for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
+        await page.setViewportSize(viewport);
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.width).toBe(viewport.width === 1280 ? 520 : 440);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+        if (process.env.VERA_DESIGN_EVIDENCE_DIR) {
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}.png`) });
         }
-        const selected = await loadVideo("saved");
-        const played: number[] = [];
-        selected.video.playbackRate = 0.25;
-        const ended = new Promise<void>(resolve => selected.video.addEventListener("ended", () => resolve(), { once: true }));
-        const nextFrame = () => {
-          const index = frame(selected.video);
-          if (played.at(-1) !== index) played.push(index);
-          if (!selected.video.ended) selected.video.requestVideoFrameCallback(nextFrame);
-        };
-        selected.video.requestVideoFrameCallback(nextFrame);
-        await selected.video.play();
-        await ended;
-        const last = frame(selected.video);
-        if (played.at(-1) !== last) played.push(last);
-        selected.close();
-        return { stepped, played };
-      }, { projectId, rootId, revision: refined.head.revision, digest: refined.head.digest, rowRevision: refined.head.document.rowEditRevision ?? 0 });
-      expect(frames).toEqual({ stepped: [2, 3, 2], played: [2, 3, 4] });
-      console.info("Verified decoded frame indices", frames, "compiler media requirements",
-        needs.requirements.map(item => item.requiredSourceRange));
+      }
+      const otherProject = await createProject(page, origin, "Preview teardown");
+      await page.evaluate(id => window.__veraVisualTest!.openScript(id), otherProject);
+      expect(await panel.isHidden()).toBe(true);
+      expect(await panel.locator("video,img").count()).toBe(0);
+      await page.evaluate(id => window.__veraVisualTest!.openScript(id), projectId);
       await rm(exported, { recursive: true });
       await rm(join(cutParent, media.digest.slice("sha256:".length)), { recursive: true });
       expect((await status("describe", rootId, refined.head)).status).toBe(404);
+      await rootCard.click();
+      await expect.poll(() => panel.locator("[data-occurrence-player-status]").textContent()).toContain("Verified media is missing");
+      expect(await play.isDisabled()).toBe(true);
       expect(await loadOwners()).toEqual(refined);
     } finally {
       researchClips = originalCatalog;
@@ -1676,138 +1728,29 @@ describe("browser authoring over the local project service", () => {
     }
   }, 60_000);
 
-  it("#83 inspects and refines one saved use without changing its sibling or Library preview", async () => {
+  it("#83 unconfigured playback leaves the saved occurrence and Library independent", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
     const projectId = await createProject(page, origin, "Occurrence inspector");
     const model = editableDocumentFixture(projectId, "alpha beta").document;
     const first = researchOccurrence(880500);
     const second = researchOccurrence(880600);
-    const unbound = researchOccurrence(880700, false);
-    for (const clip of [first, second, unbound]) {
-      clip.researchClip!.video.youtubeVideoId = "p0W_cxbbTQA";
-      clip.researchClip!.video.canonicalUrl = "https://youtu.be/p0W_cxbbTQA";
-    }
     second.visualOnlyTiming.selectedSourceRange = { startFrame: 12, durationFrames: 96 };
-    model.activeDraft = { blocks: [first, second, unbound], supportingItems: [] };
+    model.activeDraft = { blocks: [first, second], supportingItems: [] };
     await saveDocumentFixture(page, projectId, model);
     const path = `/authoring/projects/${projectId}/document`;
-    const read = async () => (await appRequest(page, path)).body as SavedDocument;
-    const before = await read();
-    let providerRequests = 0;
-    await page.route("https://www.youtube-nocookie.com/**", route => {
-      providerRequests += 1;
-      return route.fulfill({ contentType: "text/html", body: `<script>
-        window.loads = [];
-        addEventListener('message', event => {
-          const item = JSON.parse(event.data);
-          if (item.event === 'listening') parent.postMessage(JSON.stringify({event:'onReady'}), '*');
-          if (item.func === 'loadVideoById') {
-            window.loads.push(item.args[0]);
-            parent.postMessage(JSON.stringify({event:'infoDelivery',info:{playerState:1}}), '*');
-          }
-        });
-      </script>` });
-    });
-    // Exercise the real timing route with a synthetic matched catalog adapter;
-    // phase 2 covers parsing/identity of the published transcript itself.
-    browserTrimCues = true;
+    const before = (await appRequest(page, path)).body;
     const panel = page.locator("#occurrence-footage");
     const card = (id: string) => page.locator(`[data-row-id="${id}"] [data-inspect-footage]`);
-    const play = panel.locator("[data-occurrence-play]");
-    const toggle = panel.locator("[data-occurrence-toggle]");
-    const range = panel.locator("[data-occurrence-range]");
-    const input = panel.locator("[data-occurrence-in]");
-    const reset = panel.locator("[data-occurrence-reset]");
-    const noIframe = async () => expect.poll(() => page.locator("iframe").count()).toBe(0);
-    const assertLoads = async () => {
-      const frame = page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
-      await expect.poll(() => frame.evaluate(() =>
-        (window as unknown as { loads: unknown[] }).loads)).toEqual([
-        { videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 },
-      ]);
-    };
     try {
       await page.goto(`${origin}/?project=${projectId}`);
-      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
       await card(first.id).click();
-      expect(await range.textContent()).toContain("24–60");
-      expect(await play.isDisabled()).toBe(true);
-      expect(await panel.locator("[data-occurrence-transcript]").textContent()).toBe("Frozen English text");
-      await toggle.click();
-      expect(await play.isEnabled()).toBe(true);
-      expect(providerRequests).toBe(0);
-      await noIframe();
-      for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
-        await page.setViewportSize(viewport);
-        const box = (await panel.boundingBox())!;
-        expect(box.x).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
-        expect(box.width).toBe(viewport.width === 1280 ? 520 : 440);
-      }
-      await play.click();
-      await assertLoads();
-      expect(await read()).toEqual(before);
-      await toggle.click();
-      await noIframe();
-      expect(await play.isDisabled()).toBe(true);
-      await toggle.click();
-      // A real pointer drag is provisional until release; Escape cancels it.
-      const handle = (await input.boundingBox())!;
-      await page.mouse.move(handle.x + handle.width * 0.26, handle.y + handle.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(handle.x + handle.width * 0.65, handle.y + handle.height / 2);
-      expect(Number(await input.inputValue())).not.toBe(24);
-      expect(await read()).toEqual(before);
-      await page.keyboard.press("Escape");
-      await page.mouse.up();
-      expect(await input.inputValue()).toBe("24");
-      expect(await read()).toEqual(before);
-      expect(await page.locator("#undo").isDisabled()).toBe(true);
-      await input.focus();
-      await input.press("ArrowRight");
-      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
-      await expect.poll(() => range.textContent()).toContain("25–60");
-      const trimmed = await read();
-      expect(trimmed.revision).toBe(before.revision + 1);
-      expect(trimmed.document.activeDraft.blocks[0]).toMatchObject({
-        researchClip: first.researchClip, frameBinding: first.frameBinding,
-        visualOnlyTiming: { selectedSourceRange: { startFrame: 25, durationFrames: 35 } },
-      });
-      expect(trimmed.document.activeDraft.blocks[1]).toEqual(second);
-      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Trim footage"]);
-      await reset.click();
-      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
-      await expect.poll(() => range.textContent()).toContain("12–108");
-      await expect.poll(() => panel.locator("[data-occurrence-timing]").textContent()).toBe("Approximate excerpt from caption timing.");
-      expect(await panel.locator("[data-occurrence-transcript]").textContent()).toBe("… First caption Second caption …");
-      await toggle.click();
-      await play.click();
-      await assertLoads();
+      expect(await panel.locator("[data-occurrence-range]").textContent()).toContain("24–60");
+      await expect.poll(() => panel.locator("[data-occurrence-player-status]").textContent()).toContain("unavailable");
+      expect(await panel.locator("[data-occurrence-play]").isDisabled()).toBe(true);
       await card(second.id).click();
-      await noIframe();
-      expect(await range.textContent()).toContain("12–108");
-      expect(await play.isEnabled()).toBe(true);
-      await card(unbound.id).click();
-      expect(await range.textContent()).toContain("Refinement unavailable");
-      expect(await play.isDisabled()).toBe(true);
-      await toggle.click();
-      expect(await input.isHidden()).toBe(true);
-      expect(await play.isEnabled()).toBe(true);
-      await page.keyboard.press("Escape");
-      expect(await panel.isHidden()).toBe(true);
-      expect(await card(unbound.id).evaluate(node => node === document.activeElement)).toBe(true);
-      await page.getByRole("button", { name: "Undo Trim footage" }).click();
-      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
-      expect((await read()).document).toEqual(trimmed.document);
-      await page.reload();
-      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
-      await card(first.id).click();
-      expect(await range.textContent()).toContain("25–60");
-      expect(await play.isDisabled()).toBe(true);
-      // Opening the Library closes the occurrence player, with the independent
-      // catalog's original bounds intact. No occurrence trim is copied there.
+      expect(await panel.locator("[data-occurrence-range]").textContent()).toContain("12–108");
+      expect(await panel.locator("[data-occurrence-transcript]").textContent()).toBe("Frozen English text");
       const playable = { ...loggedClip, video: { ...loggedClip.video, youtubeVideoId: "p0W_cxbbTQA" } };
       await page.route("**/authoring/research/**/clips", route => route.fulfill({
         contentType: "application/json", body: JSON.stringify({ clips: [playable] }),
@@ -1817,10 +1760,10 @@ describe("browser authoring over the local project service", () => {
       await page.getByLabel("Show used").check();
       await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
       expect(await page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
-      await noIframe();
-      expect((await read()).document).toEqual(trimmed.document);
-    } finally { browserTrimCues = false; await page.close(); }
-  }, 90_000);
+      expect(await page.locator("iframe").count()).toBe(0);
+      expect((await appRequest(page, path)).body).toEqual(before);
+    } finally { await page.close(); }
+  });
 
   it("#83 primary checkpoint saves, resets, undoes and reloads a bound narrated use", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

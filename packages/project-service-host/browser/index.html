@@ -125,14 +125,23 @@
             <button type="button" data-occurrence-play>Play saved range</button>
             <button type="button" data-occurrence-replay hidden>Replay from start</button>
             <button type="button" data-occurrence-toggle aria-expanded="false" aria-controls="occurrence-trim-controls">Trim</button>
+            <button type="button" data-occurrence-bind hidden>Bind verified footage</button>
           </div>
         </section>
         <p data-occurrence-range role="status"></p>
         <div id="occurrence-trim-controls" hidden>
+          <label>Playhead<input type="range" data-occurrence-scrub></label>
+          <div class="footage-panel__player-controls">
+            <button type="button" data-occurrence-previous aria-label="Previous source frame">‹ Frame</button>
+            <button type="button" data-occurrence-next aria-label="Next source frame">Frame ›</button>
+            <span data-occurrence-playhead></span>
+            <button type="button" data-occurrence-set-in aria-keyshortcuts="I">Set in (I)</button>
+            <button type="button" data-occurrence-set-out aria-keyshortcuts="O">Set out (O)</button>
+          </div>
           <label>In boundary (source frame)<input type="range" data-occurrence-in></label>
           <label>Out boundary (exclusive source frame)<input type="range" data-occurrence-out></label>
           <button type="button" data-occurrence-reset>Reset to logged range</button>
-          <p class="footage-panel__hint">Frame boundaries edit the saved interval only. YouTube audition is approximate. Decoded frame stepping and word snapping are unavailable.</p>
+          <p data-occurrence-anchor-note class="footage-panel__hint" hidden>Narration anchors stay fixed. If the footage is too short, choose other footage or edit the interval in the script.</p>
         </div>
         <p data-occurrence-feedback role="status" class="footage-panel__hint"></p>
         <div class="occurrence-footage__transcript">

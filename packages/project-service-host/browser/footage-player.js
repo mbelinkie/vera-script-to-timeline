@@ -5,6 +5,96 @@ const WIDGET_ID = 1;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/u;
 const MAX_VIDEO_MS = 24 * 60 * 60 * 1000;
 
+/** Playback responses contain exactly one requested half-open frame interval. */
+export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus) {
+  const doc = mount.ownerDocument;
+  let operation, objectUrl, video, frameCallback;
+
+  function clear() {
+    operation?.abort();
+    operation = null;
+    if (video) {
+      if (frameCallback !== undefined) video.cancelVideoFrameCallback?.(frameCallback);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    video = null;
+    frameCallback = undefined;
+    mount.replaceChildren();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+  }
+
+  async function load(action, bounds, rate, frame) {
+    clear();
+    onFrame(null);
+    const started = new AbortController();
+    operation = started;
+    onStatus(action === "frame" ? "Loading frame…" : "Preparing playback…");
+    try {
+      const blob = await request(action, { signal: started.signal, frame });
+      if (operation !== started) return;
+      objectUrl = URL.createObjectURL(blob);
+      if (action === "frame") {
+        const picture = doc.createElement("img");
+        picture.alt = `Source frame ${frame}`;
+        picture.src = objectUrl;
+        await picture.decode();
+        if (operation !== started) return;
+        mount.replaceChildren(picture);
+        onFrame(frame);
+        onStatus("");
+        return;
+      }
+
+      const element = doc.createElement("video");
+      video = element;
+      element.playsInline = true;
+      element.controls = true;
+      element.setAttribute("aria-label", action === "saved" ? "Saved range video" : "Logged cut video");
+      element.addEventListener("error", () => {
+        if (operation !== started) return;
+        clear();
+        onFrame(null);
+        onStatus("The verified clip could not be decoded.");
+      });
+      element.addEventListener("ended", () => {
+        if (operation === started) onStatus("Playback finished.");
+      });
+      element.addEventListener("seeking", () => {
+        if (operation === started) onFrame(null);
+      });
+      const presented = (_now, { mediaTime }) => {
+        if (operation !== started) return;
+        const sourceFrame = bounds.start + Math.round(mediaTime * rate.numerator / rate.denominator);
+        if (sourceFrame >= bounds.start && sourceFrame < bounds.end && !element.seeking) onFrame(sourceFrame);
+        frameCallback = element.requestVideoFrameCallback(presented);
+      };
+      element.src = objectUrl;
+      mount.replaceChildren(element);
+      if (element.requestVideoFrameCallback) frameCallback = element.requestVideoFrameCallback(presented);
+      await element.play().catch(() => {
+        if (operation === started) onStatus("Press Play in the video to start playback.");
+      });
+      if (operation === started && !element.paused) onStatus("");
+    } catch (error) {
+      if (operation !== started) return;
+      clear();
+      throw error;
+    }
+  }
+
+  function toggle() {
+    if (!video) return false;
+    if (video.paused) void video.play().catch(() => onStatus("Playback could not start."));
+    else video.pause();
+    return true;
+  }
+
+  return { clear, load, toggle };
+}
+
 export function savedYoutubeRange(clip) {
   const id = clip?.video?.youtubeVideoId;
   const startMs = clip?.selection?.exportStartMs;

@@ -1058,11 +1058,34 @@ export function queueResearchTrim(basis, command) {
   return queueCommand(structuredClone(command), "Trim footage", { structural: true, trim: basis });
 }
 
-export async function researchTrimTiming(clipRowId) {
+async function researchMediaRequest(basis, owner, action, { signal, frame } = {}) {
+  if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Reopen this footage.");
+  const response = await fetch("/authoring/research-media", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...researchStillRequestHeaders() },
+    body: JSON.stringify({ ...trimEnvelope(basis), ...owner, action,
+      ...(frame === undefined ? {} : { frame }) }),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(125_000)]) : AbortSignal.timeout(125_000),
+  });
+  if (!response.ok) {
+    const { error } = await response.json().catch(() => ({}));
+    throw new ResearchStillApiError(response.status, error);
+  }
+  const result = await (action === "describe" || action === "bind" ? response.json() : response.blob());
+  if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Reopen this footage.");
+  return result;
+}
+
+function queueResearchBinding(basis, owner) {
+  if (!basis || !prompterReady() || !trimBasisCurrent(basis)) return Promise.resolve(false);
+  return queueCommand(owner, "Bind verified footage", { structural: true, bindResearch: basis });
+}
+
+export async function researchTrimTiming(owner) {
   const basis = trimBasis();
   if (!basis) return null;
   try {
-    const result = await authoringVisualPost("research-trim-timing", { ...trimEnvelope(basis), clipRowId });
+    const result = await authoringVisualPost("research-trim-timing", { ...trimEnvelope(basis), ...owner });
     return trimBasisCurrent(basis) && !commandsPending ? result.cues : null;
   } catch { return null; }
 }
@@ -1701,6 +1724,44 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.bindResearch) {
+      const basis = options.bindResearch;
+      let receipt, saved;
+      try {
+        receipt = await researchMediaRequest(basis, resolved, "bind");
+        if (receipt.bound && receipt.revision === basis.revision && receipt.digest === basis.digest) return true;
+        saved = await api(`/${basis.projectId}/document`);
+      } catch (error) {
+        // A lost response can follow a successful commit. Stop editing this
+        // local head until the user opens the authoritative saved script.
+        const definitelyRefused = error instanceof ResearchStillApiError && [400, 403, 404, 422].includes(error.status);
+        if (trimBasisCurrent(basis) && (receipt || !definitelyRefused)) {
+          conflicted = true;
+          documentSaveFailure = { message: "The binding could not be confirmed. Open the saved script to continue.", action: "conflict" };
+        }
+        throw error;
+      }
+      // The binding endpoint uses the saved-document CAS directly. Adopt that
+      // exact receipt before releasing the queue to any editor command.
+      if (!trimBasisCurrent(basis)) return false;
+      if (saved.document?.projectId !== basis.projectId || saved.document.id !== basis.document.id ||
+          saved.revision !== receipt.revision || saved.digest !== receipt.digest) {
+        conflicted = true;
+        documentSaveFailure = { message: "The saved script changed. Open the saved script to continue.", action: "conflict" };
+        return false;
+      }
+      typingGroup = null;
+      lastSplit = null;
+      undoStack.push({ document: basis.document, label });
+      const previousProjection = visualProjection;
+      scriptDocument = saved.document;
+      documentRevision = saved.revision;
+      documentDigest = saved.digest;
+      updateUndo();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      void refreshMusicWarnings();
+      return true;
+    }
     if (options.trim) {
       const basis = options.trim;
       if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Choose the footage again.");
@@ -1859,7 +1920,8 @@ function queueCommand(command, label, options = {}) {
       element("discard-edit").hidden = false;
       element("discard-edit").disabled = true;
     }
-    commandError = refusedMessage || error.message || "Edit could not be applied.";
+    commandError = refusedMessage || (options.bindResearch ? "Could not confirm the media binding." : error.message) || "Edit could not be applied.";
+    if (options.bindResearch) options.bindError = error;
     return false;
   }).finally(() => {
     commandsPending -= 1;
@@ -1867,7 +1929,10 @@ function queueCommand(command, label, options = {}) {
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
-  return commandQueue;
+  return options.bindResearch ? commandQueue.then(ok => {
+    if (options.bindError) throw options.bindError;
+    return ok;
+  }) : commandQueue;
 }
 
 function updateUndo() {
@@ -2183,7 +2248,8 @@ stashPanel = mountStashPanel({
 element("open-footage").addEventListener("click", () => stashPanel.close(false));
 occurrenceFootage = mountOccurrenceFootage({
   root: element("occurrence-footage"), getDocument: () => scriptDocument,
-  getBasis: researchTrimBasis, commit: queueResearchTrim, readTiming: researchTrimTiming, excerpt: cueExcerpt,
+  getBasis: researchTrimBasis, commit: queueResearchTrim, excerpt: cueExcerpt,
+  mediaRequest: researchMediaRequest, bind: queueResearchBinding,
 });
 element("script-rows").addEventListener("click", event => {
   const card = event.target.closest("[data-footage-placement]");

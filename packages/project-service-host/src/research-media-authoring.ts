@@ -32,7 +32,11 @@ function worker(config: ResearchMediaConfig, command: object) {
       ["-m", "vera_timeline_agent.research_authoring_media", config.mediaRoot,
         ...(config.exportRoot ? [config.exportRoot] : [])],
       { cwd: config.cwd, env: { ...process.env, PYTHONPATH: join(config.cwd, "python") }, timeout: 120_000, maxBuffer: maximumPreviewBytes, encoding: "buffer" },
-      (error, stdout) => error ? reject(error) : resolve(stdout));
+      (error, stdout) => {
+        if (error instanceof Error) reject(error);
+        else if (error) reject(new Error("Verified Research media worker failed"));
+        else resolve(stdout);
+      });
     child.stdin?.on("error", reject);
     child.stdin?.end(JSON.stringify(command));
   });
@@ -47,7 +51,7 @@ function target(document: ScriptDocumentV2, selector: string, id: string) {
     if (!pin) return undefined;
     const sequence = row.primaryVisualSequence;
     return {
-      rowId: row.id, payloadId: payload.payloadId, pin,
+      rowId: row.id, payloadId: payload.payloadId, pin, bindable: true,
       binding: payload.frameBinding, range: payload.selectedSourceRange,
       attach(binding: ResearchFrameBindingV2) {
         if (!sequence || ![row.version, item.version, sequence.version].every(version =>
@@ -64,13 +68,17 @@ function target(document: ScriptDocumentV2, selector: string, id: string) {
       },
     };
   }
-  const row = document.activeDraft.blocks.find(block => block.id === id);
+  const row = document.activeDraft.blocks.flatMap(block => {
+    if (block.type === "visual_only") return [block];
+    return block.type === "narration" && block.attachedFootage ? [block.attachedFootage.clip] : [];
+  }).find(block => block.id === id);
   if (row?.type !== "visual_only" || !row.researchClip) return undefined;
   return {
     rowId: row.id, payloadId: row.payload.payloadId, pin: row.researchClip,
+    bindable: document.activeDraft.blocks.includes(row),
     binding: row.frameBinding, range: row.visualOnlyTiming.selectedSourceRange,
     attach(binding: ResearchFrameBindingV2) {
-      if (!Number.isSafeInteger(row.version + 1)) return false;
+      if (!document.activeDraft.blocks.includes(row) || !Number.isSafeInteger(row.version + 1)) return false;
       row.frameBinding = binding;
       row.payload.pictureKind = "clip";
       row.payload.source = { kind: "media_reference", mediaReferenceId: binding.mediaReferenceId };
@@ -126,6 +134,8 @@ export async function handleResearchMedia(
   const owner = target(head.document, selector, id);
   if (!owner) return response(404, { error: "research_occurrence_unavailable" });
   if (!(await authorizeResearch(owner))) return response(409, { error: "research_pin_changed" });
+  if (action === "bind" && !owner.binding && !owner.bindable)
+    return response(422, { error: "research_binding_unsupported" });
   const descriptorInput = { pin: owner.pin, rowId: owner.rowId, payloadId: owner.payloadId };
   try {
     const verified = JSON.parse((await worker(config, { action: "resolve", materialize: action === "bind" && !owner.binding, ...descriptorInput })).toString()) as {

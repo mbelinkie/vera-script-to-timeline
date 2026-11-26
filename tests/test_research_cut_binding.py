@@ -255,3 +255,246 @@ def test_narrated_occurrence_uses_actual_slot_and_independent_ranges(
             tmp_path,
             MediaTools(),
         )
+
+
+@pytest.mark.slow
+def test_cached_numbered_research_cut_reaches_delivery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run real Prep Media, compile and verify both package representations."""
+    import subprocess
+    from functools import partial
+
+    import opentimelineio as otio
+
+    from vera_timeline_agent import prep_media_inputs
+    from vera_timeline_agent.build_compiler_bridge import invoke_bridge
+    from vera_timeline_agent.media_preparation import _prepare_media
+    from vera_timeline_agent.prep_media import prepare_project
+    from vera_timeline_agent.research_cut_binding import research_clip_folder
+    from vera_timeline_agent.v2_package import build_v2_package
+
+    fixture_path = (
+        Path(__file__).parent
+        / "data/authoring_v2/issue_173/compiler"
+        / "visual-only-image-still-25fps-default.input.golden.json"
+    )
+    fixture = json.loads(fixture_path.read_bytes())
+    document, dependencies = fixture["document"], fixture["dependencies"]
+    first = document["activeDraft"]["blocks"][0]
+    snapshot = {
+        **SNAPSHOT,
+        "clipVersion": 7,
+        "researchProjectId": CLIP_ID,
+        "catalogVideoId": CLIP_ID,
+        "video": {
+            **SNAPSHOT["video"],
+            "canonicalUrl": "https://youtu.be/abcdefghijk",
+            "title": "Generated numbered cut",
+        },
+        "loggedSelection": {
+            **SNAPSHOT["loggedSelection"],
+            "trackId": CLIP_ID,
+            "firstSegmentId": CLIP_ID,
+            "lastSegmentId": CLIP_ID,
+            "exportStartMs": 0,
+            "exportEndMs": 334,
+            "transcriptStartMs": 0,
+            "transcriptEndMs": 300,
+            "timingPrecision": "cue",
+            "text": "Generated caption",
+        },
+        "englishText": "Generated caption",
+    }
+    first["researchClip"] = snapshot
+    second = json.loads(json.dumps(first))
+    second.update(id="00000000-0000-4000-8000-000000000031", orderKey="b0")
+    second["payload"]["payloadId"] = "00000000-0000-4000-8000-000000000032"
+    document["activeDraft"]["blocks"] = [first, second]
+    dependencies["timeline"]["frameRate"] = {"numerator": 24000, "denominator": 1001}
+    dependencies["occurrenceResolutions"] = []
+    dependencies["preparedMedia"] = []
+
+    project = tmp_path / "project"
+    media_root = project / "Media"
+    media_root.mkdir(parents=True)
+    export = tmp_path / "export"
+    export.mkdir()
+    video = export / f"{CLIP_ID}.mp4"
+    # A distinct brightness in each decoded frame allows byte-level inspection
+    # of both delivered occurrence ranges after real transcode.
+    source_frames = b"".join(
+        bytes([32 + index * 24]) * (64 * 64 * 3) for index in range(8)
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-nostdin",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-s",
+            "64x64",
+            "-framerate",
+            "24000/1001",
+            "-i",
+            "pipe:0",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=mono",
+            "-vf",
+            "scale=out_color_matrix=bt709,setsar=1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-colorspace",
+            "bt709",
+            "-color_primaries",
+            "bt709",
+            "-color_trc",
+            "bt709",
+            "-color_range",
+            "tv",
+            "-x264-params",
+            "colorprim=bt709:transfer=bt709:colormatrix=bt709",
+            "-c:a",
+            "aac",
+            "-shortest",
+            str(video),
+        ],
+        input=source_frames,
+        check=True,
+    )
+    srt = export / f"{CLIP_ID}.en.srt"
+    srt.write_text("1\n00:00:00,000 --> 00:00:00,300\nGenerated caption\n")
+    (export / f"{CLIP_ID}.json").write_text(
+        json.dumps(
+            {
+                **cut_identity(snapshot),
+                "artifacts": [
+                    {
+                        "name": path.name,
+                        "byteSize": path.stat().st_size,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                    for path in [video, srt]
+                ],
+            }
+        ),
+    )
+    cache = copy_cut(export, snapshot, research_clip_folder(media_root, snapshot))
+    for row, start, end in [(first, 2, 5), (second, 5, 7)]:
+        bind_research_cut(row, cache, MediaTools())
+        row["visualOnlyTiming"]["selectedSourceRange"] = {
+            "startFrame": start,
+            "durationFrames": end - start,
+        }
+    script = tmp_path / "script.json"
+    script.write_text(json.dumps(document))
+    inputs = tmp_path / "dependencies"
+    inputs.mkdir()
+    (inputs / "compiler-dependencies.json").write_text(json.dumps(dependencies))
+
+    # Use the same generated-media qualification mode as the installed-tool
+    # tests. The public Prep Media path still requires a qualified toolset.
+    monkeypatch.setattr(
+        prep_media_inputs,
+        "prepare_media",
+        partial(_prepare_media, qualification_run=True),
+    )
+
+    def acquire(_: Json) -> Path:
+        pytest.fail("The saved occurrence must reuse its verified project cut")
+
+    def prepare() -> Path:
+        return prepare_project(
+            script, inputs, project, acquire=acquire, narration=lambda *_: None
+        )
+
+    prepared = prepare()
+    assert prepare() == prepared
+    assert json.loads(script.read_bytes()) == document
+    assert (
+        hashlib.sha256(video.read_bytes()).digest()
+        == hashlib.sha256((cache / video.name).read_bytes()).digest()
+    )
+
+    frozen = prepared / "script.json"
+    settings = prepared / "compiler-dependencies.json"
+    result = invoke_bridge("compile", frozen, settings).result
+    manifest = tmp_path / "manifest.json"
+    report = tmp_path / "report.json"
+    manifest.write_text(result["manifestJson"])
+    report.write_text(result["reportJson"])
+    package = tmp_path / "delivery"
+    built = build_v2_package(
+        manifest,
+        report,
+        frozen,
+        settings,
+        package,
+        media_paths={
+            key: Path(value)
+            for key, value in json.loads(
+                (prepared / "media-paths.json").read_bytes()
+            ).items()
+        },
+        preparation_paths={
+            key: Path(value)
+            for key, value in json.loads(
+                (prepared / "preparation-paths.json").read_bytes()
+            ).items()
+        },
+    )
+    build_root = built.project_root / "Builds" / built.build_id
+    timeline = otio.adapters.read_from_file(str(build_root / "timeline.otio"))
+    clips = [clip for clip in timeline.find_clips()]
+    assert [
+        (clip.source_range.start_time.value, clip.source_range.duration.value)
+        for clip in clips
+    ] == [(2, 3), (5, 2)]
+    view = json.loads((build_root / "delivery-view.json").read_bytes())
+    assert [
+        (event["sourceRange"]["startFrame"], event["sourceRange"]["durationFrames"])
+        for event in view["events"]
+    ] == [(2, 3), (5, 2)]
+    prepared_ranges = [
+        (
+            item["selectedSourceRange"]["startFrame"],
+            item["selectedSourceRange"]["endFrame"],
+        )
+        for item in json.loads(settings.read_bytes())["occurrenceResolutions"]
+    ]
+    assert prepared_ranges == [(2, 5), (5, 7)]
+    sources = {source["id"]: source["path"] for source in view["sources"]}
+    for clip, event, expected in zip(
+        clips, view["events"], ([2, 3, 4], [5, 6]), strict=True
+    ):
+        assert sources[event["sourceId"]] == clip.media_reference.target_url
+        path = package / clip.media_reference.target_url
+        decoded = subprocess.check_output(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(path),
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ]
+        )
+        decoded_numbers = [
+            round((decoded[offset] - 32) / 24)
+            for offset in range(0, len(decoded), 64 * 64 * 3)
+        ]
+        start = int(clip.source_range.start_time.value)
+        duration = int(clip.source_range.duration.value)
+        assert decoded_numbers[start : start + duration] == expected
