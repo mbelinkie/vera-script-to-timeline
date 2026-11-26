@@ -269,8 +269,9 @@ const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
   "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
 ]);
-const WORDLESS_ROW_KINDS = new Set([
+const REVISIONED_ROW_KINDS = new Set([
   "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
+  "add_row_transition", "remove_row_transition",
 ]);
 
 /** Only the commands this browser editor can issue, with exact JSON shapes. */
@@ -331,10 +332,17 @@ function usesProjectVisualHold(row: ScriptDocumentV2["activeDraft"]["blocks"][nu
     !row.visualOnlyTiming.matchAudioDuration && row.visualOnlyTiming.durationOverrideMs === undefined;
 }
 
-/** Strictly bounded Draft wordless operations; the model still owns all state changes/refusals. */
-function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
-  if (!record(value) || !WORDLESS_ROW_KINDS.has(String(value.kind))) return null;
+/** Strictly bounded revisioned Draft operations; the model still owns all state changes/refusals. */
+function revisionedRowCommand(value: unknown): RowEditCommandV2 | null {
+  if (!record(value) || !REVISIONED_ROW_KINDS.has(String(value.kind))) return null;
   switch (value.kind) {
+    case "add_row_transition":
+    case "remove_row_transition":
+      if (!exact(value, ["kind", "transitionId", "fromRowId", "toRowId", "expectedFromVersion", "expectedToVersion"]) ||
+          !uuid(value.transitionId) || !uuid(value.fromRowId) || !uuid(value.toRowId) ||
+          !Number.isSafeInteger(value.expectedFromVersion) || (value.expectedFromVersion as number) <= 0 ||
+          !Number.isSafeInteger(value.expectedToVersion) || (value.expectedToVersion as number) <= 0) return null;
+      break;
     case "add_visual_to_wordless_row":
       if (!exact(value, ["kind", "rowId", "payloadId", "slotId", "visualType"]) ||
           !uuid(value.rowId) || !uuid(value.payloadId) || !uuid(value.slotId) ||
@@ -1064,8 +1072,8 @@ export function createAuthoringHandler(
           if (result.ok) lastSplit = null; // Any successful visual edit breaks immediate split restoration.
           return Response.json(result);
         }
-        if (record(command) && WORDLESS_ROW_KINDS.has(String(command.kind))) {
-          const rowCommand = wordlessRowCommand(command);
+        if (record(command) && REVISIONED_ROW_KINDS.has(String(command.kind))) {
+          const rowCommand = revisionedRowCommand(command);
           if (!rowCommand || !record(body) || !exact(body, ["document", "command", "expectedRowEditRevision"]) ||
               !Number.isSafeInteger(body.expectedRowEditRevision) || (body.expectedRowEditRevision as number) < 0 ||
               !validateScriptDocumentV2(document).valid) {

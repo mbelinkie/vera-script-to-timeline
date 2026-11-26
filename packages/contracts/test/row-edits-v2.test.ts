@@ -218,6 +218,186 @@ function rows(document: ScriptDocumentV2): string[] {
     .map((block) => block.id);
 }
 
+describe("#677 ordinary row transitions", () => {
+  type TransitionCommand = Extract<RowEditCommandV2, { kind: "add_row_transition" | "remove_row_transition" }>;
+  const clipRow = (value: number): NarrationBlockV2 => {
+    const block = row(value);
+    const root = block.primaryVisualSequence!.slots[0] as ContentSlot;
+    root.payload = {
+      kind: "visual", payloadId: id(value + 5000), pictureKind: "clip",
+      source: { kind: "media_reference", mediaReferenceId: id(value + 6000) },
+      sourceUsage: { sourceInFrame: 12 }, audioPolicy: "mute", framingPolicy: "contain",
+    };
+    return block;
+  };
+  const commandFor = (from: NarrationBlockV2 | VisualOnlyBlockV2, to: NarrationBlockV2 | VisualOnlyBlockV2, value = 99001): TransitionCommand => ({
+    kind: "add_row_transition", transitionId: id(value), fromRowId: from.id, toRowId: to.id,
+    expectedFromVersion: from.version, expectedToVersion: to.version,
+  });
+  const intentFor = (command: TransitionCommand) => ({
+    id: command.transitionId, fromRowId: command.fromRowId, toRowId: command.toRowId,
+    effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" as const,
+  });
+  const refuse = (document: ScriptDocumentV2, command: unknown, code: string, revision = document.rowEditRevision ?? 0) => {
+    const original = structuredClone(document);
+    const result = applyRowEditV2(document, revision, command as RowEditCommandV2);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(false);
+    expect(result.diagnostics[0]?.code).toBe(code);
+    expect(result.document).toBe(document);
+    expect(document).toEqual(original);
+  };
+
+  it("adds one exact preset, persists it, removes it and records one Undo per action", () => {
+    const [a, b, c, d] = [10000, 20000, 30000, 40000].map(clipRow) as [NarrationBlockV2, NarrationBlockV2, NarrationBlockV2, NarrationBlockV2];
+    const add = commandFor(a, b);
+    const other = intentFor(commandFor(c, d, 99002));
+    const initial = documentWith([a, b, c, d], {
+      rowTransitions: [other], rowReferences: [{ id: id(99003), rowId: b.id, kind: "comment", anchor: { label: "Keep" } }],
+      rowAudioSpans: [audioSpan(99004, a.id, d.id)], supportingItems: [citation(a, 99005)],
+    });
+    const snapshot = structuredClone(initial);
+    const session = createRowEditSessionV2(initial);
+    const added = session.apply(add);
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document).toEqual({ ...initial, rowTransitions: [other, intentFor(add)], rowEditRevision: 1 });
+    expect(session.undoDepth).toBe(1);
+    expect(initial).toEqual(snapshot);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(added.document))).toEqual({ ok: true, document: added.document });
+    expect(session.undo().document.rowTransitions).toEqual([other]);
+    expect(session.redo().document.rowTransitions).toEqual([other, intentFor(add)]);
+    const removed = session.apply({ ...add, kind: "remove_row_transition" });
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document).toEqual({ ...initial, rowEditRevision: 4 });
+    expect(session.undoDepth).toBe(2);
+    expect(session.undo().document.rowTransitions).toEqual([other, intentFor(add)]);
+    expect(session.redo().document.rowTransitions).toEqual([other]);
+  });
+
+  it("omits an empty transition collection and permits a single muted visual-only clip", () => {
+    const a = clipRow(10000);
+    const b = visualOnly(20000);
+    b.payload = { ...b.payload, pictureKind: "clip" };
+    b.visualOnlyTiming = { kind: "visual_only", selectedSourceRange: { startFrame: 12, durationFrames: 108 } };
+    const initial = documentWith([a, b]);
+    const add = commandFor(a, b);
+    const added = applyRowEditV2(initial, 0, add);
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document.rowTransitions).toEqual([intentFor(add)]);
+    const removed = applyRowEditV2(added.document, 1, { ...add, kind: "remove_row_transition" });
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document).toEqual({ ...initial, rowEditRevision: 2 });
+    expect(Object.hasOwn(removed.document, "rowTransitions")).toBe(false);
+  });
+
+  it("refuses invalid shape, stale document and row versions, missing and reordered neighbors, and section boundaries", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000);
+    const initial = documentWith([a, b, c]);
+    const add = commandFor(a, b);
+    for (const malformed of [
+      { ...add, transitionId: "not-a-uuid" }, { ...add, fromRowId: "" }, { ...add, toRowId: null },
+      { ...add, expectedFromVersion: 0 }, { ...add, expectedToVersion: 1.5 },
+      { ...add, expectedToVersion: Number.MAX_SAFE_INTEGER + 1 }, { ...add, expectedToVersion: "1" },
+      { ...add, expectedToVersion: undefined }, { ...add, effect: "cut" },
+    ]) {
+      refuse(initial, malformed, "ROW_COMMAND_INVALID");
+      refuse(initial, { ...malformed, kind: "remove_row_transition" }, "ROW_COMMAND_INVALID");
+    }
+    refuse(initial, add, "ROW_REVISION_STALE", 1);
+    refuse(initial, { ...add, expectedFromVersion: 2 }, "ROW_TRANSITION_STALE");
+    refuse(initial, { ...add, expectedToVersion: 2 }, "ROW_TRANSITION_STALE");
+    for (const blocks of [[b, a, c], [a, c], [b, c], [a, c, b], [a, section(99010, "Next"), b, c]]) {
+      refuse(documentWith(blocks), add, "ROW_TRANSITION_PAIR_INVALID");
+    }
+    refuse(initial, { ...add, toRowId: a.id }, "ROW_TRANSITION_PAIR_INVALID");
+    const session = createRowEditSessionV2(initial);
+    expect(session.apply({ ...add, expectedToVersion: 2 }).ok).toBe(false);
+    expect(session.revision).toBe(0);
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("refuses unsupported clip-root shapes on either side", () => {
+    const a = clipRow(10000), b = clipRow(20000);
+    const still = clipRow(20000);
+    const stillRoot = still.primaryVisualSequence!.slots[0] as ContentSlot;
+    if (stillRoot.payload.kind !== "visual") throw new Error("Expected visual fixture");
+    stillRoot.payload = { ...stillRoot.payload, pictureKind: "image", sourceUsage: null };
+    const audible = clipRow(20000);
+    const audibleRoot = audible.primaryVisualSequence!.slots[0] as ContentSlot;
+    if (audibleRoot.payload.kind !== "visual") throw new Error("Expected visual fixture");
+    audibleRoot.payload = { ...audibleRoot.payload, audioPolicy: "quiet" };
+    const rich = richNarration(20000);
+    for (const incompatible of [row(20000), still, audible, rich, direction(20000), visualOnly(20000)]) {
+      refuse(documentWith([a, incompatible]), commandFor(a, b), "ROW_TRANSITION_INELIGIBLE");
+    }
+    refuse(documentWith([row(10000), b]), commandFor(a, b), "ROW_TRANSITION_INELIGIBLE");
+  });
+
+  it("preserves exact and dormant pairs, prevents shared active rows, and removes only the named active intent", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000), d = clipRow(40000);
+    const add = commandFor(b, c);
+    const previous = intentFor(commandFor(a, b, 99002));
+    const next = intentFor(commandFor(c, d, 99003));
+    for (const occupied of [previous, next, intentFor({ ...add, transitionId: id(99004) }), { ...intentFor({ ...add, transitionId: id(99004) }), state: "needs_review" as const }]) {
+      refuse(documentWith([a, b, c, d], { rowTransitions: [occupied] }), add, "ROW_TRANSITION_PAIR_OCCUPIED");
+    }
+    const initial = documentWith([a, b, c, d]);
+    refuse(initial, { ...add, transitionId: a.id.toUpperCase() }, "ROW_TRANSITION_ID_OCCUPIED");
+    const saved = documentWith([a, b, c, d], { rowTransitions: [intentFor(add)] });
+    const remove = { ...add, kind: "remove_row_transition" as const };
+    refuse(saved, { ...remove, transitionId: id(99005) }, "ROW_TRANSITION_NOT_FOUND");
+    refuse(saved, { ...remove, fromRowId: a.id, toRowId: b.id }, "ROW_TRANSITION_NOT_FOUND");
+    refuse(saved, { ...remove, expectedToVersion: 2 }, "ROW_TRANSITION_STALE");
+    refuse(saved, { ...remove, expectedFromVersion: 2 }, "ROW_TRANSITION_STALE");
+    refuse(initial, remove, "ROW_TRANSITION_NOT_FOUND");
+  });
+  it("removes the exact reviewed transition after a move across sections and supports Undo and deletion", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000), d = clipRow(40000);
+    const heading = section(99010, "Next");
+    const add = commandFor(a, b);
+    const other = intentFor(commandFor(c, d, 99002));
+    const session = createRowEditSessionV2(documentWith([a, b, heading, c, d], { rowTransitions: [other] }));
+    expect(session.apply(add).ok).toBe(true);
+    const moved = session.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(heading.id, d.id, null) });
+    expect(moved.ok).toBe(true);
+    const reviewed = { ...intentFor(add), state: "needs_review" };
+    expect(moved.document.rowTransitions).toEqual([other, reviewed]);
+    const remove = { ...add, kind: "remove_row_transition" as const,
+      expectedFromVersion: moved.document.activeDraft.blocks.find((block) => block.id === a.id)!.version,
+      expectedToVersion: moved.document.activeDraft.blocks.find((block) => block.id === b.id)!.version };
+    expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(session.apply({ ...remove, transitionId: other.id }).ok).toBe(false);
+    expect(session.apply({ ...remove, toRowId: c.id }).ok).toBe(false);
+    expect(session.apply({ ...remove, toRowId: id(99999) }).ok).toBe(false);
+    expect(session.apply({ ...remove, expectedToVersion: remove.expectedToVersion + 1 }).ok).toBe(false);
+    const removed = session.apply(remove);
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document.rowTransitions).toEqual([other]);
+    expect(removed.document.activeDraft).toEqual(moved.document.activeDraft);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(removed.document))).toEqual({ ok: true, document: removed.document });
+    expect(session.undo().document.rowTransitions).toEqual([other, reviewed]);
+    expect(session.redo().document.rowTransitions).toEqual([other]);
+    expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).ok).toBe(true);
+  });
+
+  it("refuses removing a reviewed transition through a different current neighbor", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000);
+    const add = commandFor(a, b);
+    const session = createRowEditSessionV2(documentWith([a, b, c]));
+    expect(session.apply(add).ok).toBe(true);
+    const moved = session.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, c.id, null) });
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    const blocks = moved.document.activeDraft.blocks;
+    expect(blocks.map((block) => block.id)).toEqual([a.id, c.id, b.id]);
+    expect(moved.document.rowTransitions).toEqual([{ ...intentFor(add), state: "needs_review" }]);
+    const version = (target: { id: string }) => blocks.find((block) => block.id === target.id)!.version;
+    const refused = session.apply({ kind: "remove_row_transition", transitionId: add.transitionId,
+      fromRowId: a.id, toRowId: c.id, expectedFromVersion: version(a), expectedToVersion: version(c) });
+    expect(refused).toMatchObject({ ok: false, document: moved.document, diagnostics: [{ code: "ROW_TRANSITION_NOT_FOUND" }] });
+    expect(session.undoDepth).toBe(2);
+  });
+
+});
+
 describe("#588 visual placement names", () => {
   const rename = (rowId: string, payloadId: string, name: string): RowEditCommandV2 =>
     ({ kind: "rename_visual_placement", rowId, payloadId, name });

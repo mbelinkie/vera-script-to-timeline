@@ -1043,6 +1043,41 @@ function readTransitionGolden(name: string, compiled: Extract<ReturnType<typeof 
 }
 
 describe("#88 frozen row-to-row transition compilation", () => {
+  it("compiles the browser-authored standard preset and returns to a cut after removal", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    delete doc.rowTransitions;
+    const [from, to] = doc.activeDraft.blocks;
+    const pair = { transitionId: id(200), fromRowId: from!.id, toRowId: to!.id,
+      expectedFromVersion: from!.version, expectedToVersion: to!.version };
+    const added = applyRowEditV2(doc, doc.rowEditRevision ?? 0, { kind: "add_row_transition", ...pair });
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    if (!added.ok) return;
+    expect(added.document.rowTransitions).toEqual([{ id: id(200), fromRowId: from!.id, toRowId: to!.id,
+      effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" }]);
+    expect(added.document.activeDraft).toEqual(doc.activeDraft);
+    const needs = resolveMediaRequirementsV2(added.document, { timing: deps.narrationTimingMaps,
+      defaults: deps.authoringDefaults, sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate });
+    expect(needs.ok, JSON.stringify(needs)).toBe(true);
+    if (needs.ok) expect(needs.requirements.map((item) => [item.requestedRange.preHandle, item.requestedRange.postHandle])).toEqual([
+      [{ numerator: 0, denominator: 1 }, { numerator: 1, denominator: 2 }],
+      [{ numerator: 1, denominator: 2 }, { numerator: 0, denominator: 1 }],
+    ]);
+    const compiled = compileTimelineV2(added.document, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) readTransitionGolden("two-row-24-frame", compiled);
+
+    const removed = applyRowEditV2(added.document, added.document.rowEditRevision ?? 0, { kind: "remove_row_transition", ...pair });
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    if (!removed.ok) return;
+    expect(removed.document.rowTransitions).toBeUndefined();
+    expect(removed.document.activeDraft).toEqual(doc.activeDraft);
+    const cut = transitionRowsFixture("cut");
+    cut.deps.preparedMedia[1]!.verification.decodedFrameCount = 96;
+    const plain = compileTimelineV2(removed.document, cut.deps);
+    expect(plain.ok, JSON.stringify(plain)).toBe(true);
+    if (plain.ok) readTransitionGolden("two-row-cut", plain);
+  });
+
   it("requests real source handles, signs a 24-frame exact native plan and leaves narration unchanged", () => {
     const { doc, deps } = transitionRowsFixture("apply");
     const before = JSON.stringify([doc, deps]);
