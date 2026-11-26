@@ -12,7 +12,7 @@ import {
 } from "../src/research-clip-cli.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import type { QuoteBoxV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
-import { researchCandidate, researchId, researchNestedNote, researchNote, researchStashFixture } from "./issue-367-fixture.js";
+import { researchCandidate, researchId, researchNestedNote, researchNote, researchStashFixture, researchStillFixture, researchOccurrence } from "./issue-367-fixture.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const cliPath = join(root, "packages/contracts/src/research-clip-cli.ts");
@@ -403,4 +403,66 @@ describe("Research citation CLI", () => {
     expect(await h.run("source-list", PROJECT, file.path)).toBe(RESEARCH_CLI_EXIT.refused);
     expect(h.output).toHaveLength(outputCount);
   });
+});
+
+it("exports a placed still-only source and deduplicates mixed source uses within each project", async () => {
+  const file = makeScript();
+  const first = researchStillFixture(983000);
+  const other = researchStillFixture(983100, researchId(983999), first.still.itemId);
+  const quoteRow = researchNestedNote(983200);
+  const primary = quoteRow.primaryVisualSequence!.slots[0]!;
+  if (primary.kind !== "content" || primary.payload.kind !== "visual") throw new Error("Missing quote background");
+  delete primary.payload.researchClip;
+  const quoteId = researchId(983250);
+  const event = quoteRow.overlayEvents[0]!;
+  event.payload = {
+    kind: "visual", payloadId: event.payload.payloadId, pictureKind: "graphic",
+    source: { kind: "graphic_revision", graphicId: researchId(983251), revisionId: researchId(983252) },
+    sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
+  };
+  event.quoteBox = {
+    researchQuoteId: quoteId, displayText: "Quote", speakerName: "", speakerTitle: "",
+    citationText: "", italicSpan: null, backgroundPayloadId: primary.payload.payloadId,
+    templateRevision: `sha256:${"a".repeat(64)}`,
+  };
+  const sourceId = first.still.sourceId;
+  const requests: string[] = [];
+  const request: typeof fetch = (input, init) => {
+    const path = new URL(input instanceof Request ? input.url : input).pathname;
+    requests.push(`${init?.method} ${path}`);
+    const [, , , projectId, collection, id] = path.split("/");
+    if (collection === "items") {
+      const kind = id === quoteId ? "quote" : id === CLIP ? "clip" : "still";
+      return Promise.resolve(Response.json({ projectId, id, kind, sourceId, version: 1, content: kind === "quote" ? { text: "Quote" } : {} }));
+    }
+    if (collection === "sources" && id === sourceId) return Promise.resolve(Response.json({
+      projectId, id, kind: "web_page", details: {},
+      bibliography: { title: { value: projectId === PROJECT ? "First source" : "Other project source" },
+        url: { value: "https://example.com/article" } },
+    }));
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+  const h = harness({}, { request });
+  expect(validateScriptDocumentV2(first.doc).diagnostics).toEqual([]);
+  writeFileSync(file.path, JSON.stringify(first.doc));
+  expect(await h.run("source-list", PROJECT, file.path)).toBe(0);
+  expect(h.output.at(-1)).toBe('"First source." https://example.com/article.\n');
+  expect(requests).toEqual([
+    `GET /api/projects/${PROJECT}/items/${first.still.itemId}`,
+    `GET /api/projects/${PROJECT}/sources/${sourceId}`,
+  ]);
+  requests.length = 0;
+  first.doc.activeDraft.blocks = [first.row, quoteRow, researchOccurrence(983300, false), other.row];
+  expect(validateScriptDocumentV2(first.doc).diagnostics).toEqual([]);
+  writeFileSync(file.path, JSON.stringify(first.doc));
+  expect(await h.run("source-list", PROJECT, file.path)).toBe(0);
+  expect(h.output.at(-1)).toBe('"First source." https://example.com/article.\n"Other project source." https://example.com/article.\n');
+  expect(requests).toEqual([
+    `GET /api/projects/${PROJECT}/items/${quoteId}`,
+    `GET /api/projects/${PROJECT}/sources/${sourceId}`,
+    `GET /api/projects/${PROJECT}/items/${CLIP}`,
+    `GET /api/projects/${PROJECT}/items/${first.still.itemId}`,
+    `GET /api/projects/${other.still.researchProjectId}/items/${other.still.itemId}`,
+    `GET /api/projects/${other.still.researchProjectId}/sources/${sourceId}`,
+  ]);
 });

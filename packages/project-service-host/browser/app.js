@@ -1,10 +1,10 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
-import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
-import { mountNarration } from "./narration-editor.js";
+import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel } from "./rows-editor.js";
+import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
-import { createStashActions } from "./stash-actions.js";
+import { captureWholeRowStash, createStashActions } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
 import { cueExcerpt } from "./footage-trim-timing.js";
 import { selectedSpokenWords } from "./visual-selection.js";
@@ -33,6 +33,7 @@ const visualCommandKinds = new Set([
 const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
   "reorder_visual_only", "set_visual_only_hold"]);
 let project;
+let projectVisualHoldMs;
 let activeProjectId;
 let scriptDocument;
 let flashVisualIds = new Set();
@@ -43,6 +44,7 @@ let documentDigest;
 let pendingDocument;
 let documentSaveFailure;
 let documentSaving = false;
+let documentSaveTask = null;
 let pendingExtras;
 let extrasRunning = false;
 let extrasFailure;
@@ -65,6 +67,7 @@ const undoStack = [];
 // Boundaries are captured at input time, not after the network response.
 let typingGroup = null;
 let narrationCleanup = [];
+let rowsCleanup;
 let structuralFocus = null;
 let lastSplit = null;
 let pendingName;
@@ -74,6 +77,7 @@ let saveTimer;
 let saving = false;
 let opening = false;
 let conflicted = false;
+let lastQuoteTarget = null;
 const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
 const sessionKey = "vera.authoring.sessionProof";
 let sessionProof = "";
@@ -85,6 +89,10 @@ let occurrenceFootage;
 let researchStillPanel;
 let sortingTrial = null;
 let stashPanel;
+let stashScriptDrag = null;
+
+const editorDocument = () => sortingTrial?.document ?? scriptDocument;
+const editorProjection = () => sortingTrial ? sortingTrial.projection : visualProjection;
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -126,7 +134,8 @@ function currentPrompterPair() {
 
 function updatePrompterControls() {
   const ready = prompterReady();
-  element("open-sorting").disabled = sortingTrial ? sortingTrial.busy : !ready;
+  if (sortingTrial) updateSortingControls();
+  else element("open-sorting").disabled = !ready;
   element("open-prompter").disabled = !ready;
   element("open-prompter").title = ready ? "Export the saved script" : "Save your script before exporting";
   element("prepare-prompter").disabled = !ready || prompterPreparing;
@@ -286,10 +295,12 @@ async function showScript(projectId) {
   setSortingMode(false);
   clearPreparedPrompter();
   if (prompterDialog.open) prompterDialog.close();
-  const [{ project: savedProject }, savedScript] = await Promise.all([
-    api(`/${projectId}`), api(`/${projectId}/document`),
+  const [{ project: savedProject }, savedScript, { milliseconds }] = await Promise.all([
+    api(`/${projectId}`), api(`/${projectId}/document`), api(`/${projectId}/visual-hold-default`),
   ]);
   scriptDocument = savedScript.document;
+  lastQuoteTarget = null;
+  projectVisualHoldMs = milliseconds;
   flashVisualIds = new Set();
   visualFeedback = "";
   documentRevision = savedScript.revision;
@@ -385,6 +396,15 @@ document.addEventListener("visibilitychange", () => {
 function renderEditor() {
   stashPanel?.update();
   const root = element("script-rows");
+  const model = editorDocument();
+  if (sortingTrial?.preview) {
+    narrationCleanup.forEach((cleanup) => cleanup());
+    narrationCleanup = [];
+    rowsCleanup?.();
+    rowsCleanup = undefined;
+    renderRows(root, model, { projection: editorProjection(), quotePicture: researchPlacedQuotePictureGet });
+    return;
+  }
   const requestedFocus = structuralFocus;
   structuralFocus = null;
   const requestedCardFocus = cardFocus;
@@ -418,27 +438,40 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument, {
-    projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+  renderRows(root, model, {
+    projection: editorProjection(), visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
-    addWordless: addWordlessVisual,
+    addWordless: addWordlessVisual, projectVisualHoldMs, allowStash: true,
+    quoteBoxEdit: sortingTrial ? undefined : queueResearchQuoteBoxEdit,
+    quoteBoxRangeEdit: sortingTrial ? undefined : queueQuoteBoxRangeEdit,
+    quotePicture: researchPlacedQuotePictureGet,
     flashIds: flashVisualIds,
   });
-  renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
+  if (!sortingTrial) renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard });
   occurrenceFootage?.update();
   flashVisualIds = new Set();
-  narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
-    queueCommand(command, label, { structural: true, cardFocus: focus })));
+  narrationCleanup.push(mountVisualCardMenus(root,
+    (command, label, focus) => queueCommand(command, label, { structural: true, cardFocus: focus }),
+    stashVisual));
+
   narrationCleanup.push(mountVisualCardDragging(root));
-  narrationCleanup.push(mountResearchDragging(root));
+  if (!sortingTrial) narrationCleanup.push(mountResearchDragging(root));
   narrationCleanup.push(mountWordlessControls(root));
-  mountRowsEditor(root, scriptDocument, {
+  rowsCleanup = mountRowsEditor(root, model, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
-    stashRow: (rowId) => stashActions.stashRow(rowId),
+    stashRow: async (rowId) => {
+      const ok = await stashActions.stashRow(rowId);
+      if (ok) stashPanel.open();
+      return ok;
+    },
+    stashGroup,
+    onRowDrag(rowIds) {
+      stashScriptDrag = rowIds ? { kind: "rows", rowIds, snapshot: model } : null;
+    },
   });
   root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
-    narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
+    narrationCleanup.push(mountNarration(cell, model, queueCommand, {
       projection: projectedPrimaryRow(cell.closest("[data-row-id]")?.dataset.rowId),
       visualCommand: queueVisualCommand,
       reselect: activeReselect?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeReselect : null,
@@ -453,10 +486,10 @@ function renderEditor() {
         updatePrompterControls();
       },
       requestRender: scheduleRender,
-      chooseFootage: openFootageForWords,
-      chooseStill: openStillForWords,
+      chooseFootage: sortingTrial ? undefined : openFootageForWords,
+      chooseStill: sortingTrial ? undefined : openStillForWords,
       stashWords(rowId, selection, displayedText) {
-        const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+        const row = editorDocument()?.activeDraft.blocks.find((item) => item.id === rowId);
         if (row?.text !== displayedText) {
           setSaveStatus("Finish saving the current narration before stashing words.");
           return;
@@ -468,6 +501,7 @@ function renderEditor() {
       },
     }));
   });
+  if (sortingTrial) decorateSortingRows(root, model);
   if (requestedCardFocus) {
     const row = [...root.querySelectorAll("[data-row-id]")]
       .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
@@ -513,8 +547,32 @@ function renderEditor() {
   if (reselectFocus) focusReselectOpener(reselectFocus);
 }
 
+async function stashGroup(rowIds) {
+  const expected = captureWholeRowStash(editorDocument(), rowIds);
+  if (!expected) return false;
+  const ok = await queueCommand((current) => {
+    if (JSON.stringify(captureWholeRowStash(current, rowIds)) !== JSON.stringify(expected)) {
+      throw new Error("The selected rows or their Stash location changed.");
+    }
+    return { kind: "stash_group_rows", rowIds, bundleId: crypto.randomUUID(),
+      groupId: crypto.randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+  }, "Stash group", { structural: true });
+  if (ok && expected.projectId === activeProjectId) stashPanel.open();
+  return ok;
+}
+
+async function stashVisual(rowId, slotId) {
+  const expected = editorDocument();
+  const ok = await queueCommand((current) => {
+    if (current !== expected) throw new Error("The visual or its Stash location changed.");
+    return { kind: "stash_visual", rowId, slotId, bundleId: crypto.randomUUID(),
+      stashRowId: crypto.randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+  }, "Stash visual", { structural: true });
+  if (ok && expected.projectId === activeProjectId) stashPanel.open();
+}
+
 function beginAttach(rowId, slotId) {
-  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  const row = editorDocument()?.activeDraft.blocks.find((item) => item.id === rowId);
   if (row?.type !== "narration" || !row.unattachedVisuals?.some((item) => item.slotId === slotId)) {
     setSaveStatus("The visual is no longer waiting for words.");
     return;
@@ -629,11 +687,12 @@ function mountVisualCardDragging(root) {
     target?.classList.remove("script-row--visual-drop-target");
     reorderMarker?.classList.remove("visual-card--reorder-before");
     root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
+    if (dragging) stashScriptDrag = null;
     dragging = null;
     target = null;
     reorderMarker = null;
   };
-  const rowFor = (id, doc = scriptDocument) => doc?.activeDraft.blocks.find((row) => row.id === id);
+  const rowFor = (id, doc = editorDocument()) => doc?.activeDraft.blocks.find((row) => row.id === id);
   const onStart = (event) => {
     if (event.target.closest("button, input, [contenteditable]")) return;
     const card = event.target.closest("[data-visual-drag]");
@@ -650,6 +709,13 @@ function mountVisualCardDragging(root) {
     dragging = { rowId, slotId, payloadId, projectId: activeProjectId, sourceType: row.type };
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/x-vera-visual", "picture");
+    if (row.type === "narration") {
+      stashScriptDrag = { kind: "visual", rowId, slotId, payloadId, snapshot: editorDocument() };
+    } else if (!row.additionalVisuals?.length) {
+      stashScriptDrag = { kind: "rows", rowIds: [rowId], snapshot: editorDocument() };
+      event.dataTransfer.setData("application/x-vera-script-rows", "rows");
+    }
+    if (stashScriptDrag) event.dataTransfer.setDragImage(card, -12, -12);
     card.classList.add("visual-card--dragging");
   };
   const destination = (event) => {
@@ -777,7 +843,7 @@ function focusReselectOpener(state) {
 }
 
 function beginReselect(rowId, slotId, opener) {
-  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  const row = editorDocument()?.activeDraft.blocks.find((item) => item.id === rowId);
   const projection = projectedPrimaryRow(rowId);
   if (row?.type !== "narration" || !projection?.renderable ||
       !projection.brackets?.some((bracket) => bracket.slotId === slotId)) {
@@ -822,7 +888,7 @@ async function commitReselect(command, label) {
 // is checked again before any later confirmation is committed.
 async function previewReselect(command) {
   const state = activeReselect;
-  const snapshot = scriptDocument;
+  const snapshot = editorDocument();
   const row = snapshot?.activeDraft.blocks.find((item) => item.id === state?.rowId);
   if (!state || row?.type !== "narration" || row.text !== state.text ||
       row.primaryVisualSequence?.version !== state.version) {
@@ -831,7 +897,7 @@ async function previewReselect(command) {
   const result = await authoringVisualPost("visual-preview", {
     document: snapshot, command, expectedSequenceVersion: state.version,
   });
-  if (activeReselect !== state || scriptDocument !== snapshot) {
+  if (activeReselect !== state || editorDocument() !== snapshot) {
     throw new Error("The narration changed while checking this range.");
   }
   const oldCards = projectedPrimaryRow(state.rowId)?.cards ?? [];
@@ -860,7 +926,8 @@ function scheduleRender(force = false) {
   if (renderTimer) return;
   renderTimer = setTimeout(() => {
     renderTimer = undefined;
-    if (!renderRequested || pendingExtras || editRefused || conflicted || commandsPending || composingRows.size) return;
+    if (!renderRequested || pendingExtras || editRefused || conflicted || commandsPending ||
+        sortingTrial?.pending || sortingTrial?.busy || composingRows.size) return;
     const root = element("script-rows");
     const selection = document.getSelection();
     // Programmatic word selections do not necessarily focus the textbox, and
@@ -882,11 +949,14 @@ element("script-rows").addEventListener("pointerleave", () => {
   if (renderRequested) scheduleRender();
 });
 document.addEventListener("selectionchange", () => {
+  const target = selectedNarrationTarget();
+  if (target && document.activeElement?.matches?.("[data-narration-editor]")) lastQuoteTarget = target;
   if (renderRequested) scheduleRender();
 });
 
-async function saveDocument() {
-  if (!project || pendingExtras || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+function saveDocument() {
+  if (documentSaveTask) return documentSaveTask;
+  if (!project || pendingExtras || conflicted || (!documentDirty && !pendingDocument)) return;
   clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
@@ -894,24 +964,55 @@ async function saveDocument() {
   }
   documentSaving = true;
   setSaveStatus();
-  try {
-    const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
+  documentSaveTask = api(`/${project.projectId}/document`, "PUT", pendingDocument).then((receipt) => {
     documentRevision = receipt.revision;
     documentDigest = receipt.digest;
+    const last = undoStack.at(-1)?.durable;
+    if (last && last.document === pendingDocument.document) {
+      // Undoing a later text edit saved the exact earlier snapshot again.
+      last.revision = receipt.revision;
+      last.digest = receipt.digest;
+    }
     void refreshMusicWarnings();
     pendingDocument = undefined;
     documentSaveFailure = undefined;
-  } catch (error) {
+  }).catch((error) => {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
       documentSaveFailure = { message: "A newer script was saved elsewhere. Your unsaved changes are still here.", action: "conflict" };
     } else documentSaveFailure = { message: "Couldn’t save the script. Your unsaved changes are still here.", action: "retry" };
-    return;
-  } finally {
+  }).finally(() => {
     documentSaving = false;
+    documentSaveTask = null;
     setSaveStatus();
+    if (!documentSaveFailure && documentDirty) void saveDocument();
+  });
+  return documentSaveTask;
+}
+
+async function waitForDocumentSave() {
+  while (project && !documentSaveFailure && !conflicted && !pendingExtras) {
+    if (!documentSaving && !documentDirty && !pendingDocument) return true;
+    await saveDocument();
   }
-  if (documentDirty) void saveDocument();
+  return false;
+}
+
+async function updateQuoteDisplayDefaultAfterSave({ projectId, rowId, overlayId, displayText }) {
+  if (!await waitForDocumentSave() || activeProjectId !== projectId) return;
+  const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowId);
+  const use = row?.type === "narration" ? row.overlayEvents.find((item) => item.id === overlayId) : null;
+  if (use?.quoteBox?.displayText !== displayText) return;
+  try {
+    const result = await authoringVisualPost("research-quote-display-default", {
+      timelineProjectId: projectId, rowId, overlayId,
+      expectedRevision: documentRevision, expectedDigest: documentDigest,
+    });
+    void researchPanel?.refresh?.();
+    if (result.undo) return { projectId, rowId, overlayId, undo: result.undo };
+  } catch {
+    if (activeProjectId === projectId) setSaveStatus("Quote box saved. Its latest Library display text did not update.");
+  }
 }
 
 async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
@@ -936,7 +1037,7 @@ async function authoringVisualPost(path, body) {
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(12_000),
   });
-  const result = await response.json();
+  const result = response.status === 204 ? {} : await response.json();
   if (!response.ok || result.ok === false) {
     throw new Error(result.diagnostics?.[0]?.message || result.error || "Visual edit could not be applied.");
   }
@@ -967,6 +1068,21 @@ export async function researchCatalogGet(researchProjectId, clipId) {
   const catalog = await response.json();
   if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
   return catalog;
+}
+
+/** The browser sees only quotes exposed by the current authorized Research project. */
+export async function researchQuoteCatalogGet(researchProjectId, offset = 0) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error("Choose a current script and Research project.");
+  }
+  const response = await researchStillRequest(
+    `/authoring/research/${timelineId}/projects/${researchProjectId}/quotes?offset=${offset}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the quote list.");
+  const page = await response.json();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the quote list.");
+  return page;
 }
 
 class ResearchStillApiError extends Error {
@@ -1039,7 +1155,7 @@ function trimBasis() {
 function trimBasisCurrent(basis) {
   return !opening && activeProjectId === basis.projectId && scriptDocument === basis.document &&
     documentRevision === basis.revision && documentDigest === basis.digest &&
-    !conflicted && !editRefused && !documentSaving && !documentDirty && !pendingDocument && !pendingExtras;
+    !conflicted && !editRefused && !sortingTrial && !documentSaving && !documentDirty && !pendingDocument && !pendingExtras;
 }
 
 function trimEnvelope(basis) {
@@ -1088,14 +1204,59 @@ export async function researchTrimTiming(owner) {
     const result = await authoringVisualPost("research-trim-timing", { ...trimEnvelope(basis), ...owner });
     return trimBasisCurrent(basis) && !commandsPending ? result.cues : null;
   } catch { return null; }
+  }
+
+/** Fetches a kept quote thumbnail through the same-origin Authoring session. */
+export async function researchQuoteThumbnailGet(quote) {
+  const timelineId = activeProjectId;
+  const researchProjectId = quote?.researchProjectId;
+  const itemId = quote?.itemId;
+  const itemVersion = quote?.itemVersion;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !uuid.test(itemId ?? "") || !Number.isSafeInteger(itemVersion) || itemVersion < 1) {
+    throw new Error("Choose a current script and saved Research quote.");
+  }
+  const query = new URLSearchParams({ version: String(itemVersion) });
+  const response = await researchStillRequest(
+    `/authoring/research/${timelineId}/projects/${researchProjectId}/quotes/${itemId}/thumbnail?${query}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the quote list.");
+  const bytes = await response.arrayBuffer();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the quote list.");
+  return {
+    mimeType: response.headers.get("content-type")?.split(";", 1)[0] || "application/octet-stream",
+    bytes,
+  };
+}
+
+/** Reads a placed quote picture through the host, which resolves the exact saved Research pin. */
+export async function researchPlacedQuotePictureGet(payloadId) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(payloadId ?? "")) {
+    throw new Error("Choose a current script and retained quote picture.");
+  }
+  if (!await waitForDocumentSave() || timelineId !== activeProjectId) {
+    throw new Error("Save the quote picture before loading its thumbnail.");
+  }
+  const pin = (scriptDocument?.activeDraft?.blocks ?? []).flatMap((row) => row.type === "narration"
+    ? (row.primaryVisualSequence?.slots ?? []).flatMap((slot) => slot.kind === "content" ? [slot.payload] : [])
+    : []).find((payload) => payload.payloadId === payloadId)?.researchQuotePicture;
+  if (!pin) throw new Error("The retained quote picture is no longer in the saved script.");
+  const response = await researchStillRequest(`/authoring/research/${timelineId}/quote-pictures/${payloadId}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  const bytes = await response.arrayBuffer();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  return { mimeType: response.headers.get("content-type")?.split(";", 1)[0] || pin.original.mimeType, bytes };
 }
 
 /** Resolves placement only after earlier typing has produced actual current token IDs. */
 export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
   const projectId = activeProjectId;
+  const toStash = placement?.kind === "stash";
   return queueCommand((latest) => ({ researchProjectId, clipId, clipVersion,
     placement: typeof placement === "function" ? placement(latest) : placement,
-  }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
+  }), toStash ? "Add footage to Stash" : "Add footage", {
+    structural: true, research: true, stashFootage: toStash, expectedProjectId: projectId,
+  });
 }
 
 /** Resolves selected words only after earlier typing has produced current IDs. */
@@ -1106,11 +1267,60 @@ export function queueResearchStillInsert({ researchProjectId, itemId, itemVersio
   }), "Add still", { structural: true, researchStill: true, expectedProjectId: projectId });
 }
 
+export function queueResearchQuoteInsert({ quote, placement }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => ({ researchProjectId: quote.researchProjectId,
+    quoteId: quote.itemId, quoteVersion: quote.itemVersion,
+    placement: typeof placement === "function" ? placement(latest) : placement,
+  }), "Add quote", { structural: true, researchQuote: true, expectedProjectId: projectId });
+}
+
+export function queueResearchQuoteBoxEdit({ rowId, overlayId, expectedRowVersion,
+  expectedOverlayVersion, edit }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    const overlay = row?.type === "narration" ? row.overlayEvents.find((item) => item.id === overlayId) : null;
+    if (row?.type !== "narration" || row.version !== expectedRowVersion ||
+        overlay?.version !== expectedOverlayVersion || !overlay.quoteBox) {
+      throw new Error("This quote box changed. Reload the script before editing it.");
+    }
+    return { rowId, expectedRowVersion: row.version, overlayId,
+      expectedOverlayVersion: overlay.version, edit };
+  }, edit?.delete === true ? "Delete quote box" : "Edit quote box",
+  { structural: true, researchQuoteBox: true, expectedProjectId: projectId });
+}
+
+function queueQuoteBoxRangeEdit({ rowId, overlayId, expectedRowVersion, expectedOverlayVersion }) {
+  const projectId = activeProjectId;
+  const target = selectedNarrationTarget() ?? lastQuoteTarget;
+  if (!target?.selected || target.rowId !== rowId) {
+    setSaveStatus("Select the words for this quote box range first.");
+    return Promise.resolve(false);
+  }
+  return queueCommand((latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    const overlay = row?.type === "narration" ? row.overlayEvents.find((item) => item.id === overlayId) : null;
+    if (row?.type !== "narration" || row.version !== expectedRowVersion || target.rowVersion !== row.version ||
+        target.text !== row.text || overlay?.version !== expectedOverlayVersion || !overlay.quoteBox) {
+      throw new Error("The quote box or selected narration changed. Select the words again.");
+    }
+    const selected = selectedSpokenWords(row, target.selection, true);
+    if (!selected) throw new Error("Select current spoken words for the quote box range.");
+    return { rowId, expectedRowVersion: row.version, overlayId, expectedOverlayVersion: overlay.version,
+      edit: { range: { startTokenId: selected.startTokenId, endTokenId: selected.endTokenId } } };
+  }, "Adjust quote box range", { structural: true, researchQuoteBox: true, expectedProjectId: projectId });
+}
+
 function openFootageForWords({ rowId, text, selection, seed, from }) {
   stashPanel.close(false);
+  const selectedRow = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowId);
+  const expectedRowVersion = selectedRow?.type === "narration" ? selectedRow.version : null;
+  const expectedSequenceVersion = selectedRow?.type === "narration" ? selectedRow.primaryVisualSequence?.version : null;
   void researchPanel.open({ quick: true, seed, from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
-    if (row?.type !== "narration" || row.text !== text) {
+    if (row?.type !== "narration" || row.text !== text || row.version !== expectedRowVersion ||
+        row.primaryVisualSequence?.version !== expectedSequenceVersion) {
       throw new Error("The selected narration changed. Choose the words again.");
     }
     const words = selectedSpokenWords(row, selection, true);
@@ -1119,6 +1329,159 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
       expectedSequenceVersion: row.primaryVisualSequence.version,
       startTokenId: words.startTokenId, endTokenId: words.endTokenId };
   } });
+}
+
+function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
+  const projectId = activeProjectId;
+  const expected = editorDocument();
+  const note = noteRowId && (expected.stash ?? []).flatMap((bundle) => bundle.rows)
+    .find((row) => row.id === noteRowId);
+  const placement = Object.assign((latest) => {
+    if (latest !== expected) throw new Error("The script or Stash changed. Choose the clip again.");
+    return { kind: "stash", sectionId, noteRowId, replace: Boolean(note?.attachedFootage) };
+  }, { kind: "stash" });
+  stashPanel.close(false);
+  void researchPanel.open({ quick: true, placement, onClose: () => {
+    if (projectId !== activeProjectId) return;
+    stashPanel.open();
+    if (from?.isConnected) from.focus();
+  } });
+}
+
+function openLibraryAtCaret(snapshot, from) {
+  stashPanel.close(false);
+  void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot) });
+}
+
+function selectedNarrationTarget() {
+  const selection = document.getSelection();
+  if (!selection?.rangeCount || !selection.anchorNode || !selection.focusNode) return null;
+  const elementFor = (node) => node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const editor = elementFor(selection.anchorNode)?.closest?.("[data-narration-editor]");
+  if (!editor || !editor.contains(selection.focusNode)) return null;
+  const rowId = editor.closest("[data-row-kind='narration']")?.dataset.rowId;
+  const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowId);
+  if (row?.type !== "narration" || editor.textContent !== row.text || composingRows.has(row.id)) return null;
+  const range = selection.getRangeAt(0);
+  const offsetAt = (node, offset) => {
+    try {
+      const prefix = document.createRange();
+      prefix.selectNodeContents(editor);
+      prefix.setEnd(node, offset);
+      return prefix.toString().length;
+    } catch { return null; }
+  };
+  const start = offsetAt(range.startContainer, range.startOffset);
+  const end = offsetAt(range.endContainer, range.endOffset);
+  if (start === null || end === null) return null;
+  const selectedTokens = selection.isCollapsed ? [] : (row.tokens ?? []).filter((token) => token?.spoken !== false &&
+    Number.isSafeInteger(token.startOffset) && Number.isSafeInteger(token.endOffset) &&
+    token.endOffset > start && token.startOffset < end);
+  if (!selection.isCollapsed && !selectedTokens.length) return null;
+  return { rowId, text: row.text, rowVersion: row.version,
+    sequenceVersion: row.primaryVisualSequence?.version,
+    selection: { start, end }, selected: !selection.isCollapsed,
+    rects: selectedTokens.flatMap((token) => narrationTokenRects(editor, token)) };
+}
+
+function textPointAtOffset(root, wanted) {
+  const walker = root.ownerDocument.createTreeWalker(root, root.ownerDocument.defaultView.NodeFilter.SHOW_TEXT);
+  let node;
+  let cursor = 0;
+  let last = null;
+  while ((node = walker.nextNode())) {
+    last = node;
+    const end = cursor + node.nodeValue.length;
+    if (wanted <= end) return { node, offset: Math.max(0, wanted - cursor) };
+    cursor = end;
+  }
+  return last ? { node: last, offset: last.nodeValue.length } : { node: root, offset: 0 };
+}
+
+function narrationTokenRects(editor, token) {
+  try {
+    const range = editor.ownerDocument.createRange();
+    const start = textPointAtOffset(editor, token.startOffset);
+    const end = textPointAtOffset(editor, token.endOffset);
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    return [...range.getClientRects()].filter((rect) => rect.width && rect.height).map((rect) => ({
+      left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+    }));
+  } catch { return []; }
+}
+
+function pointInQuoteRects(rects, x, y) {
+  return rects?.some((rect) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) ?? false;
+}
+
+function narrationTokenAtPoint(row, editor, x, y) {
+  return (row.tokens ?? []).find((token) => token?.spoken !== false && typeof token?.id === "string" &&
+    token.id && pointInQuoteRects(narrationTokenRects(editor, token), x, y)) ?? null;
+}
+
+function quoteInsertBoundary(row, offset) {
+  const words = (row.tokens ?? []).filter((token) => token?.spoken !== false &&
+    typeof token?.id === "string" && token.id && Number.isSafeInteger(token.startOffset) &&
+    Number.isSafeInteger(token.endOffset));
+  if (!words.length) return null;
+  const boundaries = words.flatMap((token, index) => [
+    { offset: token.startOffset, beforeTokenId: token.id },
+    { offset: token.endOffset, beforeTokenId: words[index + 1]?.id ?? null },
+  ]);
+  return boundaries.reduce((best, candidate) =>
+    Math.abs(candidate.offset - offset) < Math.abs(best.offset - offset) ? candidate : best).beforeTokenId;
+}
+
+function quotePlacementFromSelection(snapshot) {
+  return (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === snapshot.rowId);
+    if (row?.type !== "narration" || row.text !== snapshot.text || row.version !== snapshot.rowVersion ||
+        row.primaryVisualSequence?.version !== snapshot.sequenceVersion ||
+        !Number.isSafeInteger(row.primaryVisualSequence?.version)) {
+      throw new Error("The script changed before the quote was placed. Choose the target again.");
+    }
+    const base = { rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version };
+    if (snapshot.selected) {
+      const words = selectedSpokenWords(row, snapshot.selection, true);
+      if (!words) throw new Error("The selected spoken words are no longer available.");
+      return { kind: "selected_words", ...base,
+        startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+    }
+    return { kind: "insert", ...base, beforeTokenId: quoteInsertBoundary(row, snapshot.selection.start) };
+  };
+}
+
+function quoteRowEndPlacement(rowId) {
+  return (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "narration" || !Number.isSafeInteger(row.primaryVisualSequence?.version)) {
+      throw new Error("The destination narration changed before the quote was placed.");
+    }
+    return { kind: "insert", rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version, beforeTokenId: null };
+  };
+}
+
+function quoteGapPlacement(gap) {
+  return (latest) => {
+    const current = rowGaps(latest.activeDraft.blocks).find((item) =>
+      item.sectionId === gap.sectionId && item.afterRowId === gap.afterRowId && item.beforeRowId === gap.beforeRowId);
+    if (!current) throw new Error("The script gap moved before the quote was placed.");
+    return { kind: "gap", destination: current };
+  };
+}
+
+function placeLibraryQuote(quote, destination) {
+  const target = destination ? null : selectedNarrationTarget() ?? lastQuoteTarget;
+  if (!destination && !target) return null;
+  const placement = destination?.kind === "row-end" ? quoteRowEndPlacement(destination.rowId) :
+    destination?.kind === "gap" ? quoteGapPlacement(destination.destination) :
+      target ? quotePlacementFromSelection(target) : null;
+  if (!placement) return null;
+  lastQuoteTarget = null;
+  return queueResearchQuoteInsert({ quote, placement });
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
@@ -1149,12 +1512,108 @@ function availableNarrationRows() {
     .map((row, index) => ({ rowId: row.id, label: `Row ${index + 1}: ${(row.text || "Blank narration").slice(0, 45)}` }));
 }
 
+function caretOffsetAtPoint(editor, x, y) {
+  const ownerDocument = editor.ownerDocument;
+  let range = ownerDocument.caretRangeFromPoint?.(x, y) ?? null;
+  if (!range && ownerDocument.caretPositionFromPoint) {
+    const point = ownerDocument.caretPositionFromPoint(x, y);
+    if (point) {
+      range = ownerDocument.createRange();
+      range.setStart(point.offsetNode, point.offset);
+      range.collapse(true);
+    }
+  }
+  if (!range || !editor.contains(range.startContainer)) return null;
+  try {
+    const prefix = ownerDocument.createRange();
+    prefix.selectNodeContents(editor);
+    prefix.setEnd(range.startContainer, range.startOffset);
+    return prefix.toString().length;
+  } catch { return null; }
+}
+
 function mountResearchDragging(root) {
   let target = null;
-  const clear = () => { target?.classList.remove("script-row--footage-target", "row-divider--footage-target"); target = null; };
+  let cue = null;
+  let quoteSelection = null;
+  const ownerDocument = root.ownerDocument;
+  const clear = () => {
+    target?.classList.remove("script-row--footage-target", "row-divider--footage-target");
+    cue?.remove();
+    target = null;
+    cue = null;
+  };
   const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
   const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
+  const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote");
+  const quoteDestination = (event) => {
+    const gap = event.target.closest?.("[data-row-gap]");
+    if (gap) return { target: gap, mode: "insert", placement: quoteGapPlacement({
+      sectionId: gap.dataset.sectionId || null,
+      afterRowId: gap.dataset.afterRowId || null,
+      beforeRowId: gap.dataset.beforeRowId || null,
+    }) };
+    const rowNode = event.target.closest?.(".script-row[data-row-kind='narration']");
+    if (!rowNode) return null;
+    if (quoteSelection?.rowId === rowNode.dataset.rowId && quoteSelection.selected &&
+        pointInQuoteRects(quoteSelection.rects, event.clientX, event.clientY)) {
+      return { target: rowNode, mode: "attach", placement: quotePlacementFromSelection(quoteSelection) };
+    }
+    const editor = rowNode.querySelector("[data-narration-editor]");
+    const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowNode.dataset.rowId);
+    if (!editor || !row || row.type !== "narration") return null;
+    const token = narrationTokenAtPoint(row, editor, event.clientX, event.clientY);
+    if (token) return { target: rowNode, mode: "attach", placement: quotePlacementFromSelection({
+      rowId: row.id, text: row.text, rowVersion: row.version,
+      sequenceVersion: row.primaryVisualSequence?.version,
+      selection: { start: token.startOffset, end: token.endOffset }, selected: true,
+    }) };
+    const offset = caretOffsetAtPoint(editor, event.clientX, event.clientY);
+    if (offset === null) return null;
+    return { target: rowNode, mode: "insert", placement: quotePlacementFromSelection({
+      rowId: row.id, text: row.text, rowVersion: row.version,
+      sequenceVersion: row.primaryVisualSequence?.version,
+      selection: { start: offset, end: offset }, selected: false,
+    }) };
+  };
+  const showCue = (next, mode) => {
+    clear();
+    target = next;
+    target.classList.add(target.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
+    cue = ownerDocument.createElement("span");
+    cue.className = "research-quote-drop-cue";
+    cue.dataset.quoteDropMode = mode;
+    cue.textContent = mode === "attach" ? "Attach quote · narration unchanged" :
+      target.matches("[data-row-gap]") ? "Insert quote as new row" : "Insert quote";
+    cue.setAttribute("role", "status");
+    cue.setAttribute("aria-live", "polite");
+    (target.matches("[data-row-gap]") ? target : target.querySelector(".narration-cell"))?.append(cue);
+  };
+  const captureQuoteSelection = (event) => {
+    quoteSelection = draggingQuote(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+  };
+  const rememberQuoteTarget = (event) => {
+    const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
+    if (targetNode?.closest?.(".visual-card__quote-editor, [data-quote-box-range-edit]")) return;
+    const target = targetNode?.closest?.("#open-footage, #footage-panel, [data-narration-editor]");
+    if (target?.matches("#open-footage")) {
+      lastQuoteTarget = selectedNarrationTarget();
+    } else if (target?.matches("#footage-panel")) {
+      lastQuoteTarget = targetNode.closest("[data-quote-place-id]")
+        ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+    } else lastQuoteTarget = null;
+  };
+  const endDrag = () => { clear(); quoteSelection = null; };
   const over = (event) => {
+    if (draggingQuote(event)) {
+      const next = quoteDestination(event);
+      if (!next) { clear(); return; }
+      event.preventDefault();
+      event.stopPropagation();
+      showCue(next.target, next.mode);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      return;
+    }
     if (!draggingFootage(event)) return;
     const next = destinationNode(event);
     clear();
@@ -1166,6 +1625,21 @@ function mountResearchDragging(root) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
   };
   const drop = (event) => {
+    if (draggingQuote(event)) {
+      const next = quoteDestination(event);
+      const quote = researchPanel.dropQuote(event.dataTransfer?.getData("application/x-vera-research-quote"));
+      clear();
+      quoteSelection = null;
+      if (!next || !quote) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const currentProject = activeProjectId;
+      void queueResearchQuoteInsert({ quote, placement: (latest) => {
+        if (currentProject !== activeProjectId) throw new Error("The open script changed during the drag.");
+        return next.placement(latest);
+      } }).then((success) => { if (success) researchPanel.update(); });
+      return;
+    }
     if (!draggingFootage(event)) return;
     const next = destinationNode(event);
     const clip = researchPanel.dropClip(event.dataTransfer?.getData("application/x-vera-research-clip"));
@@ -1198,11 +1672,17 @@ function mountResearchDragging(root) {
       },
     }).then((success) => { if (success) researchPanel.update(); });
   };
+  ownerDocument.addEventListener("pointerdown", rememberQuoteTarget, true);
+  ownerDocument.addEventListener("dragstart", captureQuoteSelection);
+  ownerDocument.addEventListener("dragend", endDrag);
   root.addEventListener("dragover", over, true);
   root.addEventListener("drop", drop, true);
   root.addEventListener("dragend", clear, true);
   return () => {
     clear();
+    ownerDocument.removeEventListener("pointerdown", rememberQuoteTarget, true);
+    ownerDocument.removeEventListener("dragstart", captureQuoteSelection);
+    ownerDocument.removeEventListener("dragend", endDrag);
     root.removeEventListener("dragover", over, true);
     root.removeEventListener("drop", drop, true);
     root.removeEventListener("dragend", clear, true);
@@ -1225,7 +1705,7 @@ function invalidateProjection(refresh = true) {
 }
 
 export function projectedPrimaryRow(rowId) {
-  return visualProjection?.rows?.find((row) => row.blockId === rowId) ?? null;
+  return editorProjection()?.rows?.find((row) => row.blockId === rowId) ?? null;
 }
 
 // A UI intent can be a function: resolve it *inside* the serialized queue,
@@ -1281,7 +1761,7 @@ async function refreshProjection(documentModel, force, previousProjection = visu
 
 // Every intermediate document is private to this queued operation: a refusal
 // or failed request discards *all* steps without a save or an Undo snapshot.
-async function applyPlainPaste(document, intent) {
+async function applyPlainPaste(document, intent, apply = applyBrowserCommand) {
   const { rowId, startOffset, endOffset, blocks } = intent;
   const row = document.activeDraft.blocks.find((item) => item.id === rowId);
   const editableRow = row?.type === "narration" || row?.type === "visual_only" && row.clearedNarration;
@@ -1300,7 +1780,7 @@ async function applyPlainPaste(document, intent) {
   // later commands MUST use the token IDs returned by the actual model.
   const oldText = row.type === "narration" ? row.text : "";
   if (oldText.slice(startOffset, endOffset) !== insertedText) {
-    const edited = await applyBrowserCommand(working, {
+    const edited = await apply(working, {
       kind: "edit_narration_text", rowId, startOffset, endOffset, insertedText, editId: crypto.randomUUID(),
     });
     working = edited.document;
@@ -1318,7 +1798,7 @@ async function applyPlainPaste(document, intent) {
     const firstRight = current.tokens.find((token) => token.startOffset >= to);
     if (hasLeftWords && firstRight) {
       const newRowId = crypto.randomUUID();
-      const result = await applyBrowserCommand(working, {
+      const result = await apply(working, {
         kind: "split_row", rowId: currentRowId, newRowId, at: { beforeTokenId: firstRight.id },
       });
       working = result.document;
@@ -1335,7 +1815,7 @@ async function applyPlainPaste(document, intent) {
     // The pure split command rightly refuses wordless halves. Remove the
     // separator with a model edit, then use the existing exact-gap Add row.
     // This also preserves the existing row's token/visual identities.
-    const withoutBreak = await applyBrowserCommand(working, {
+    const withoutBreak = await apply(working, {
       kind: "edit_narration_text", rowId: currentRowId, startOffset: from,
       endOffset: to, insertedText: "", editId: crypto.randomUUID(),
     });
@@ -1347,7 +1827,7 @@ async function applyPlainPaste(document, intent) {
       ? item.beforeRowId === currentRowId : item.afterRowId === currentRowId);
     if (!gap) throw new Error("The paste insertion gap changed.");
     const newRowId = crypto.randomUUID();
-    const created = await applyBrowserCommand(working, {
+    const created = await apply(working, {
       kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap,
     });
     working = created.document;
@@ -1368,7 +1848,8 @@ export function beginSortingTrial() {
   if (!prompterReady()) return false;
   sortingTrial = {
     projectId: activeProjectId, revision: documentRevision, digest: documentDigest,
-    baseline: scriptDocument, document: structuredClone(scriptDocument), moves: [], movedRowIds: [], busy: false,
+    baseline: scriptDocument, document: scriptDocument, projection: visualProjection,
+    operations: [], history: [], movedRowIds: [], expanded: new Set(), busy: false, pending: 0, queue: Promise.resolve(),
   };
   typingGroup = null;
   clearPreparedPrompter();
@@ -1382,10 +1863,11 @@ function sortingBaselineCurrent(trial) {
     !documentSaving && !documentDirty && !pendingDocument && !commandsPending;
 }
 
-async function sortingRequest(trial, moves, action) {
+async function sortingRequest(trial, operations, action, outcome) {
   try {
     const result = await api(`/${trial.projectId}/sorting-trial`, "POST", {
-      expectedRevision: trial.revision, expectedDigest: trial.digest, moves, action,
+      expectedRevision: trial.revision, expectedDigest: trial.digest, operations, action,
+      ...(outcome ? { outcome } : {}),
     });
     if (!result.ok) throw new Error(result.diagnostics?.[0]?.message || "Sorting could not be applied.");
     return result;
@@ -1394,19 +1876,109 @@ async function sortingRequest(trial, moves, action) {
   }
 }
 
-export async function moveSortingTrial(command) {
+async function updateSortingDocument(trial, operations, result) {
+  if (!sortingBaselineCurrent(trial)) return false;
+  const projection = result.projection ?? await fetchProjection(result.document).catch(() => null);
+  if (!sortingBaselineCurrent(trial)) return false;
+  trial.projection = projection;
+  trial.operations = operations;
+  trial.document = result.document;
+  trial.movedRowIds = result.movedRowIds;
+  return true;
+}
+
+function queueSortingCommand(command, label, options) {
   const trial = sortingTrial;
-  if (!trial || trial.busy || command?.kind !== "move_rows" || !sortingBaselineCurrent(trial)) return false;
-  trial.busy = true;
-  try {
-    const moves = [...trial.moves, structuredClone(command)];
-    const result = await sortingRequest(trial, moves, "preview");
+  if (editRefused || trial.preview || trial.busy || trial.acceptance || options.structural && composingRows.size) return Promise.resolve(false);
+  trial.pending++;
+  updateSortingControls();
+  trial.queue = trial.queue.then(async () => {
     if (!sortingBaselineCurrent(trial)) return false;
-    trial.moves = moves;
-    trial.document = result.document;
-    trial.movedRowIds = result.movedRowIds;
+    const before = trial.document;
+    if (options.prepareSplitInput) {
+      const next = options.prepareSplitInput(before);
+      if (!next) return true;
+      ({ command, label, options } = next);
+    }
+    if (options.expectedRow) {
+      const expected = options.expectedRow;
+      const row = before.activeDraft.blocks.find((block) => block.id === expected.id);
+      const matches = row?.type === "narration" && row.text === expected.text &&
+        Boolean(row.plainDirection) === expected.plainDirection;
+      const cleared = row?.type === "visual_only" && row.clearedNarration &&
+        expected.text === "" && !expected.plainDirection;
+      if (!matches && !cleared) throw new Error("The row changed while you were typing.");
+    }
+    const resolved = typeof command === "function" ? command(before) : command;
+    const operations = [...trial.operations];
+    const apply = (operation) => {
+      operations.push(operation);
+      return sortingRequest(trial, operations, "preview");
+    };
+    let latest;
+    if (options.research && options.stashFootage) {
+      const prepared = await authoringVisualPost("research-insert", {
+        timelineProjectId: trial.projectId, document: before,
+        expectedDocumentRevision: before.rowEditRevision ?? 0, ...resolved,
+      });
+      if (!sortingBaselineCurrent(trial)) return false;
+      if (!Array.isArray(prepared.rowCommands) || prepared.rowCommands.length === 0) {
+        throw new Error("The authorized footage is unavailable.");
+      }
+      const additions = prepared.rowCommands.map((item) => ({ kind: "command", command: item }));
+      latest = await apply(additions.length === 1 ? additions[0] : { kind: "batch", operations: additions });
+    } else if (options.research || options.researchStill) {
+      throw new Error("Choose existing Stash material while Sorting.");
+    } else if (options.paste) {
+      const pasted = await applyPlainPaste(before, resolved, async (_model, part) => {
+        latest = await apply({ kind: "command", command: part });
+        return latest;
+      });
+      if (pasted.document !== before) structuralFocus = pasted.focusAfter;
+    } else {
+      const operation = options.visual ? {
+        kind: "visual", command: resolved,
+        expectedSequenceVersion: before.activeDraft.blocks.find((row) => row.id === resolved.blockId)?.primaryVisualSequence?.version,
+      } : { kind: "command", command: resolved };
+      latest = await apply(operation);
+    }
+    if (latest) {
+      const originalLength = trial.operations.length;
+      if (!await updateSortingDocument(trial, operations, latest)) return false;
+      trial.history.push(originalLength);
+    }
+    if (options.focusAfter) structuralFocus = options.focusAfter;
+    if (options.cardFocus) cardFocus = options.cardFocus;
+    options.onSplitApplied?.(trial.document, structuralFocus);
+    sortingStatus(label);
+    if (!options.renderAfterAction) scheduleRender(options.structural || options.paste || Boolean(options.onSplitApplied));
     return true;
-  } finally { trial.busy = false; }
+  }).catch((error) => {
+    if (sortingTrial === trial) {
+      sortingStatus(error.message);
+      if (options.expectedRow && (!options.structural || options.paste)) {
+        editRefused = true;
+        refusedMessage = `${error.message} Your unsaved text is still here. Copy it or discard the text to continue.`;
+        element("discard-edit").hidden = false;
+        setSaveStatus();
+      }
+    }
+    options.onSplitRefused?.(error);
+    return false;
+  }).finally(() => {
+    trial.pending--;
+    if (sortingTrial === trial) {
+      if (editRefused) element("discard-edit").disabled = trial.pending > 0;
+      updateSortingControls();
+      stashPanel?.update();
+      if (renderRequested) scheduleRender();
+    }
+  });
+  return trial.queue;
+}
+
+export function moveSortingTrial(command) {
+  return command?.kind === "move_rows" ? queueSortingCommand(command, "Move rows", { structural: true, renderAfterAction: true }) : Promise.resolve(false);
 }
 
 export function discardSortingTrial() {
@@ -1416,57 +1988,102 @@ export function discardSortingTrial() {
   return true;
 }
 
-export async function acceptSortingTrial() {
+export async function acceptSortingTrial(outcome = "all") {
   const trial = sortingTrial;
-  if (!trial || trial.busy || !sortingBaselineCurrent(trial)) return false;
+  if (!trial || trial.busy || trial.pending || !sortingBaselineCurrent(trial)) return false;
   trial.busy = true;
   try {
-    const result = await sortingRequest(trial, trial.moves, "accept");
-    if (!sortingBaselineCurrent(trial)) return false;
-    sortingTrial = null;
-    if (result.changed) {
-      undoStack.push({ document: scriptDocument, label: "Sort rows" });
-      const previousProjection = visualProjection;
-      scriptDocument = result.document;
-      lastSplit = null;
-      invalidateProjection(false);
-      updateUndo();
-      documentDirty = true;
-      // documentRevision still equals the original baseline. The existing
-      // save queue enforces CAS even if another writer saves after projection.
-      void saveDocument();
-      void refreshProjection(scriptDocument, true, previousProjection);
+    if (!trial.acceptance) {
+      const result = await sortingRequest(trial, trial.operations, "accept", outcome);
+      if (!sortingBaselineCurrent(trial)) return false;
+      if (!result.changed) { sortingTrial = null; return true; }
+      trial.acceptance = { body: { expectedRevision: trial.revision, clientMutationId: crypto.randomUUID(),
+        document: result.document }, receipt: null };
     }
-    updatePrompterControls();
+    // Keep the original CAS basis and mutation ID if the response is lost.
+    const acceptance = trial.acceptance;
+    const path = `/${trial.projectId}/document`;
+    if (!acceptance.receipt) {
+      const receipt = await api(path, "PUT", acceptance.body);
+      if (receipt.projectId !== trial.projectId || receipt.clientMutationId !== acceptance.body.clientMutationId ||
+          receipt.revision !== trial.revision + 1 || !savedDigestPattern.test(receipt.digest)) {
+        throw new Error("The save receipt could not be verified.");
+      }
+      acceptance.receipt = receipt;
+    }
+    const saved = await api(path);
+    if (!sortingBaselineCurrent(trial)) return false;
+    if (saved.revision !== acceptance.receipt.revision || saved.digest !== acceptance.receipt.digest ||
+        saved.document?.id !== trial.baseline.id || saved.document?.projectId !== trial.projectId) {
+      trial.acceptance = null;
+      throw new Error("The saved script changed after acceptance. Reload to see the latest script.");
+    }
+    undoStack.push({ document: scriptDocument, label: "Sort rows",
+      durable: { revision: saved.revision, digest: saved.digest, document: saved.document },
+      sortingBasis: { revision: trial.revision, digest: trial.digest } });
+    scriptDocument = saved.document;
+    documentRevision = saved.revision;
+    documentDigest = saved.digest;
+    sortingTrial = null;
+    lastSplit = null;
+    const previousProjection = visualProjection;
+    invalidateProjection(false);
+    updateUndo();
+    setSaveStatus("Saved");
+    void refreshMusicWarnings();
+    void refreshProjection(scriptDocument, true, previousProjection);
     return true;
+  } catch (error) {
+    if (!trial.acceptance) throw error;
+    if (!trial.acceptance.receipt && error.status >= 400 && error.status < 500) {
+      trial.acceptance = null;
+      if (error.status === 409) throw new Error("The saved script changed. Discard this trial and reload before sorting again.");
+      throw new Error("Saving was refused. Your Sorting changes are still pending.");
+    }
+    throw new Error("The save could not be confirmed. Retry acceptance to check the same save.");
   } finally { trial.busy = false; }
 }
 
-// A separate read-only outline: normal Draft controls never edit a trial.
+// Sorting and preview share the script renderer with the saved Draft.
 function setSortingMode(active) {
+  const preview = active && sortingTrial.preview;
   authoring.classList.toggle("sorting-mode", active);
   element("sorting-view").hidden = !active;
-  element("script-rows").closest(".script-paper").hidden = active;
+  authoring.classList.toggle("sorting-edit", active && !preview);
   projectTitle.readOnly = active;
+  if (!active) {
+    stashScriptDrag = null;
+    element("script-rows").inert = false;
+  }
   for (const id of ["undo", "open-footage", "open-prompter"]) element(id).hidden = active;
   element("undo").parentElement.querySelector(".undo-menu").hidden = active;
   const toggle = element("open-sorting");
-  toggle.textContent = active ? "← Back to script" : "Sort rows";
+  toggle.textContent = preview ? "Return to Sorting" : active ? "← Back to script" : "Sort rows";
   toggle.setAttribute("aria-expanded", String(active));
-  if (!active) element("sorting-rows").replaceChildren();
+  if (!active) {
+    showSortingChoices(false);
+    element("sorting-accept").textContent = "Accept";
+  }
 }
 
 function leaveSorting() {
-  if (!sortingTrial || sortingTrial.busy) return;
-  if (sortingTrial.moves.length && !window.confirm("Discard this Sorting trial and return to the script?")) return;
+  if (!sortingTrial || sortingTrial.busy || sortingTrial.pending || sortingTrial.acceptance || composingRows.size) return;
+  if ((sortingTrial.operations.length || editRefused) &&
+      !window.confirm("Discard this Sorting trial and return to the script?")) return;
   finishSorting(false);
 }
 
 function finishSorting(accepted) {
-  if (!accepted) discardSortingTrial();
+  if (!accepted && (sortingTrial?.acceptance || !discardSortingTrial())) return;
+  if (editRefused) {
+    editRefused = false;
+    refusedMessage = "";
+    element("discard-edit").hidden = true;
+    setSaveStatus();
+  }
   setSortingMode(false);
-  if (accepted) renderEditor();
-  stashPanel?.close(false);
+  renderEditor();
+  stashPanel?.update();
   updatePrompterControls();
   // Accept may start a save, so focus the script heading while the toggle is disabled.
   (element("open-sorting").disabled ? element("script-title") : element("open-sorting")).focus();
@@ -1484,58 +2101,110 @@ function sortingButton(label, text) {
   return button;
 }
 
-function renderSorting(focusRowId, direction) {
-  const trial = currentSortingTrial();
-  if (!trial) return;
-  const blocks = trial.document.activeDraft.blocks;
-  const gaps = rowGaps(blocks);
-  const root = element("sorting-rows");
-  root.replaceChildren();
-  for (const section of rowSections(blocks)) {
-    if (!section.rows.length && !section.sectionId) continue;
-    const group = document.createElement("section");
-    const heading = document.createElement("h3");
-    heading.textContent = blocks.find((block) => block.id === section.sectionId)?.title ?? "Unsectioned";
-    group.append(heading);
-    const list = document.createElement("ol");
-    for (const row of section.rows) {
-      const item = document.createElement("li");
-      item.dataset.sortingRowId = row.id;
-      const label = document.createElement("span");
-      label.textContent = rowLabel(row);
-      if (trial.movedRowIds.includes(row.id)) item.classList.add("sorting-row--moved");
-      item.append(label);
-      const before = gaps.findIndex((gap) => gap.beforeRowId === row.id);
-      const after = gaps.findIndex((gap) => gap.afterRowId === row.id);
-      for (const [step, destination] of [["up", gaps[before - 1]], ["down", gaps[after + 1]]]) {
-        const button = sortingButton(`Move ${rowLabel(row)} ${step}`, step === "up" ? "↑" : "↓");
-        button.dataset.sortingMove = step;
-        button.disabled = !destination || trial.busy;
-        button.addEventListener("click", () => {
-          void runSortingAction(() => moveSortingTrial({ kind: "move_rows", rowIds: [row.id], destination }), row.id, step);
-        });
-        item.append(button);
+function updateSortingControls() {
+  if (!sortingTrial) return;
+  const { busy, pending, preview, operations } = sortingTrial;
+  const waiting = busy || pending > 0 || composingRows.size > 0;
+  element("script-rows").inert = Boolean(busy || sortingTrial.acceptance);
+  element("open-sorting").disabled = waiting || editRefused;
+  element("sorting-accept").disabled = waiting || editRefused || !operations.length;
+  element("sorting-accept").textContent = sortingTrial.acceptance ? "Retry acceptance" : "Accept";
+  element("sorting-outcomes").disabled = waiting || editRefused || !operations.length || !!sortingTrial.acceptance;
+  if (element("sorting-outcomes").disabled) showSortingChoices(false);
+  element("sorting-discard").disabled = waiting || !!sortingTrial.acceptance;
+  element("sorting-undo").disabled = waiting || editRefused || preview || !operations.length || !!sortingTrial.acceptance;
+}
+
+function decorateSortingRows(root, model) {
+  const trial = sortingTrial;
+  const gaps = rowGaps(model.activeDraft.blocks);
+  const rows = new Map(model.activeDraft.blocks.map((row) => [row.id, row]));
+  const headings = [...root.querySelectorAll("[data-section-id].script-section-heading")];
+  headings.forEach((heading, index) => {
+    const sectionId = heading.dataset.sectionId;
+    const menu = heading.querySelector("[data-section-action-menu]");
+    const move = (label, after, before) => {
+      const button = sortingButton(label, label);
+      button.setAttribute("role", "menuitem");
+      button.addEventListener("click", () => {
+        menu.hidden = true;
+        const destination = { afterSectionId: after?.dataset.sectionId ?? null,
+          beforeSectionId: before?.dataset.sectionId ?? null };
+        void queueSortingCommand({ kind: "move_section", sectionId, destination }, label, { structural: true });
+      });
+      menu.append(button);
+    };
+    if (index > 0) move("Move section up", headings[index - 2], headings[index - 1]);
+    if (index + 1 < headings.length) move("Move section down", headings[index + 1], headings[index + 2]);
+  });
+  for (const item of root.querySelectorAll(".script-row")) {
+    const row = rows.get(item.dataset.rowId);
+    item.dataset.sortingRowId = row.id;
+    const expanded = trial.expanded.has(row.id);
+    item.classList.toggle("sorting-row--collapsed", !expanded);
+    let cleanConnectors;
+    const mountConnectors = () => {
+      if (row.type !== "narration" || cleanConnectors) return;
+      cleanConnectors = mountVisualConnectors(item, row);
+      narrationCleanup.push(cleanConnectors);
+    };
+    item.classList.toggle("sorting-row--moved", trial.movedRowIds.includes(row.id));
+    const controls = document.createElement("div");
+    controls.className = "sorting-row-controls";
+    const label = rowLabel(row);
+    const expand = sortingButton(`${expanded ? "Collapse" : "Expand"} ${label}`, expanded ? "▾" : "▸");
+    expand.setAttribute("aria-expanded", String(expanded));
+    expand.addEventListener("click", () => {
+      if (trial.pending || trial.busy) return;
+      if (trial.expanded.delete(row.id)) {
+        item.classList.add("sorting-row--collapsed");
+        expand.textContent = "▸";
+      } else {
+        trial.expanded.add(row.id);
+        item.classList.remove("sorting-row--collapsed");
+        mountConnectors();
+        expand.textContent = "▾";
       }
-      list.append(item);
+      expand.setAttribute("aria-expanded", String(trial.expanded.has(row.id)));
+      expand.setAttribute("aria-label", `${trial.expanded.has(row.id) ? "Collapse" : "Expand"} ${label}`);
+    });
+    const summary = document.createElement("span");
+    summary.textContent = label;
+    controls.append(expand, summary);
+    const before = gaps.findIndex((gap) => gap.beforeRowId === row.id);
+    const after = gaps.findIndex((gap) => gap.afterRowId === row.id);
+    for (const [step, destination] of [["up", gaps[before - 1]], ["down", gaps[after + 1]]]) {
+      const button = sortingButton(`Move ${label} ${step}`, step === "up" ? "↑" : "↓");
+      button.dataset.sortingMove = step;
+      button.disabled = !destination;
+      button.addEventListener("click", () => {
+        if (trial.pending || trial.busy) return;
+        void runSortingAction(() => moveSortingTrial({ kind: "move_rows", rowIds: [row.id], destination }), row.id, step);
+      });
+      controls.append(button);
     }
-    group.append(list);
-    root.append(group);
+    item.prepend(controls);
+    if (expanded) mountConnectors();
   }
-  element("sorting-accept").disabled = trial.busy || !sortingTrial.moves.length;
-  element("sorting-discard").disabled = trial.busy;
-  updatePrompterControls();
+}
+
+function renderSorting(focusRowId, direction) {
+  if (!sortingTrial) return;
+  renderEditor();
+  updateSortingControls();
   if (focusRowId) {
-    const row = [...root.querySelectorAll("[data-sorting-row-id]")].find((item) => item.dataset.sortingRowId === focusRowId);
-    const buttons = [...(row?.querySelectorAll("button:not(:disabled)") ?? [])];
+    const row = [...element("script-rows").querySelectorAll("[data-sorting-row-id]")]
+      .find((item) => item.dataset.sortingRowId === focusRowId);
+    const buttons = [...(row?.querySelectorAll(".sorting-row-controls button[data-sorting-move]:not(:disabled)") ?? [])];
     (buttons.find((button) => button.dataset.sortingMove === direction) ?? buttons[0] ?? element("sorting-discard")).focus();
   }
 }
 
 async function runSortingAction(action, rowId, direction) {
   const trial = sortingTrial;
-  if (!trial || trial.busy) return;
+  if (!trial || trial.busy || trial.pending || editRefused || composingRows.size) return;
   const pending = action();
-  renderSorting();
+  updateSortingControls();
   sortingStatus("Checking trial…");
   try {
     if (!await pending) sortingStatus("The saved script changed. Discard this trial and reload before sorting again.");
@@ -1549,12 +2218,21 @@ async function runSortingAction(action, rowId, direction) {
 }
 
 element("open-sorting").addEventListener("click", () => {
-  if (sortingTrial) { leaveSorting(); return; }
+  if (sortingTrial) {
+    if (!element("footage-panel").hidden) researchPanel?.close();
+    sortingTrial.preview = !sortingTrial.preview;
+    setSortingMode(true);
+    if (sortingTrial.preview) renderEditor();
+    else renderSorting();
+    sortingStatus(sortingTrial.preview ? "Previewing the pending script. Return to Sorting to make changes." :
+      "Trial only. Your saved Draft is unchanged.");
+    stashPanel?.update();
+    return;
+  }
   if (!beginSortingTrial()) return;
   occurrenceFootage?.close(false);
   researchPanel?.close();
   researchStillPanel?.close();
-  stashPanel?.close(false);
   activeAttach = null;
   activeReselect = null;
   setSortingMode(true);
@@ -1562,8 +2240,42 @@ element("open-sorting").addEventListener("click", () => {
   renderSorting();
   element("sorting-heading").focus();
 });
-element("sorting-discard").addEventListener("click", () => finishSorting(false));
+element("sorting-discard").addEventListener("click", leaveSorting);
 element("sorting-accept").addEventListener("click", () => { void runSortingAction(acceptSortingTrial); });
+
+function showSortingChoices(open) {
+  const choices = element("sorting-choices");
+  choices.hidden = !open;
+  element("sorting-outcomes").setAttribute("aria-expanded", String(open));
+  if (open) choices.querySelector("button").focus();
+}
+element("sorting-outcomes").addEventListener("click", () => {
+  showSortingChoices(element("sorting-choices").hidden);
+});
+element("sorting-choices").addEventListener("click", (event) => {
+  const outcome = event.target.closest("[data-sorting-outcome]")?.dataset.sortingOutcome;
+  if (outcome) void runSortingAction(() => acceptSortingTrial(outcome));
+});
+element("sorting-choices").addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  showSortingChoices(false);
+  element("sorting-outcomes").focus();
+});
+function undoSorting() {
+  const trial = sortingTrial;
+  if (!trial || trial.preview || trial.acceptance || !trial.operations.length) return;
+  void runSortingAction(async () => {
+    trial.busy = true;
+    try {
+      const operations = trial.operations.slice(0, trial.history.at(-1));
+      if (!await updateSortingDocument(trial, operations, await sortingRequest(trial, operations, "preview"))) return false;
+      trial.history.pop();
+      return true;
+    } finally { trial.busy = false; }
+  });
+}
+element("sorting-undo").addEventListener("click", undoSorting);
 
 // Own the saved-head lane until an exact receipt and readback agree.
 function lockExtrasEditor(locked) {
@@ -1580,10 +2292,11 @@ element("project-home").addEventListener("click", (event) => {
 });
 
 export function queueExtrasOperation(resolve, label) {
+  if (sortingTrial) return queueSortingCommand(resolve, label, { structural: true });
   return startExtrasWrite(resolve, label, false);
 }
 
-function startExtrasWrite(resolve, label, isUndo) {
+function startExtrasWrite(resolve, label, isUndo, sortingBasis) {
   if (!prompterReady() || prompterDialog.open) {
     setSaveStatus("Finish saving the script before using Stash.");
     return Promise.resolve(false);
@@ -1600,7 +2313,7 @@ function startExtrasWrite(resolve, label, isUndo) {
   const body = Object.freeze({ expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(),
     ...(isUndo ? { document: operation } : { operation }) });
   pendingExtras = { projectId: activeProjectId, prior, body, digest: documentDigest,
-    label, isUndo, receipt: null, uncertain: false };
+    label, isUndo, sortingBasis, receipt: null, uncertain: false };
   clearPreparedPrompter("Save your script before exporting.");
   lockExtrasEditor(true);
   setSaveStatus();
@@ -1620,7 +2333,12 @@ function retryExtrasWrite() {
     const sameBasis = () => activeProjectId === projectId && scriptDocument === prior &&
       documentRevision === body.expectedRevision && documentDigest === digest &&
       !documentSaving && !documentDirty && !pendingDocument;
-    if (!sameBasis()) throw new Error("The open script changed. Reload the saved script.");
+    if (!sameBasis()) {
+      pendingExtras = undefined;
+      extrasFailure = { message: "The open script changed. Reload the saved script.", action: "conflict" };
+      conflicted = true;
+      return false;
+    }
     if (!pending.receipt) {
       const receipt = await api(isUndo ? path : path + "/extras-operations", isUndo ? "PUT" : "POST", body);
       if (receipt.projectId !== projectId || receipt.clientMutationId !== body.clientMutationId ||
@@ -1642,10 +2360,21 @@ function retryExtrasWrite() {
     scriptDocument = saved.document;
     documentRevision = saved.revision;
     documentDigest = saved.digest;
-    // Older snapshots cannot cross the durable mutation boundary.
-    undoStack.length = 0;
-    if (!isUndo) undoStack.push({ document: prior, label,
-      durable: { revision: saved.revision, digest: saved.digest } });
+    if (isUndo && pending.sortingBasis) {
+      undoStack.pop();
+      // The exact pre-Sorting document is saved again at a new revision.
+      const earlier = undoStack.at(-1)?.durable;
+      if (earlier?.revision === pending.sortingBasis.revision && earlier.digest === pending.sortingBasis.digest) {
+        earlier.revision = saved.revision;
+        earlier.digest = saved.digest;
+        earlier.document = saved.document;
+      }
+    } else {
+      // Older snapshots cannot cross a whole-row Extras mutation boundary.
+      undoStack.length = 0;
+      if (!isUndo) undoStack.push({ document: prior, label,
+        durable: { revision: saved.revision, digest: saved.digest, document: saved.document } });
+    }
     typingGroup = null;
     lastSplit = null;
     structuralFocus = null;
@@ -1690,7 +2419,8 @@ function retryExtrasWrite() {
 }
 
 function queueCommand(command, label, options = {}) {
-  if (pendingExtras || sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
+  if (sortingTrial) return queueSortingCommand(command, label, options);
+  if (pendingExtras || options.structural && composingRows.size) return Promise.resolve(false);
   if (extrasFailure && !extrasFailure.action) extrasFailure = undefined;
   const inputAt = performance.now();
   commandsPending += 1;
@@ -1708,7 +2438,7 @@ function queueCommand(command, label, options = {}) {
     }
     if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
         scriptDocument?.projectId !== options.expectedProjectId)) {
-      throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
+      throw new Error(`The open script changed before the ${options.researchQuote ? "quote" : options.researchStill ? "still" : "footage"} was inserted.`);
     }
     if (options.expectedRow) {
       const expected = options.expectedRow;
@@ -1782,18 +2512,21 @@ function queueCommand(command, label, options = {}) {
       void refreshProjection(scriptDocument, true, previousProjection);
       return true;
     }
-    if (options.research || options.researchStill) {
+    if (options.research || options.researchStill || options.researchQuote) {
       typingGroup = null;
       const prior = scriptDocument;
-      const result = await authoringVisualPost(options.researchStill ? "research-still-insert" : "research-insert", {
+      const quote = options.researchQuote === true;
+      const path = quote ? "research-quote-insert" :
+        options.researchStill ? "research-still-insert" : "research-insert";
+      const result = await authoringVisualPost(path, {
         timelineProjectId: options.expectedProjectId, document: prior,
         expectedDocumentRevision: prior.rowEditRevision ?? 0, ...resolved,
       });
       if (activeProjectId !== options.expectedProjectId || scriptDocument !== prior) {
-        throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
+        throw new Error(`The open script changed before the ${quote ? "quote" : options.researchStill ? "still" : "footage"} was inserted.`);
       }
       if (JSON.stringify(result.document) === JSON.stringify(prior)) {
-        throw new Error(`${options.researchStill ? "Still" : "Footage"} insertion did not change the script.`);
+        throw new Error(`${quote ? "Quote" : options.researchStill ? "Still" : "Footage"} insertion did not change the script.`);
       }
       undoStack.push({ document: prior, label });
       const previousProjection = visualProjection;
@@ -1805,6 +2538,34 @@ function queueCommand(command, label, options = {}) {
       documentDirty = true;
       void saveDocument();
       void refreshProjection(scriptDocument, true, previousProjection);
+      return true;
+    }
+    if (options.researchQuoteBox) {
+      typingGroup = null;
+      const prior = scriptDocument;
+      const result = await authoringVisualPost("research-quote-box-edit", {
+        document: prior, expectedDocumentRevision: prior.rowEditRevision ?? 0, ...resolved,
+      });
+      if (activeProjectId !== options.expectedProjectId || scriptDocument !== prior) {
+        throw new Error("The open script changed before the quote box was edited.");
+      }
+      if (JSON.stringify(result.document) === JSON.stringify(prior)) {
+        throw new Error("The quote box edit did not change the script.");
+      }
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      const undoEntry = { document: prior, label };
+      undoStack.push(undoEntry);
+      researchPanel?.update();
+      lastSplit = null;
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      if (typeof resolved.edit?.displayText === "string") {
+        undoEntry.quoteDefault = updateQuoteDisplayDefaultAfterSave({ projectId: options.expectedProjectId,
+          rowId: resolved.rowId, overlayId: resolved.overlayId, displayText: resolved.edit.displayText });
+      }
       return true;
     }
     if (options.visual) {
@@ -1909,7 +2670,10 @@ function queueCommand(command, label, options = {}) {
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied), previousProjection);
+    // Clearing narration can change the row's controls while its editor still has focus.
+    const clearedNarration = resolved.kind === "edit_narration_text" && resolved.insertedText === "" &&
+      scriptDocument.activeDraft.blocks.some((row) => row.id === resolved.rowId && row.type === "visual_only");
+    void refreshProjection(scriptDocument, options.structural || Boolean(options.onSplitApplied) || clearedNarration, previousProjection);
     return true;
   }).catch((error) => {
     typingGroup = null;
@@ -1962,7 +2726,7 @@ function undo() {
       setSaveStatus("This Stash Undo no longer matches the saved head.");
       return;
     }
-    void startExtrasWrite(() => entry.document, "Undo " + entry.label, true);
+    void startExtrasWrite(() => entry.document, "Undo " + entry.label, true, entry.sortingBasis);
     return;
   }
   clearPreparedPrompter("Save your script before exporting.");
@@ -1970,11 +2734,14 @@ function undo() {
   typingGroup = null;
   commandsPending += 1;
   setSaveStatus();
-  commandQueue = commandQueue.then(() => {
+  commandQueue = commandQueue.then(async () => {
     // Earlier requests may have completed after Undo was queued, restoring
     // a typing group. Undo is a history boundary at *execution* as well.
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length || undoStack.at(-1)?.durable) return;
+    const undone = undoStack.at(-1);
+    const restoreQuoteDefault = await undone.quoteDefault;
+    if (conflicted || editRefused || undoStack.at(-1) !== undone) return;
     const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
     researchPanel?.update();
@@ -1986,6 +2753,18 @@ function undo() {
     documentDirty = true;
     void saveDocument();
     void refreshProjection(scriptDocument, true, previousProjection);
+    if (restoreQuoteDefault && await waitForDocumentSave() && activeProjectId === restoreQuoteDefault.projectId) {
+      const { projectId, rowId, overlayId, undo } = restoreQuoteDefault;
+      try {
+        await authoringVisualPost("research-quote-display-default", {
+          timelineProjectId: projectId, rowId, overlayId, undo,
+          expectedRevision: documentRevision, expectedDigest: documentDigest,
+        });
+        void researchPanel?.refresh?.();
+      } catch {
+        setSaveStatus("Quote box undo saved. The Library display default could not be restored.");
+      }
+    }
   }).finally(() => {
     commandsPending -= 1;
     setSaveStatus();
@@ -1995,9 +2774,14 @@ function undo() {
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
-  // A modal export must not dispatch (or swallow) editor shortcuts behind it.
-  if (prompterDialog.open || pendingExtras) return;
+  // Modal controls own keys while the editor behind them is inactive.
+  if (document.querySelector("dialog[open]") || pendingExtras) return;
   if (sortingTrial) {
+    if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey &&
+        event.key.toLowerCase() === "z" && !event.defaultPrevented) {
+      event.preventDefault();
+      undoSorting();
+    }
     if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
       event.preventDefault();
       if (!sortingTrial.busy) leaveSorting();
@@ -2019,6 +2803,25 @@ document.addEventListener("keydown", (event) => {
     const selection = document.getSelection();
     const text = selection && !selection.isCollapsed ? selection.toString().trim() : "";
     const editor = selection?.anchorNode?.parentElement?.closest?.("[data-narration-editor]");
+    if (editor && editor.contains(selection.focusNode)) {
+      const rowId = editor.closest("[data-row-kind='narration']")?.dataset.rowId;
+      const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+      const target = selectedNarrationTarget();
+      if (row?.type === "narration" && target?.selected && text) {
+        const range = selection.getRangeAt(0);
+        const prefix = range.cloneRange();
+        prefix.selectNodeContents(editor);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        openFootageForWords({ rowId, text: row.text, selection: {
+          start: prefix.toString().length, end: prefix.toString().length + range.toString().length,
+        }, seed: text, from: editor });
+        return;
+      }
+      if (row?.type === "narration" && target && !target.selected) {
+        openLibraryAtCaret(target, editor);
+        return;
+      }
+    }
     if (text && editor && editor.contains(selection.focusNode)) {
       const range = selection.getRangeAt(0);
       const prefix = range.cloneRange();
@@ -2049,7 +2852,7 @@ function showOpenError(error) {
 }
 
 async function openScript(projectId) {
-  if (opening || pendingExtras) return;
+  if (opening || pendingExtras || sortingTrial?.acceptance) return;
   occurrenceFootage?.close(false);
   opening = true;
   homeStatus.textContent = "Opening script…";
@@ -2128,7 +2931,7 @@ function setSaveStatus(message = "Saved") {
 }
 
 element("discard-edit").addEventListener("click", () => {
-  if (!editRefused || commandsPending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
+  if (!editRefused || commandsPending || sortingTrial?.pending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
   editRefused = false;
   refusedMessage = "";
   element("discard-edit").hidden = true;
@@ -2203,7 +3006,7 @@ retrySave.addEventListener("click", () => {
 });
 
 function protectDraft(event) {
-  if (pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
+  if (sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
     event.preventDefault();
     event.returnValue = true;
   }
@@ -2236,10 +3039,17 @@ const stashActions = createStashActions((command, label, options) => {
     if (current.projectId !== projectId) throw new Error("The open script changed.");
     return command(current);
   }, label, options);
-}, () => scriptDocument, undefined, queueExtrasOperation);
+}, editorDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial || pendingExtras), onOpen: () => {
+  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused),
+  applyCommand: applyBrowserCommand, fetchProjection, pickClip: openStashClipPicker,
+  loadClip: async ({ researchProjectId, clipId, clipVersion }) => {
+    const { clip } = await researchCatalogGet(researchProjectId, clipId);
+    return clip?.version === clipVersion ? clip : null;
+  },
+  getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
+  onOpen: () => {
     occurrenceFootage?.close(false);
     if (!element("footage-panel").hidden) researchPanel.close();
     if (!element("research-still-panel").hidden) researchStillPanel.close();
@@ -2264,9 +3074,13 @@ researchPanel = mountResearchPanel({
   root: element("footage-panel"),
   onOpen: () => occurrenceFootage.close(false),
   catalog: researchCatalogGet,
-  getDocument: () => scriptDocument,
+  quotesCatalog: researchQuoteCatalogGet,
+  quoteThumbnail: researchQuoteThumbnailGet,
+  getDocument: editorDocument,
   insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
     clipId: clip.id, clipVersion: clip.version, placement }),
+  insertQuote: (quote, placement) => queueResearchQuoteInsert({ quote, placement }),
+  onPlaceQuote: placeLibraryQuote,
   gapChoices: availableGaps, rowChoices: availableNarrationRows,
   onStatus: (message) => setSaveStatus(message),
 });

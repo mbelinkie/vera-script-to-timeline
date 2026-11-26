@@ -1725,3 +1725,93 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   };
 }
 
+
+/** Match each authored cue to its own numbered route in the Sorting gutter. */
+export function mountVisualConnectors(row, block) {
+  const editor = row.querySelector("[data-narration-editor]");
+  if (!editor) return () => {};
+  const cell = row.querySelector(".visuals-cell");
+  const cards = [...cell.querySelectorAll(".visual-card[data-cue-start]")].filter((card) =>
+    card.dataset.kind !== "on-camera" && card.dataset.kind !== "undefined" && card.dataset.slotId);
+  if (!cards.length) return () => {};
+  const doc = row.ownerDocument;
+  const layer = element(doc, "div", "sorting-connectors");
+  cell.prepend(layer);
+  const links = cards.map((card, index) => {
+    const lane = element(doc, "div", "sorting-connector");
+    lane.dataset.lane = card.dataset.slotId;
+    const pin = element(doc, "button", "sorting-connector__pin", String(index + 1));
+    const number = element(doc, "span", "sorting-connector__number", String(index + 1));
+    pin.type = "button";
+    pin.setAttribute("aria-label", `Visual ${index + 1}. ${card.getAttribute("aria-label")}`);
+    number.setAttribute("aria-hidden", "true");
+    card.prepend(number);
+    const activate = () => {
+      row.querySelector(".sorting-connector--active")?.classList.remove("sorting-connector--active");
+      row.querySelector(".sorting-connected-card")?.classList.remove("sorting-connected-card");
+      lane.classList.add("sorting-connector--active");
+      card.classList.add("sorting-connected-card");
+    };
+    const deactivate = () => {
+      lane.classList.remove("sorting-connector--active");
+      card.classList.remove("sorting-connected-card");
+    };
+    for (const target of [pin, card]) {
+      target.addEventListener("focusin", activate);
+      target.addEventListener("focusout", deactivate);
+      target.addEventListener("pointerenter", activate);
+      target.addEventListener("pointerleave", deactivate);
+    }
+    pin.addEventListener("click", () => card.focus());
+    const lines = ["start", "vertical", "end"].map((piece) => {
+      const line = element(doc, "span", `sorting-connector__${piece}`);
+      line.setAttribute("aria-hidden", "true");
+      return line;
+    });
+    lane.append(pin, ...lines);
+    layer.append(lane);
+    return { lane, card };
+  });
+  const spoken = block.tokens.filter((token) => token.spoken !== false);
+  function position() {
+    const box = cell.getBoundingClientRect();
+    if (!box.width || !cell.offsetWidth) return;
+    const scale = box.width / cell.offsetWidth;
+    const gutter = parseFloat(getComputedStyle(cell).paddingLeft);
+    const step = Math.min(8, (gutter - 24) / Math.max(1, links.length - 1));
+    let previousTop = 0;
+    for (const [index, { lane, card }] of links.entries()) {
+      const cueWord = spoken[Number(card.dataset.cueStart)];
+      if (!cueWord) { lane.hidden = true; continue; }
+      const start = pointAtTextOffset(editor, cueWord.startOffset);
+      const finish = pointAtTextOffset(editor, cueWord.endOffset);
+      const range = doc.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(finish.node, finish.offset);
+      const word = range.getBoundingClientRect();
+      const target = card.getBoundingClientRect();
+      if (!word.height || !target.height) { lane.hidden = true; continue; }
+      lane.hidden = false;
+      const from = Math.max(previousTop + 18, (word.top + word.height / 2 - box.top) / scale);
+      previousTop = from;
+      const priorMargin = parseFloat(card.style.marginTop) || 0;
+      const port = (target.top - box.top) / scale - priorMargin + 9;
+      // Keep routes downward and in card order, even when narration wraps
+      // onto a line below the card's natural starting point.
+      const margin = Math.max(0, Math.ceil(from - port));
+      if (margin !== priorMargin) card.style.marginTop = `${margin}px`;
+      const end = port + margin;
+      lane.style.setProperty("--from", `${from}px`);
+      lane.style.setProperty("--to", `${end}px`);
+      lane.style.setProperty("--track", `${gutter - 8 - index * step}px`);
+      lane.style.setProperty("--port", `${gutter}px`);
+    }
+  }
+  const resize = new ResizeObserver(position);
+  resize.observe(row);
+  resize.observe(editor);
+  resize.observe(cell);
+  for (const card of cards) resize.observe(card);
+  position();
+  return () => resize.disconnect();
+}

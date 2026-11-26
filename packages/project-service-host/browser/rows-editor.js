@@ -285,7 +285,8 @@ function makeRowActions(state, rowElement) {
   menu.hidden = true;
 
   if (typeof state.stashRow === "function") {
-    const stash = button(state.root.ownerDocument, "", "Stash row");
+    const stash = button(state.root.ownerDocument, "",
+      row?.stashOrigin?.returnEligible ? "Return to stash" : "Stash row");
     stash.dataset.rowStash = rowId;
     stash.dataset.rowAction = "stash";
     stash.setAttribute("role", "menuitem");
@@ -372,6 +373,11 @@ function updateRangeState(state) {
     );
     deleteButton.dataset.rowRangeDelete = "true";
     toolbar.append(deleteButton);
+    if (isGroup && state.stashGroup) {
+      const stash = button(state.root.ownerDocument, "", "Stash selected rows", "Stash group");
+      stash.dataset.rowRangeStash = "true";
+      toolbar.append(stash);
+    }
   }
   const cancelButton = button(state.root.ownerDocument, "row-range-toolbar__cancel", "Cancel row range", "Cancel");
   cancelButton.dataset.rowRangeCancel = "true";
@@ -652,6 +658,17 @@ function handleClick(state, event) {
     return;
   }
 
+  if (target.closest("[data-row-range-stash]")) {
+    const ids = currentRangeIds(state);
+    if (ids.length > 1 && !state.busy) {
+      state.busy = true;
+      void Promise.resolve(state.stashGroup(ids)).then((ok) => {
+        if (ok) clearRange(state);
+      }).finally(() => { state.busy = false; });
+    }
+    return;
+  }
+
   const groupDelete = target.closest("[data-row-range-delete], [data-row-range-action='delete-group']");
   if (groupDelete) {
     const ids = currentRangeIds(state);
@@ -676,6 +693,7 @@ function handleKeydown(state, event) {
   if (event.key === "Escape") {
     if (state.range) {
       event.preventDefault();
+      clearDrag(state);
       clearRange(state);
     } else if (eventElement(event)?.closest("[data-row-action-menu], [data-section-action-menu], [data-row-gap-menu]")) {
       event.preventDefault();
@@ -726,12 +744,18 @@ function handleDragstart(state, event) {
   state.drag = { rowIds };
   event.dataTransfer.effectAllowed = "move";
   event.dataTransfer.setData("text/plain", JSON.stringify({ rowIds }));
+  if (state.onRowDrag) {
+    state.onRowDrag(rowIds);
+    event.dataTransfer.setData("application/x-vera-script-rows", "rows");
+    event.dataTransfer.setDragImage(trigger, -12, -12);
+  }
   rowIds.forEach((id) => rowNode(state.root, id)?.classList.add("script-row--dragging"));
 }
 
 function clearDrag(state) {
   rowsInRoot(state.root).forEach((row) => row.classList.remove("script-row--dragging", "script-row--drop-target"));
   state.root.querySelectorAll(".row-divider--drop-target").forEach((divider) => divider.classList.remove("row-divider--drop-target"));
+  if (state.drag) state.onRowDrag?.(null);
   state.drag = null;
   state.dropDestination = null;
 }
@@ -811,6 +835,8 @@ export function mountRowsEditor(root, scriptDocument, options = {}) {
       scriptDocument,
       command: options.command,
       stashRow: options.stashRow,
+      stashGroup: options.stashGroup,
+      onRowDrag: options.onRowDrag,
       createBlankRow: options.createBlankRow,
       confirmDelete: options.confirmDelete,
       idFactory: options.idFactory,

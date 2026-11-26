@@ -22,7 +22,8 @@ import { parseQaConfig, type QaConfig } from "./qa-config.js";
 import { applyQaMigrations } from "./migrate.js";
 import { createQaPgPool, type QaPgPool } from "./pg-pool.js";
 import { createAuthoringHandler, DEFAULT_AUTHORING_PORT,
-  type AuthoringReadOnlyResearchCatalog } from "./authoring.js";
+  type AuthoringResearchCatalog } from "./authoring.js";
+import { readRetainedResearchQuotePicture, retainResearchQuotePicture } from "./research-quote-picture-cache.js";
 
 export class QaStartupRefusal extends Error {
   override readonly name = "QaStartupRefusal";
@@ -54,8 +55,8 @@ export interface QaHostInfrastructure {
   acceptedSources?: AcceptedSourceAuthority;
   /** No built-in native inspector: never infer Resolve success from agent HTTP. */
   evidenceInspector?: IndependentEvidenceInspector;
-  /** Optional, host-owned read-only Research interface; never exposed as a proxy. */
-  researchCatalog?: AuthoringReadOnlyResearchCatalog;
+  /** Optional, host-owned Research interface; never exposed as a proxy. */
+  researchCatalog?: AuthoringResearchCatalog;
   researchMedia?: ResearchMediaConfig;
 }
 
@@ -199,11 +200,22 @@ export async function serveQaFromEnvironment(
     // Research is optional: missing/invalid credentials disable Footage, not writing.
     // The existing Research client constrains outbound requests to loopback,
     // sends a server-owned bearer and refuses redirects.
-    let researchCatalog: AuthoringReadOnlyResearchCatalog | undefined;
+    let researchCatalog: AuthoringResearchCatalog | undefined;
     if (env.VERA_RESEARCH_BEARER) {
       try {
-        researchCatalog = createResearchClient({ bearer: env.VERA_RESEARCH_BEARER,
+        const client = createResearchClient({ bearer: env.VERA_RESEARCH_BEARER,
           ...(env.VERA_RESEARCH_URL === undefined ? {} : { url: env.VERA_RESEARCH_URL }) });
+        researchCatalog = {
+          ...client,
+          async quotePicture(projectId, quote) {
+            const retained = await client.readQuotePicture(projectId, quote);
+            if (!retained) return null;
+            await retainResearchQuotePicture(retained.picture, retained.bytes);
+            return retained.picture;
+          },
+          quoteThumbnail: (projectId, quote) => client.readQuotePicture(projectId, quote, true),
+          retainedQuotePicture: readRetainedResearchQuotePicture,
+        };
       } catch {
         // An unavailable Research service must not prevent local authoring.
       }

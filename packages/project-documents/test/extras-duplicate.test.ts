@@ -6,7 +6,7 @@ import type { NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBl
 import { describe, expect, it } from "vitest";
 
 import { applyExtrasStorageOperation, parseExtrasOperationCommand } from "../src/extras-operations.js";
-import { documentFor } from "./helpers.js";
+import { documentFor, extrasDocumentFor } from "./helpers.js";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 const fixturePath = fileURLToPath(new URL("../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url));
@@ -54,6 +54,49 @@ function refuseWithoutMutation(document: ScriptDocumentV2, raw: unknown, code: s
 }
 
 describe("Extras atomic duplicate-as-new", () => {
+  it("duplicates a saved waiting-for-words visual with fresh identities and unchanged source and trim", () => {
+    const { document, rowId, sectionId } = extrasDocumentFor(id(800));
+    const row = copied(document);
+    const waiting: NonNullable<NarrationBlockV2["unattachedVisuals"]>[number] = {
+      slotId: id(801), version: 1,
+      payload: {
+        kind: "visual", payloadId: id(802), pictureKind: "clip",
+        source: { kind: "media_reference", mediaReferenceId: id(803) },
+        sourceUsage: { sourceInFrame: 48 }, selectedSourceRange: { startFrame: 48, durationFrames: 96 },
+        audioPolicy: "quiet", framingPolicy: "cover",
+      },
+    };
+    row.unattachedVisuals = [waiting];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const parked = applyExtrasStorageOperation(document, { kind: "stash_rows", rowIds: [rowId], bundleId: id(804) });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    const stored = JSON.parse(JSON.stringify(parked.document)) as ScriptDocumentV2;
+    const before = JSON.stringify(stored);
+    const saved = stored.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(saved.unattachedVisuals).toEqual([waiting]);
+    const destination = { sectionId, afterRowId: null, beforeRowId: null };
+    const restored = applyExtrasStorageOperation(stored, { kind: "restore_stash_rows", rowIds: [rowId], destination });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    expect(copied(restored.document).unattachedVisuals).toEqual([waiting]);
+
+    const result = applyExtrasStorageOperation(stored, { kind: "duplicate_stash_rows", rowIds: [rowId], destination }, allocator());
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const fresh = copied(result.document);
+    expect(fresh.id).not.toBe(rowId);
+    expect(fresh.unattachedVisuals).toHaveLength(1);
+    const visual = fresh.unattachedVisuals![0]!;
+    expect(visual.slotId).not.toBe(waiting.slotId);
+    expect(visual.payload.payloadId).not.toBe(waiting.payload.payloadId);
+    expect(visual).toEqual({ ...waiting, slotId: visual.slotId, payload: { ...waiting.payload, payloadId: visual.payload.payloadId } });
+    expect(fresh.primaryVisualSequence?.slots).toHaveLength(saved.primaryVisualSequence!.slots.length);
+    expect(fresh.primaryVisualSequence?.slots.map((slot) => slot.id)).not.toContain(visual.slotId);
+    expect(fresh.overlayEvents).toEqual(saved.overlayEvents);
+    expect(result.document.stash).toEqual(stored.stash);
+    expect(result.document.stashOutline).toEqual(stored.stashOutline);
+    expect(JSON.stringify(stored)).toBe(before);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+  });
+
   it("rejects extra keys, forged actor/IDs, missing roots and invalid destinations", () => {
     const { document, row } = fixture();
     for (const raw of [

@@ -1,12 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
@@ -17,6 +17,7 @@ import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, QaStartupRefusal, type QaRunningServer } from "../src/serve.js";
 import { createAuthoringHandler } from "../src/authoring.js";
+import { readRetainedResearchQuotePicture, retainResearchQuotePicture } from "../src/research-quote-picture-cache.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
 
 const dirs: string[] = [];
@@ -158,7 +159,8 @@ describe("browser Sorting trial HTTP boundary", () => {
       expect(request.headers.get("authorization")).toBe(`Bearer ${privateToken}`);
       return Promise.resolve(Response.json(head));
     });
-    return { head, body, move, projects, original, reordered, path: `projects/${head.projectId}/sorting-trial` };
+    return { head, body, move, projects, original, reordered, source, narrated, blank,
+      path: `projects/${head.projectId}/sorting-trial` };
   }
 
   it("isolates a reorder preview; discarding commands leaves the saved Draft exactly intact; acceptance projects only order", async () => {
@@ -218,6 +220,184 @@ describe("browser Sorting trial HTTP boundary", () => {
     const { authorized } = await authoringRequests(projects);
     expect((await authorized(f.path, f.body)).status).toBe(403);
     expect(projects).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays mixed row and visual commands, exposes a fresh projection, and composes each acceptance outcome", async () => {
+    const f = fixture();
+    const source = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    const visualRow = f.head.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    if (source?.type !== "narration" || visualRow?.type !== "narration") throw new Error("fixture rows are missing");
+    const onCamera = visualRow.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && slot.payload.kind === "on_camera");
+    if (onCamera?.kind !== "content") throw new Error("fixture has no On Camera card");
+    const baseline = structuredClone(f.head.document);
+    const narration = (document: ScriptDocumentV2, rowId: string) => {
+      const row = document.activeDraft.blocks.find((block) => block.id === rowId);
+      if (!row || row.type !== "narration") throw new Error(`narration row ${rowId} is missing`);
+      return row;
+    };
+    const framing = (document: ScriptDocumentV2) => {
+      const slot = narration(document, visualRow.id).primaryVisualSequence?.slots.find((item) => item.id === onCamera.id);
+      if (slot?.kind !== "content" || slot.payload.kind !== "on_camera") throw new Error("On Camera card is missing");
+      return slot.payload.framing;
+    };
+    const operations = [
+      { kind: "command", command: f.move },
+      { kind: "batch", operations: [
+        { kind: "command", command: { kind: "edit_narration_text", rowId: source.id,
+          startOffset: source.text.length, endOffset: source.text.length, insertedText: " again", editId: randomUUID() } },
+        { kind: "visual", command: { kind: "set_on_camera_framing", blockId: visualRow.id,
+          slotId: onCamera.id, framing: "tight" }, expectedSequenceVersion: visualRow.primaryVisualSequence!.version },
+      ] },
+    ];
+    const requestBody = (action: "preview" | "accept", outcome?: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action,
+      ...(outcome ? { outcome } : {}),
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const preview = await (await authorized(f.path, requestBody("preview"))).json() as CommandResult & {
+      movedRowIds: string[]; undoDepth: number; projection: { rows: Array<{ blockId: string }> };
+    };
+    expect(preview.ok, JSON.stringify(preview.diagnostics)).toBe(true);
+    expect(preview.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(narration(preview.document, source.id).text).toBe(`${source.text} again`);
+    expect(framing(preview.document)).toBe("tight");
+    expect(preview.projection.rows.map((row) => row.blockId)).toContain(visualRow.id);
+    expect(preview.undoDepth).toBe(3);
+    expect(f.head.document).toEqual(baseline);
+
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody("accept", outcome))).json() as CommandResult & { changed: boolean };
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+    expect(narration(edits.document, source.id).text).toBe(`${source.text} again`);
+    expect(framing(edits.document)).toBe("tight");
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(narration(sorting.document, source.id).text).toBe(source.text);
+    expect(framing(sorting.document)).toBe(onCamera.payload.kind === "on_camera" ? onCamera.payload.framing : undefined);
+    const all = await accept("all");
+    expect(all.ok, JSON.stringify(all.diagnostics)).toBe(true);
+    expect(all.changed).toBe(true);
+    expect(all.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(f.head.document).toEqual(baseline);
+  });
+
+  it("replays Undo without saving and rejects arbitrary replacement, malformed operations, stale visual versions, and invalid outcomes", async () => {
+    const f = fixture();
+    const { authorized } = await authoringRequests(f.projects);
+    const body = { expectedRevision: f.head.revision, expectedDigest: f.head.digest,
+      action: "preview", operations: [{ kind: "command", command: f.move }, { kind: "undo" }] };
+    const undone = await authorized(f.path, body);
+    expect(undone.status).toBe(200);
+    expect(await undone.json()).toMatchObject({ ok: true, document: f.head.document, movedRowIds: [] });
+    expect(f.head.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+
+    const arbitrary = await authorized(f.path, { ...body, document: f.head.document });
+    expect(arbitrary.status).toBe(400);
+    const malformed = await authorized(f.path, { ...body, operations: [{ kind: "command",
+      command: { ...f.move, injected: true } }] });
+    expect(malformed.status).toBe(200);
+    expect(await malformed.json()).toMatchObject({ ok: false, diagnostics: [{ code: "SORTING_COMMAND_INVALID" }] });
+    const staleVisual = await authorized(f.path, { ...body, operations: [{ kind: "visual",
+      command: { kind: "set_on_camera_framing", blockId: f.narrated.id, slotId: randomUUID(), framing: "tight" },
+      expectedSequenceVersion: 999 }] });
+    expect(staleVisual.status).toBe(200);
+    expect(await staleVisual.json()).toMatchObject({ ok: false, diagnostics: [{ code: "SEQUENCE_VERSION_STALE" }] });
+    const invalidOutcome = await authorized(f.path, { ...body, action: "accept", outcome: "replace_document" });
+    expect(invalidOutcome.status).toBe(400);
+    expect(f.head.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+  });
+
+  it("composes a Stash visual transfer independently from narration edits for selective acceptance", async () => {
+    const f = fixture();
+    const sourceInHead = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    if (!sourceInHead || sourceInHead.type !== "narration") throw new Error("fixture narration row is missing");
+    const movedSlotInHead = sourceInHead.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual");
+    if (movedSlotInHead?.kind !== "content" || movedSlotInHead.payload.kind !== "visual") throw new Error("fixture has no transferable visual");
+    movedSlotInHead.payload.selectedSourceRange = { startFrame: 0, durationFrames: 1 };
+    movedSlotInHead.payload.sourceUsage = { ...movedSlotInHead.payload.sourceUsage, sourceInFrame: 0 };
+    const trimmed = checkedDocument(f.head.document, f.head.projectId);
+    f.head.document = trimmed.document;
+    f.head.digest = trimmed.digest;
+    const source = sourceInHead;
+    const movedSlot = movedSlotInHead;
+    const narration = (document: ScriptDocumentV2) => {
+      const row = document.activeDraft.blocks.find((block) => block.id === source.id);
+      if (!row || row.type !== "narration") throw new Error("fixture narration row is missing");
+      return row;
+    };
+    const transfer = { kind: "stash_visual", rowId: source.id, slotId: movedSlot.id,
+      bundleId: randomUUID(), stashRowId: randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+    const edit = { kind: "edit_narration_text", rowId: source.id, startOffset: source.text.length,
+      endOffset: source.text.length, insertedText: " edited", editId: randomUUID() };
+    const operations = [{ kind: "command", command: transfer }, { kind: "command", command: edit }];
+    const requestBody = (outcome: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action: "accept", outcome,
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody(outcome))).json() as CommandResult & { changed: boolean };
+    const all = await accept("all");
+    expect(all.ok, JSON.stringify(all.diagnostics)).toBe(true);
+    expect(all.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId)).toBe(true);
+    expect(narration(all.document).text).toBe(`${source.text} edited`);
+
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId) ?? false).toBe(false);
+    expect(narration(edits.document).text).toBe(`${source.text} edited`);
+
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId) ?? false).toBe(true);
+    expect(narration(sorting.document).text).toBe(source.text);
+  });
+
+  it("keeps an independently inserted Stash visual with sorting-only and restores it with edits-only", async () => {
+    const f = fixture();
+    const source = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    if (!source || source.type !== "narration") throw new Error("fixture narration row is missing");
+    const clip = source.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual");
+    if (clip?.kind !== "content" || clip.payload.kind !== "visual") throw new Error("fixture has no clip");
+    clip.payload.selectedSourceRange = { startFrame: 0, durationFrames: 1 };
+    clip.payload.sourceUsage = { ...clip.payload.sourceUsage, sourceInFrame: 0 };
+    const trimmed = applyRowEditV2(f.head.document, f.head.document.rowEditRevision ?? 0, {
+      kind: "stash_visual", rowId: source.id, slotId: clip.id, bundleId: randomUUID(),
+      stashRowId: randomUUID(), sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(trimmed.ok, JSON.stringify(trimmed.diagnostics)).toBe(true);
+    const saved = checkedDocument(trimmed.document, f.head.projectId);
+    f.head.document = saved.document;
+    f.head.digest = saved.digest;
+    const stashRow = saved.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.type === "visual_only");
+    if (!stashRow || stashRow.type !== "visual_only") throw new Error("saved Stash visual is missing");
+    const insertion = { kind: "insert_stash_visual", stashRowId: stashRow.id,
+      destinationRowId: f.narrated.id, destinationSlotId: randomUUID() };
+    const narrationEdit = { kind: "edit_narration_text", rowId: source.id, startOffset: source.text.length,
+      endOffset: source.text.length, insertedText: " edited", editId: randomUUID() };
+    const operations = [{ kind: "command", command: insertion }, { kind: "command", command: narrationEdit }];
+    const requestBody = (outcome: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action: "accept", outcome,
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody(outcome))).json() as CommandResult;
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === stashRow.id)).toBe(true);
+    const editsTarget = edits.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    expect(editsTarget?.type === "narration" ? editsTarget.unattachedVisuals : undefined).toBeUndefined();
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === stashRow.id)).toBe(false);
+    const target = sorting.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    expect(target?.type === "narration" && target.unattachedVisuals?.some((item) => item.slotId === insertion.destinationSlotId)).toBe(true);
+    const sortedSource = sorting.document.activeDraft.blocks.find((row) => row.id === source.id);
+    expect(sortedSource?.type === "narration" ? sortedSource.text : undefined).toBe(source.text);
   });
 });
 
@@ -412,6 +592,9 @@ const RESEARCH_CLIP = researchId(710001);
 const RESEARCH_STILL = researchId(710003);
 const LEGACY_STILL = researchId(710004);
 const RESEARCH_STILL_SOURCE = researchId(710005);
+const RESEARCH_QUOTE = researchId(710006);
+const RESEARCH_QUOTE_SOURCE = researchId(710007);
+const RESEARCH_QUOTE_PICTURE = researchId(710008);
 // A tiny generated WebP thumbnail. No source page is part of the kept API.
 const thumbnailBytes = Buffer.from("UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAAcQBSxg/wMR0f8A", "base64");
 const keptStillAsset = { versionId: "immutable-kept-still", sha256: createHash("sha256").update(thumbnailBytes).digest("hex"),
@@ -423,10 +606,12 @@ const RESEARCH_SECRET = "private-research-test-bearer-never-send";
 function fakeResearchCatalog() {
   const calls: Array<{ pathname: string; method: string | undefined;
     redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
-  const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3,
-    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false, transcriptVersion: 4, transcriptProject: RESEARCH_PROJECT };
+  const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3, quoteVersion: 7,
+    quoteDisplayText: "This is the spoken quotation.", quoteImage: "none",
+    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false,
+    transcriptVersion: 4, transcriptProject: RESEARCH_PROJECT };
   const request: typeof fetch = (input, init) => {
-    const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
+    const { pathname, searchParams } = new URL(input instanceof Request ? input.url : String(input));
     const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
     calls.push({ pathname, method: init?.method, redirect: init?.redirect, bearer });
     if (state.offline) return Promise.reject(new Error(`private request failed with ${RESEARCH_SECRET}`));
@@ -439,6 +624,41 @@ function fakeResearchCatalog() {
       { id: RESEARCH_PROJECT, name: "Field research", hiddenBearer: RESEARCH_SECRET },
     ] : []));
     const project = `/api/projects/${RESEARCH_PROJECT}`;
+    const quote = { kind: "quote", id: RESEARCH_QUOTE, projectId: RESEARCH_PROJECT,
+      sourceId: RESEARCH_QUOTE_SOURCE, version: state.quoteVersion, content: {
+        text: "This is the longer original quotation.", latestDisplayText: state.quoteDisplayText,
+        speaker: "Sam Producer", hidden: RESEARCH_SECRET,
+      } };
+    if (pathname === `${project}/items` && searchParams.get("kind") === "quote") {
+      return Promise.resolve(Response.json([quote]));
+    }
+    if (pathname === `${project}/items/${RESEARCH_QUOTE}`) {
+      if (init?.method === "PATCH") {
+        const { latestDisplayText, expectedVersion } = JSON.parse(typeof init.body === "string" ? init.body : "") as {
+          latestDisplayText: string; expectedVersion: number;
+        };
+        if (expectedVersion !== state.quoteVersion) return Promise.resolve(new Response(null, { status: 409 }));
+        state.quoteVersion++;
+        state.quoteDisplayText = latestDisplayText;
+        return Promise.resolve(Response.json({ ...quote, version: state.quoteVersion,
+          content: { ...quote.content, latestDisplayText } }));
+      }
+      return Promise.resolve(Response.json(quote));
+    }
+    if (pathname === `${project}/sources/${RESEARCH_QUOTE_SOURCE}`) return Promise.resolve(Response.json({
+      id: RESEARCH_QUOTE_SOURCE, projectId: RESEARCH_PROJECT, kind: "offline", details: {},
+      bibliography: { title: { value: "A synthetic source" } }, hidden: RESEARCH_SECRET,
+    }));
+    if (pathname.includes("/library-reference-pictures/")) {
+      const picture = `${project}/library-reference-pictures/source/${RESEARCH_QUOTE_SOURCE}`;
+      if (state.quoteImage === "none" || !pathname.startsWith(picture)) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      if (pathname === picture) return Promise.resolve(Response.json({ revisionId: RESEARCH_QUOTE_PICTURE,
+        assets: { original: keptStillAsset, thumbnail: keptStillAsset } }));
+      return Promise.resolve(new Response(state.quoteImage === "valid" ? thumbnailBytes : Buffer.alloc(thumbnailBytes.length),
+        { headers: { "Content-Type": "image/webp" } }));
+    }
     const still = { kind: "still", id: RESEARCH_STILL, projectId: state.stillProject,
       sourceId: RESEARCH_STILL_SOURCE, version: state.stillVersion, content: { title: "Saved photo",
         credit: "Test photographer", licence: "Test permission", hiddenBearer: RESEARCH_SECRET } };
@@ -482,7 +702,15 @@ function fakeResearchCatalog() {
     if (pathname === `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`) return Promise.resolve(Response.json(clip));
     return Promise.resolve(Response.json({ error: "unexpected_research_path" }, { status: 500 }));
   };
-  return { catalog: createResearchClient({ bearer: RESEARCH_SECRET, request }), state, calls };
+  const client = createResearchClient({ bearer: RESEARCH_SECRET, request });
+  return { catalog: {
+    ...client,
+    quotePicture: async (projectId: string, quote: Awaited<ReturnType<typeof client.quote>>) =>
+      (await client.readQuotePicture(projectId, quote))?.picture ?? null,
+    quoteThumbnail: (projectId: string, quote: Awaited<ReturnType<typeof client.quote>>) =>
+      client.readQuotePicture(projectId, quote, true),
+    retainedQuotePicture: vi.fn(() => Promise.resolve(thumbnailBytes)),
+  }, state, calls };
 }
 
 async function researchBrowserRequests() {
@@ -771,6 +999,218 @@ describe("protected kept Research stills", () => {
     expect(await (await h.read(base)).json()).toEqual({ stills: [], nextOffset: null });
     expect((await insert()).status).toBe(422);
     expect(h.projects).not.toHaveBeenCalled();
+  });
+});
+
+describe("protected Research quote placement", () => {
+  const base = `research/${TIMELINE_PROJECT}/projects/${RESEARCH_PROJECT}/quotes`;
+
+  function quoteRequest() {
+    const document = researchStashFixture(false).doc;
+    document.projectId = TIMELINE_PROJECT;
+    document.activeDraft.blocks = [];
+    return { timelineProjectId: TIMELINE_PROJECT, document, researchProjectId: RESEARCH_PROJECT,
+      quoteId: RESEARCH_QUOTE, quoteVersion: 7, expectedDocumentRevision: document.rowEditRevision ?? 0,
+      placement: { kind: "gap", destination: { sectionId: null, afterRowId: null, beforeRowId: null } } };
+  }
+
+  it("lists a slim quote DTO and assembles one edit from the exact current quote", async () => {
+    const h = await researchBrowserRequests();
+    const list = await h.read(`${base}?offset=0`);
+    expect(list.headers.get("Cache-Control")).toBe("no-store");
+    expect(list.status).toBe(200);
+    const page: unknown = await list.json();
+    expect(page).toMatchObject({ nextOffset: null, quotes: [{
+      itemId: RESEARCH_QUOTE, sourceId: RESEARCH_QUOTE_SOURCE, itemVersion: 7,
+      speakerName: "Sam Producer", sourceTitle: "A synthetic source",
+    }] });
+    expect(JSON.stringify(page)).not.toContain(RESEARCH_SECRET);
+    expect(JSON.stringify(page)).not.toContain("sourceKind");
+    const body = quoteRequest();
+    const placed = await h.read("research-quote-insert", { method: "POST", body });
+    expect(placed.status).toBe(200);
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.rowEditRevision).toBe(body.expectedDocumentRevision + 1);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.text).toBe("“This is the spoken quotation.”");
+    expect(row.overlayEvents).toHaveLength(1);
+    const event = row.overlayEvents[0]!;
+    expect(event.quoteBox).toMatchObject({ displayText: "This is the spoken quotation.",
+      researchQuoteVersion: 7, researchProjectId: RESEARCH_PROJECT, researchSourceId: RESEARCH_QUOTE_SOURCE });
+    expect(h.authorizeTimelineProject).toHaveBeenLastCalledWith(TIMELINE_PROJECT, "edit_document");
+
+    const edited = await h.read("research-quote-box-edit", { method: "POST", body: {
+      document: result.document, rowId: row.id, overlayId: event.id, expectedRowVersion: row.version,
+      expectedDocumentRevision: result.document.rowEditRevision, expectedOverlayVersion: event.version,
+      edit: { displayText: "A shorter on-screen quote." },
+    } });
+    expect(edited.status).toBe(200);
+    const editResult = await edited.json() as CommandResult;
+    expect(editResult.ok, JSON.stringify(editResult.diagnostics)).toBe(true);
+    const editedRow = editResult.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(editedRow.text).toBe(row.text);
+    expect(editedRow.overlayEvents[0]!.quoteBox).toMatchObject({ displayText: "A shorter on-screen quote." });
+    const editOverlay = (model: CommandResult, edit: unknown) => {
+      const current = model.document.activeDraft.blocks[0] as NarrationBlockV2;
+      return h.read("research-quote-box-edit", { method: "POST", body: {
+        document: model.document, rowId: current.id, overlayId: event.id, expectedRowVersion: current.version,
+        expectedDocumentRevision: model.document.rowEditRevision, expectedOverlayVersion: current.overlayEvents[0]!.version,
+        edit,
+      } });
+    };
+    const first = row.tokens[0]!.id;
+    const last = row.tokens.at(-1)!.id;
+    expect((await editOverlay(editResult, { range: { startTokenId: last, endTokenId: first } })).status).toBe(409);
+    const ranged = await (await editOverlay(editResult, { range: { startTokenId: last, endTokenId: last } }))
+      .json() as CommandResult;
+    expect(ranged.ok, JSON.stringify(ranged.diagnostics)).toBe(true);
+    const rangedRow = ranged.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(rangedRow.primaryVisualSequence).toEqual(editedRow.primaryVisualSequence);
+    expect(rangedRow.overlayEvents[0]!.timing).toMatchObject({ start: { anchor: { tokenId: last } },
+      end: { anchor: { tokenId: last } } });
+    const removed = await (await editOverlay(ranged, { delete: true })).json() as CommandResult;
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    const afterDelete = removed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(afterDelete.tokens).toEqual(row.tokens);
+    expect(afterDelete.primaryVisualSequence).toEqual(row.primaryVisualSequence);
+    expect(afterDelete.overlayEvents).toEqual([]);
+    expect(h.fake.calls.every(({ method }) => method === "GET")).toBe(true);
+  });
+
+  it("refuses extra record fields, revoked membership and a changed quote version", async () => {
+    const h = await researchBrowserRequests();
+    const body = quoteRequest();
+    const place = (request: unknown = body) => h.read("research-quote-insert", { method: "POST", body: request });
+    expect((await h.browser(base)).status).toBe(401);
+    expect((await place({ ...body, picture: keptStillAsset })).status).toBe(400);
+    expect((await place({ ...body, placement: { ...body.placement, quoteText: "forged" } })).status).toBe(400);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await place()).status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    h.fake.state.visible = false;
+    expect((await h.read(base)).status).toBe(403);
+    expect((await place()).status).toBe(403);
+    h.fake.state.visible = true;
+    h.fake.state.quoteVersion++;
+    expect((await place()).status).toBe(409);
+    expect(h.projects).not.toHaveBeenCalled();
+  });
+
+  it("returns authorized kept thumbnail bytes and places only a verified source picture", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteImage = "valid";
+    const preview = `${base}/${RESEARCH_QUOTE}/thumbnail?version=7`;
+    const image = await h.read(preview);
+    expect(image.headers.get("Content-Type")).toBe("image/webp");
+    expect(image.headers.get("Cache-Control")).toBe("no-store");
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(thumbnailBytes);
+    expect((await h.read(preview.replace("version=7", "version=6"))).status).toBe(409);
+    const place = async () => {
+      const response = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+      expect(response.status).toBe(200);
+      const result = await response.json() as CommandResult;
+      expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+      return JSON.stringify(result.document);
+    };
+    expect(await place()).toContain(RESEARCH_QUOTE_PICTURE);
+    h.fake.state.quoteImage = "corrupted";
+    expect((await h.read(preview)).status).toBe(404);
+    expect(await place()).not.toContain(RESEARCH_QUOTE_PICTURE);
+  });
+
+  it("reads a placed picture by its saved payload and checks Research access again", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteImage = "valid";
+    const response = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    const { document } = await response.json() as CommandResult;
+    const row = document.activeDraft.blocks[0] as NarrationBlockV2;
+    const slot = row.primaryVisualSequence?.slots.find((entry) =>
+      entry.kind === "content" && entry.payload.kind === "visual" && entry.payload.researchQuotePicture);
+    if (slot?.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected a verified picture.");
+    const route = `research/${TIMELINE_PROJECT}/quote-pictures/${slot.payload.payloadId}`;
+    const head = { projectId: TIMELINE_PROJECT, document };
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    const image = await h.read(route);
+    expect(image.status).toBe(200);
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(thumbnailBytes);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledWith(slot.payload.researchQuotePicture);
+    h.fake.state.visible = false;
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    expect((await h.read(route)).status).toBe(403);
+    expect(h.fake.catalog.retainedQuotePicture).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates the Library default from the exact saved box and uses the fresh Research version", async () => {
+    const h = await researchBrowserRequests();
+    const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const event = row.overlayEvents[0]!;
+    event.quoteBox!.displayText = "The use I just saved.";
+    const digest = `sha256:${"a".repeat(64)}`;
+    const head = { projectId: TIMELINE_PROJECT, document: result.document, revision: 12, digest };
+    const intent = { timelineProjectId: TIMELINE_PROJECT, rowId: row.id,
+      overlayId: event.id, expectedRevision: 12, expectedDigest: digest };
+    const publish = () => h.read("research-quote-display-default", { method: "POST", body: intent });
+
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await publish()).status).toBe(409);
+    expect(h.fake.calls.some(({ method }) => method === "PATCH")).toBe(false);
+    h.fake.state.quoteVersion = 10;
+    const priorDisplayText = h.fake.state.quoteDisplayText;
+    h.projects.mockResolvedValueOnce(Response.json(head));
+    const written = await publish();
+    expect(written.status).toBe(200);
+    const receipt = (await written.json() as { undo: string }).undo;
+    expect(h.fake.state.quoteVersion).toBe(11);
+    expect(h.fake.state.quoteDisplayText).toBe("The use I just saved.");
+
+    event.quoteBox!.displayText = "My earlier per-use wording.";
+    const undo = (proof: string) => h.read("research-quote-display-default", {
+      method: "POST", body: { ...intent, expectedRevision: 13, undo: proof },
+    });
+    expect((await undo(`${receipt}tampered`)).status).toBe(400);
+    h.fake.state.quoteDisplayText = "A newer Research edit.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(409);
+    h.fake.state.quoteDisplayText = "The use I just saved.";
+    h.projects.mockResolvedValueOnce(Response.json({ ...head, revision: 13 }));
+    expect((await undo(receipt)).status).toBe(204);
+    expect(h.fake.state.quoteDisplayText).toBe(priorDisplayText);
+  });
+
+  it("uses original narration when the latest display text contains direction brackets", async () => {
+    const h = await researchBrowserRequests();
+    h.fake.state.quoteDisplayText = "[A speaker] described the finding.";
+    const placed = await h.read("research-quote-insert", { method: "POST", body: quoteRequest() });
+    expect(placed.status).toBe(200);
+    const result = await placed.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.text).toBe("“This is the longer original quotation.”");
+    expect(row.overlayEvents[0]?.quoteBox?.displayText).toBe(h.fake.state.quoteDisplayText);
+  });
+
+  it("publishes an immutable kept picture only after verifying its size and hash", async () => {
+    const home = await mkdtemp(join(tmpdir(), "vera-retained-quote-test-"));
+    dirs.push(home);
+    const revisionId = RESEARCH_QUOTE_PICTURE;
+    const picture = { researchProjectId: RESEARCH_PROJECT, ownerKind: "source" as const,
+      ownerId: RESEARCH_QUOTE_SOURCE, revisionId,
+      original: { ...keptStillAsset, mimeType: "image/webp" as const } };
+    await expect(retainResearchQuotePicture(picture, Buffer.alloc(thumbnailBytes.length), home)).rejects.toThrow("Invalid retained");
+    await Promise.all([
+      retainResearchQuotePicture(picture, thumbnailBytes, home),
+      retainResearchQuotePicture(picture, thumbnailBytes, home),
+    ]);
+    const path = join(home, ".local", "state", "vera", "research-quote-pictures", RESEARCH_PROJECT, revisionId,
+      picture.original.sha256);
+    expect(await readFile(path)).toEqual(thumbnailBytes);
+    expect(await readRetainedResearchQuotePicture(picture, home)).toEqual(thumbnailBytes);
+    await writeFile(path, Buffer.alloc(thumbnailBytes.length));
+    expect(await readRetainedResearchQuotePicture(picture, home)).toBeNull();
   });
 });
 

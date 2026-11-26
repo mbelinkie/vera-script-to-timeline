@@ -9,7 +9,7 @@ import type {
   SupportingItemV2,
   VisualOnlyBlockV2,
 } from "./generated/contracts-v2.js";
-import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
+import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
@@ -18,6 +18,7 @@ import { parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2, ty
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
+type SortingProjectionCommandV2 = RowEditCommandV2 | VisualSequenceEditCommandV2;
 
 type RowSlot =
   | { surface: "draft"; sectionId: string | null; afterRowId: string | null; beforeRowId: string | null }
@@ -94,6 +95,8 @@ export interface SortingProjectionV2 {
   mixedCopyPlacements?: MixedCopyPlacement[];
   /** Cues explicitly removed as edits, independent of row order. */
   deletedAudioCueIds?: string[];
+  /** D67 pure visual transfers need a dedicated cross-row projector before selective resolution. */
+  unsupportedSelectiveCommands?: string[];
 }
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -191,7 +194,7 @@ function subtreeRows(document: ScriptDocumentV2, roots: string[]): string[] {
   return entries.filter((entry) => rootSet.has(entry.rowId) || roots.some((root) => isDescendant(entry.rowId, root))).map((entry) => entry.rowId);
 }
 
-function selectedRows(document: ScriptDocumentV2, command: RowEditCommandV2): string[] {
+function selectedRows(document: ScriptDocumentV2, command: SortingProjectionCommandV2): string[] {
   switch (command.kind) {
     case "delete_stash_section":
       return effectiveOutline(document).filter((entry) => entry.sectionId === command.sectionId).map((entry) => entry.rowId);
@@ -238,7 +241,7 @@ function selectedRows(document: ScriptDocumentV2, command: RowEditCommandV2): st
   }
 }
 
-function destinationRows(command: RowEditCommandV2): string[] {
+function destinationRows(command: SortingProjectionCommandV2): string[] {
   switch (command.kind) {
     case "move_rows":
     case "restore_stash_rows":
@@ -264,9 +267,12 @@ export function updateSortingProjectionV2(
   state: SortingProjectionV2,
   before: ScriptDocumentV2,
   after: ScriptDocumentV2,
-  command: RowEditCommandV2,
+  command: SortingProjectionCommandV2,
 ): SortingProjectionV2 {
   const next = structuredClone(state);
+  if (command.kind === "stash_visual" || (command as { kind: string }).kind === "insert_stash_visual") {
+    next.unsupportedSelectiveCommands = [...new Set([...(next.unsupportedSelectiveCommands ?? []), command.kind])];
+  }
   if (command.kind === "delete_row_audio_span") {
     (next.deletedAudioCueIds ??= []).push(command.cueId);
   }
@@ -1078,6 +1084,10 @@ export function projectSortingDocumentV2(
   mode: "edits_only" | "sorting_only",
 ): RowEditResultV2 {
   try {
+    if (state.unsupportedSelectiveCommands?.length) {
+      return refuse(current, "SORTING_SELECTIVE_UNSUPPORTED",
+        "Selective acceptance is unavailable while a Stash visual is being transferred. Accept all changes or undo the transfer.");
+    }
     if (state.identityConflicts.length > 0) return refuse(current, "SORTING_PROJECTION_IDENTITY_AMBIGUOUS", `Row IDs were reused after deletion: ${state.identityConflicts.join(", ")}. Start a new Sorting trial before selective acceptance.`);
     if (state.groupIdentityConflicts.length > 0) return refuse(current, "SORTING_PROJECTION_IDENTITY_AMBIGUOUS", `Group IDs were reused after removal: ${state.groupIdentityConflicts.join(", ")}. Accept all changes or start a new trial.`);
     const baseline = state.baseline;

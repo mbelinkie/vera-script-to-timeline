@@ -77,6 +77,26 @@ describe("Research clip browser insertion: one atomic script edit", () => {
     expect(row.researchClip?.video.title).toBe(savedCandidate.video.title);
   });
 
+  it("creates an authorized Stash clip and replaces an attached clip without changing Draft", () => {
+    const { doc, note } = researchStashFixture();
+    const candidate = researchCandidate();
+    const source = structuredClone(doc);
+    const placement = { kind: "stash" as const, sectionId: null, noteRowId: note.id, replace: true };
+    const result = insertResearchClipBrowserV2(doc, candidate, request(placement), newIds(900500));
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft).toEqual(doc.activeDraft);
+    const rows = result.document.stash!.flatMap((bundle) => bundle.rows);
+    const updated = rows.find((row) => row.id === note.id);
+    expect(updated?.type === "narration" && updated.attachedFootage?.clip.researchClip?.clipId).toBe(candidate.id);
+    expect(result.document.stashOutline).toContainEqual({
+      rowId: note.attachedFootage!.clip.id, kind: "clip", sectionId: null, parentRowId: note.id,
+    });
+    expect(result.rowCommands?.map(({ kind }) => kind)).toEqual(["create_stash_clip", "replace_stash_footage"]);
+    const stale = insertResearchClipBrowserV2(doc, candidate, request({ ...placement, replace: false }), newIds(900600));
+    expect(stale).toMatchObject({ ok: false, document: source, diagnostics: [{ code: "STASH_ATTACHMENT_CHANGED" }] });
+    expect(doc).toEqual(source);
+  });
+
   it("places a Research visual on chosen spoken words and preserves On Camera coverage", () => {
     const { doc, first } = fixture();
     const before = structuredClone(doc);

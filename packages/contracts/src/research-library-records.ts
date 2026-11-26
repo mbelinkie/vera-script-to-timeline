@@ -3,6 +3,8 @@ import type { ResearchQuoteCitationDetails } from "./research-quote-citations.js
 
 export type ResearchLibrarySource = MlaSource & { id: string; projectId: string };
 
+export type ResearchLibraryItemKind = "quote" | "clip" | "still";
+
 export interface ResearchLibraryItem {
   sourceId: string;
   version: number;
@@ -29,7 +31,7 @@ function validOptionalUrl(value: unknown): boolean {
 }
 
 export function readResearchLibraryItem(
-  value: unknown, projectId: string, itemId: string, kind: "quote" | "clip",
+  value: unknown, projectId: string, itemId: string, kind: ResearchLibraryItemKind,
 ): ResearchLibraryItem {
   if (!record(value) || !matchesId(value.projectId, projectId) || !matchesId(value.id, itemId) ||
       value.kind !== kind || typeof value.sourceId !== "string" || !uuid.test(value.sourceId) ||
