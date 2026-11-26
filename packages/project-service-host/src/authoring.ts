@@ -2,10 +2,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
-  placeResearchQuoteV2, projectPrimarySequenceV2, spokenTokensV2, validateScriptDocumentV2,
+  LEGACY_VISUAL_HOLD_MS, placeResearchQuoteV2, projectPrimarySequenceV2, spokenTokensV2, validateScriptDocumentV2,
   type ResearchQuotePlacementV2, type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
-import type { ResearchQuotePictureV2, ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { ResearchQuotePictureV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "@vera/contracts/v2";
 import { EV24_QUOTE_BOX_TEMPLATE_REVISION } from "@vera/contracts/compiler-core-v2";
 import { editCitationText } from "@vera/contracts/research-quote-citations";
 import { prepareSavedPrompter } from "./prompter-authoring.js";
@@ -42,6 +42,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const VISUAL_HOLD_DEFAULT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/visual-hold-default$/u;
 const EXTRAS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/document\/extras-operations$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
@@ -281,6 +282,13 @@ function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
   return value as VisualSequenceEditCommandV2;
 }
 
+/** Only a legacy singleton with an implicit fixed hold uses the project setting. */
+function usesProjectVisualHold(row: ScriptDocumentV2["activeDraft"]["blocks"][number] | undefined): row is VisualOnlyBlockV2 {
+  return row?.type === "visual_only" && !row.additionalVisuals?.length &&
+    row.payload.pictureKind !== "clip" && !row.visualOnlyTiming.selectedSourceRange &&
+    !row.visualOnlyTiming.matchAudioDuration && row.visualOnlyTiming.durationOverrideMs === undefined;
+}
+
 /** Strictly bounded Draft wordless operations; the model still owns all state changes/refusals. */
 function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
   if (!record(value) || !WORDLESS_ROW_KINDS.has(String(value.kind))) return null;
@@ -413,6 +421,15 @@ export function createAuthoringHandler(
     documentJson: string;
     session: ReturnType<typeof createRowEditSessionV2>;
   } | null = null;
+  async function projectVisualHoldMs(projectId: string): Promise<number> {
+    const response = await projects(new Request(`${origin}/v1/projects/${projectId}/settings`, {
+      headers: { authorization },
+    }));
+    if (response.status === 404) return LEGACY_VISUAL_HOLD_MS;
+    if (!response.ok) throw new Error("Project visual hold setting is unavailable.");
+    const { settings } = await response.json() as { settings: { visualOnlyStillDurationMs?: number } };
+    return settings.visualOnlyStillDurationMs ?? LEGACY_VISUAL_HOLD_MS;
+  }
   const handle = async (request: Request): Promise<Response | undefined> => {
     const url = new URL(request.url);
     const asset = request.method === "GET" ? ASSETS.get(url.pathname) : undefined;
@@ -432,6 +449,7 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const visualHoldDefault = request.method === "GET" ? VISUAL_HOLD_DEFAULT.exec(path) : null;
     const stillRoute = RESEARCH_STILLS.exec(path);
     const quoteRoute = RESEARCH_QUOTES.exec(path);
     const researchRoute = stillRoute ?? quoteRoute ?? RESEARCH.exec(path);
@@ -456,7 +474,7 @@ export function createAuthoringHandler(
     const isQuoteDisplayDefault = path === "/research-quote-display-default" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
-      (musicWarnings && request.method === "GET") ||
+      visualHoldDefault || (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
         !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isQuoteInsert &&
@@ -481,6 +499,13 @@ export function createAuthoringHandler(
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
         Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (visualHoldDefault) {
+      try {
+        return Response.json({ milliseconds: await projectVisualHoldMs(visualHoldDefault[1]!) });
+      } catch {
+        return Response.json({ error: "visual_hold_default_unavailable" }, { status: 503 });
+      }
     }
     if (isExtrasOperation && request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
       return Response.json({ error: "invalid_request" }, { status: 400 });
@@ -869,7 +894,10 @@ export function createAuthoringHandler(
               !validateScriptDocumentV2(document).valid) {
             return Response.json({ error: "invalid_command" }, { status: 400 });
           }
-          const result = applyVisualSequenceEditV2(document, body.expectedSequenceVersion as number, visual);
+          const projectHoldMs = visual.kind === "move_visual_to_row" &&
+            usesProjectVisualHold(document.activeDraft.blocks.find((block) => block.id === visual.destinationBlockId))
+            ? await projectVisualHoldMs(document.projectId) : undefined;
+          const result = applyVisualSequenceEditV2(document, body.expectedSequenceVersion as number, visual, projectHoldMs);
           if (result.ok) lastSplit = null; // Any successful visual edit breaks immediate split restoration.
           return Response.json(result);
         }
@@ -880,7 +908,20 @@ export function createAuthoringHandler(
               !validateScriptDocumentV2(document).valid) {
             return Response.json({ error: "invalid_command" }, { status: 400 });
           }
-          const result = applyRowEditV2(document, body.expectedRowEditRevision as number, rowCommand);
+          let needsProjectHold = false;
+          const blocks = document.activeDraft.blocks;
+          if (rowCommand.kind === "add_visual_to_wordless_row") {
+            needsProjectHold = usesProjectVisualHold(blocks.find((block) => block.id === rowCommand.rowId));
+          } else if (rowCommand.kind === "move_wordless_visual") {
+            const source = blocks.find((block) => block.id === rowCommand.sourceRowId);
+            const destination = blocks.find((block) => block.id === rowCommand.destinationRowId);
+            const wordlessDestination = destination?.type === "visual_only" ||
+              destination?.type === "narration" && destination.text === "";
+            needsProjectHold = usesProjectVisualHold(destination) ||
+              wordlessDestination && usesProjectVisualHold(source) && source.payload.payloadId === rowCommand.payloadId;
+          }
+          const projectHoldMs = needsProjectHold ? await projectVisualHoldMs(document.projectId) : undefined;
+          const result = applyRowEditV2(document, body.expectedRowEditRevision as number, rowCommand, projectHoldMs);
           if (result.ok) lastSplit = null;
           return Response.json(result);
         }

@@ -400,7 +400,7 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
           kind: "visual", payloadId: id(403), pictureKind: "intentional_placeholder",
           source: { kind: "intentional_placeholder", text: "Harbor still" }, audioPolicy: "mute", framingPolicy: "contain",
         },
-        visualOnlyTiming: { kind: "visual_only" },
+        visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
       }],
       clearedNarration: { id: id(300), version: 1, slots: [
         { id: id(302), version: 1, visualId: id(402) },

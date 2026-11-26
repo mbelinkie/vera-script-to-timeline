@@ -6,7 +6,7 @@ import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
 import { createRowEditSessionV2, deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "../src/authoring-v2-rows.js";
 import { indexResearchClipUsageV2 } from "../src/research-clip-usage-v2.js";
-import type { CompilerDependenciesV2, RowAudioSpanIntentV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import type { CompilerDependenciesV2, NarrationBlockV2, RowAudioSpanIntentV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 import { researchOccurrence } from "./issue-367-fixture.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -68,6 +68,91 @@ function musicCue(cueId: number, rowId: string): RowAudioSpanIntentV2 {
 }
 
 describe("#585 visuals-only ordered cards", () => {
+  it("#725 keeps a legacy three-second still when appending a new four-second card", () => {
+    const { document, dependencies } = fixture();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const session = createRowEditSessionV2(document, dependencies.authoringDefaults.visualOnlyStillDurationMs);
+    const result = session.apply({ kind: "add_visual_to_wordless_row", rowId: row.id,
+      payloadId: id(7251), slotId: id(7252), visualType: "onscreen_placeholder" });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const compiled = compileTimelineV2(result.document, dependencies);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.manifest.events.filter((event) => event.kind === "primary_visual" || event.kind === "placeholder")
+      .map((event) => event.recordRange)).toEqual([
+      { startFrame: 0, endFrame: 75 }, { startFrame: 75, endFrame: 175 },
+    ]);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      visualOnlyTiming: { durationOverrideMs: 3000 },
+      additionalVisuals: [{ visualOnlyTiming: { durationOverrideMs: 4000 } }],
+    });
+    expect(session.undo().document.activeDraft.blocks[0]).toEqual(row);
+  });
+
+  it("#725 keeps the effective holds on both sides of a wordless move", () => {
+    const { document } = fixture();
+    const source = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const destination = structuredClone(source);
+    destination.id = id(7253);
+    destination.orderKey = "b0";
+    destination.payload.payloadId = id(7254);
+    source.additionalVisuals = [{ payload: { ...source.payload, payloadId: id(7255) },
+      visualOnlyTiming: { kind: "visual_only" } }];
+    document.activeDraft.blocks.push(destination);
+    const session = createRowEditSessionV2(document, 3200);
+    const result = session.apply({ kind: "move_wordless_visual", sourceRowId: source.id,
+      destinationRowId: destination.id, payloadId: source.payload.payloadId });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks).toMatchObject([
+      { payload: { payloadId: id(7255) }, visualOnlyTiming: { durationOverrideMs: 4000 } },
+      { visualOnlyTiming: { durationOverrideMs: 3200 }, additionalVisuals: [
+        { payload: { payloadId: source.payload.payloadId }, visualOnlyTiming: { durationOverrideMs: 4000 } },
+      ] },
+    ]);
+    expect(session.undo().document.activeDraft.blocks).toEqual(document.activeDraft.blocks);
+  });
+
+  it("#725 gives two stills explicit four-second holds when narration is cleared", () => {
+    const { document, dependencies } = sequence();
+    const visualRow = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const stills = [visualRow.payload, visualRow.additionalVisuals![1]!.payload] as const;
+    const row: NarrationBlockV2 = {
+      type: "narration", id: visualRow.id, orderKey: visualRow.orderKey, version: 1,
+      state: "active", timingPolicy: "narration_spine", text: "one two",
+      tokens: [{ id: id(7256), value: "one", startOffset: 0, endOffset: 3 },
+        { id: id(7257), value: "two", startOffset: 4, endOffset: 7 }],
+      notes: [], overlayEvents: [],
+      primaryVisualSequence: { id: id(7258), version: 1, slots: [{
+        id: id(7259), version: 1, kind: "content", relation: { kind: "base" },
+        boundaryBefore: { kind: "row_start" }, playoutPolicy: "match_structural_interval",
+        payload: { ...stills[0], audioPolicy: "mute", sourceUsage: null },
+      }, {
+        id: id(7260), version: 1, kind: "content", relation: { kind: "sequential" },
+        boundaryBefore: { kind: "spoken_word", anchor: {
+          blockId: visualRow.id, tokenId: id(7257), affinity: "before", quotedWord: "two", anchorVersion: 1,
+        } }, playoutPolicy: "match_structural_interval",
+        payload: { ...stills[1], audioPolicy: "mute", sourceUsage: null },
+      }] },
+    };
+    dependencies.occurrenceResolutions.splice(1, 1);
+    dependencies.preparedMedia.splice(1, 1);
+    document.activeDraft.blocks[0] = row;
+    const session = createRowEditSessionV2(document);
+    const result = session.apply({ kind: "edit_narration_text", rowId: row.id,
+      startOffset: 0, endOffset: row.text.length, insertedText: "", editId: id(7261) });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      type: "visual_only", visualOnlyTiming: { durationOverrideMs: 4000 },
+      additionalVisuals: [{ visualOnlyTiming: { durationOverrideMs: 4000 } }],
+    });
+    const compiled = compileTimelineV2(result.document, dependencies);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) expect(compiled.manifest.events.filter((event) => event.kind === "primary_visual")
+      .map((event) => event.recordRange)).toEqual([
+      { startFrame: 0, endFrame: 100 }, { startFrame: 100, endFrame: 200 },
+    ]);
+  });
+
   it("#621 appends independent four-second placeholders, keeps order across save/reload and one-step Undo", () => {
     const { document } = sequence();
     const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;

@@ -23,7 +23,7 @@ export type JsonObject = { [key: string]: Json };
 
 export type Shape =
   | { readonly kind: "map"; readonly fields: ShapeFields }
-  | { readonly kind: "list"; readonly element: ShapeFields }
+  | { readonly kind: "list"; readonly element: ShapeFields; readonly retainRemoved?: boolean }
   | { readonly kind: "text" }
   | { readonly kind: "tokens" };
 export type ShapeFields = Readonly<Record<string, Shape>>;
@@ -37,21 +37,20 @@ const ROW: ShapeFields = {
 };
 const list = (element: ShapeFields): Shape => ({ kind: "list", element });
 
+const DOCUMENT: ShapeFields = {
+  activeDraft: { kind: "map", fields: { blocks: list(ROW), supportingItems: list(ENTITY) } },
+  // Extras currently live in the Stash fields of the script document.
+  stash: { kind: "list", element: ENTITY, retainRemoved: true },
+  stashSections: list(ENTITY),
+  stashGroups: list(ENTITY),
+  rowTransitions: list(ENTITY),
+  rowAudioSpans: list(ENTITY),
+  rowReferences: list(ENTITY),
+};
+
 /** One project = one shared document holding the script (Draft and Extras) and Ideas. */
 export const ROOT_SHAPE: ShapeFields = {
-  document: {
-    kind: "map",
-    fields: {
-      activeDraft: { kind: "map", fields: { blocks: list(ROW), supportingItems: list(ENTITY) } },
-      // Extras currently live in the Stash fields of the script document.
-      stash: list(ENTITY),
-      stashSections: list(ENTITY),
-      stashGroups: list(ENTITY),
-      rowTransitions: list(ENTITY),
-      rowAudioSpans: list(ENTITY),
-      rowReferences: list(ENTITY),
-    },
-  },
+  document: { kind: "map", fields: DOCUMENT },
   ideas: { kind: "map", fields: { items: list({ text: { kind: "text" } }) } },
 };
 
@@ -59,7 +58,12 @@ export const ROOT_KEY = "vera";
 const POSITION = "\u0000pos";
 const TOKEN_SEEDS = "\u0000seed";
 const TOKEN_PIN = "\u0000pin";
+const STASH_BUNDLE = "\u0000stashBundle";
+const STASH_PRESENT = "\u0000stashPresent";
 const hidden = (key: string): boolean => key.startsWith("\u0000");
+const shareField = (key: string, fields: ShapeFields): boolean =>
+  !hidden(key) || (key === STASH_BUNDLE && fields === ROW) ||
+  (key === STASH_PRESENT && fields === DOCUMENT);
 
 type YMap = Y.Map<unknown>;
 
@@ -92,6 +96,83 @@ function keyable(value: unknown): value is JsonObject[] {
     if (!isObject(item) || typeof item.id !== "string" || !item.id || seen.has(item.id)) return false;
     seen.add(item.id);
   }
+  return true;
+}
+
+/**
+ * The Draft block map also owns the entities for rows in Extras. Each row
+ * carries its location, and the ordered bundle list supplies bundle metadata.
+ * Moving a row between surfaces never replaces its Y.Map or Y.Text.
+ */
+function storeRows(root: JsonObject): JsonObject {
+  const { document } = root;
+  if (!isObject(document)) return root;
+  const { activeDraft, stash } = document;
+  if (!isObject(activeDraft) || !keyable(activeDraft.blocks) || (stash !== undefined && !keyable(stash))) return root;
+  const blocks = activeDraft.blocks.map((row) => {
+    if (!Object.hasOwn(row, STASH_BUNDLE)) return row;
+    const copy = { ...row };
+    delete copy[STASH_BUNDLE];
+    return copy;
+  });
+  const bundles: JsonObject[] = [];
+  for (const bundle of stash ?? []) {
+    if (!keyable(bundle.rows)) return root;
+    blocks.push(...bundle.rows.map((row) => ({ ...row, [STASH_BUNDLE]: bundle.id! })));
+    bundles.push({ ...bundle, rows: [] });
+  }
+  if (!keyable(blocks)) return root;
+  return {
+    ...root,
+    document: {
+      ...document,
+      activeDraft: { ...activeDraft, blocks },
+      stash: bundles,
+      [STASH_PRESENT]: stash !== undefined,
+    },
+  };
+}
+
+function projectRows(root: JsonObject): JsonObject {
+  const { document } = root;
+  if (!isObject(document) || typeof document[STASH_PRESENT] !== "boolean") return root;
+  const present = document[STASH_PRESENT];
+  delete document[STASH_PRESENT];
+  const { activeDraft, stash } = document;
+  if (!isObject(activeDraft) || !keyable(activeDraft.blocks) || !keyable(stash)) return root;
+  const rowsByBundle = new Map<string, JsonObject[]>();
+  activeDraft.blocks = activeDraft.blocks.filter((row) => {
+    const bundle = row[STASH_BUNDLE];
+    delete row[STASH_BUNDLE];
+    if (typeof bundle !== "string") return true;
+    const rows = rowsByBundle.get(bundle) ?? [];
+    rows.push(row);
+    rowsByBundle.set(bundle, rows);
+    return false;
+  });
+  const bundles = stash.flatMap((bundle) => {
+    const rows = rowsByBundle.get(bundle.id as string);
+    return rows?.length ? [{ ...bundle, rows }] : [];
+  });
+  if (present || bundles.length) document.stash = bundles;
+  else delete document.stash;
+  return root;
+}
+
+/** An old saved tree remains readable until the server upgrades it in place. */
+export function needsRowUpgrade(doc: Y.Doc): boolean {
+  const document = doc.getMap(ROOT_KEY).get("document");
+  return document instanceof Y.Map && !document.has(STASH_PRESENT);
+}
+
+/** Call under the project's storage lock and broadcast the resulting Yjs update. */
+export function upgradeRows(doc: Y.Doc): boolean {
+  if (!needsRowUpgrade(doc)) return false;
+  const rootMap = doc.getMap(ROOT_KEY);
+  const before = readFields(rootMap, ROOT_SHAPE);
+  const after = storeRows(before);
+  if (before === after) return false;
+  applyFields(rootMap, before, after, ROOT_SHAPE);
   return true;
 }
 
@@ -282,7 +363,7 @@ function writeValue(parent: YMap, key: string, value: Json, shape: Shape | undef
 
 function writeFields(map: YMap, value: JsonObject, fields: ShapeFields): void {
   for (const [key, item] of Object.entries(value)) {
-    if (!hidden(key) && fields[key]?.kind !== "tokens") writeValue(map, key, item, fields[key]);
+    if (shareField(key, fields) && fields[key]?.kind !== "tokens") writeValue(map, key, item, fields[key]);
   }
   if (fields.tokens && Object.hasOwn(value, "tokens")) adoptTokens(map, value);
 }
@@ -296,7 +377,7 @@ function writeElement(listMap: YMap, value: JsonObject, position: string, fields
 
 /** Fill an empty shared document from saved JSON. Call inside a transaction. */
 export function seedRoot(doc: Y.Doc, value: JsonObject): void {
-  writeFields(doc.getMap(ROOT_KEY), value, ROOT_SHAPE);
+  writeFields(doc.getMap(ROOT_KEY), storeRows(value), ROOT_SHAPE);
 }
 
 // ---- Yjs -> JSON -----------------------------------------------------------
@@ -316,7 +397,7 @@ function readValue(value: unknown, shape: Shape | undefined): Json {
 function readFields(map: YMap, fields: ShapeFields): JsonObject {
   const out: JsonObject = {};
   for (const key of [...map.keys()].sort()) {
-    if (!hidden(key)) out[key] = readValue(map.get(key), fields[key]);
+    if (shareField(key, fields)) out[key] = readValue(map.get(key), fields[key]);
   }
   const text = map.get("text");
   if (fields.tokens && text instanceof Y.Text && map.get(TOKEN_SEEDS) instanceof Y.Map) {
@@ -330,7 +411,17 @@ function readFields(map: YMap, fields: ShapeFields): JsonObject {
 
 /** The whole shared document as plain JSON: `{ document, ideas }`. */
 export function readRoot(doc: Y.Doc): JsonObject {
-  return readFields(doc.getMap(ROOT_KEY), ROOT_SHAPE);
+  return projectRows(readFields(doc.getMap(ROOT_KEY), ROOT_SHAPE));
+}
+
+export function findDraftRowText(doc: Y.Doc, rowId: string): Y.Text | undefined {
+  let node: unknown = doc.getMap(ROOT_KEY);
+  for (const key of ["document", "activeDraft", "blocks", rowId]) {
+    node = node instanceof Y.Map ? (node as YMap).get(key) : undefined;
+  }
+  if (!(node instanceof Y.Map) || node.has(STASH_BUNDLE)) return undefined;
+  const text = (node as YMap).get("text");
+  return text instanceof Y.Text ? text : undefined;
 }
 
 // ---- applying a JSON change to Yjs ------------------------------------------
@@ -421,8 +512,8 @@ function spliceText(text: Y.Text, before: string, after: string): void {
 function applyFields(map: YMap, before: JsonObject, after: JsonObject, fields: ShapeFields): void {
   let touched = false;
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-    if (hidden(key) || sameJson(before[key], after[key])) continue;
-    touched = true;
+    if (!shareField(key, fields) || sameJson(before[key], after[key])) continue;
+    if (key !== STASH_BUNDLE) touched = true;
     const shape = fields[key];
     if (shape?.kind === "tokens") continue;
     const next = after[key];
@@ -434,7 +525,7 @@ function applyFields(map: YMap, before: JsonObject, after: JsonObject, fields: S
         current instanceof Y.Text) {
       spliceText(current, previous, next);
     } else if (shape?.kind === "list" && keyable(next) && keyable(previous) && current instanceof Y.Map) {
-      applyList(current as YMap, previous, next, shape.element);
+      applyList(current as YMap, previous, next, shape);
     } else if (shape?.kind === "map" && isObject(next) && isObject(previous) && current instanceof Y.Map) {
       applyFields(current as YMap, previous, next, shape.fields);
     } else {
@@ -449,10 +540,14 @@ function applyFields(map: YMap, before: JsonObject, after: JsonObject, fields: S
   }
 }
 
-function applyList(listMap: YMap, before: JsonObject[], after: JsonObject[], fields: ShapeFields): void {
+function applyList(listMap: YMap, before: JsonObject[], after: JsonObject[], shape: Extract<Shape, { kind: "list" }>): void {
   const beforeById = new Map(before.map((item) => [item.id as string, item]));
   const afterIds = new Set(after.map((item) => item.id as string));
-  for (const id of beforeById.keys()) if (!afterIds.has(id)) listMap.delete(id);
+  // Keep bundle metadata available when a concurrent update sends a row back
+  // to a bundle that another update just emptied. Empty bundles are not shown.
+  if (!shape.retainRemoved) {
+    for (const id of beforeById.keys()) if (!afterIds.has(id)) listMap.delete(id);
+  }
 
   const beforeOrder = before.map((item) => item.id as string).filter((id) => afterIds.has(id));
   const afterOrder = after.map((item) => item.id as string).filter((id) => beforeById.has(id));
@@ -485,10 +580,10 @@ function applyList(listMap: YMap, before: JsonObject[], after: JsonObject[], fie
     low = position;
     if (previous && existing instanceof Y.Map) {
       if (position !== held) (existing as YMap).set(POSITION, position);
-      applyFields(existing as YMap, previous, item, fields);
+      applyFields(existing as YMap, previous, item, shape.element);
     } else if (!previous || !sameJson(previous, item)) {
       // Unknown here, or removed live while the writer changed it: (re)create as written.
-      writeElement(listMap, item, position, fields);
+      writeElement(listMap, item, position, shape.element);
     }
   });
 }
@@ -520,5 +615,6 @@ function longestIncreasing(positions: (string | undefined)[]): Set<number> {
  * people changed in the meantime is kept. Call inside a transaction.
  */
 export function applyRootChange(doc: Y.Doc, before: JsonObject, after: JsonObject): void {
-  applyFields(doc.getMap(ROOT_KEY), before, after, ROOT_SHAPE);
+  upgradeRows(doc);
+  applyFields(doc.getMap(ROOT_KEY), storeRows(before), storeRows(after), ROOT_SHAPE);
 }
