@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
-from issue177_package_fixture import make_package_case
+from issue177_package_fixture import _refresh_document_closure, make_package_case
 from vera_timeline_agent import quote_box_inputs
 from vera_timeline_agent.build_compiler_bridge import invoke_bridge
 from vera_timeline_agent.native_image_motion import native_still_stem
@@ -60,6 +62,109 @@ def _compile_case(case: Any) -> dict[str, Any]:
     case.manifest_path.write_bytes(result["manifestJson"].encode("utf-8"))
     case.report_path.write_bytes(result["reportJson"].encode("utf-8"))
     return result
+
+
+def test_adjacent_quote_rows_package_one_continuous_still(quote_case: Any) -> None:
+    case = quote_case
+    document, deps, manifest, report = [
+        json.loads(path.read_text())
+        for path in (
+            case.document_path,
+            case.dependencies_path,
+            case.manifest_path,
+            case.report_path,
+        )
+    ]
+    rows = document["activeDraft"]["blocks"]
+    first = rows[0]
+    first_slot = first["primaryVisualSequence"]["slots"][0]
+    asset_hash = deps["occurrenceResolutions"][0]["sourceSnapshot"]["contentHash"]
+    picture = {
+        "researchProjectId": str(uuid4()),
+        "ownerKind": "web_capture",
+        "ownerId": str(uuid4()),
+        "revisionId": str(uuid4()),
+        "original": {
+            "versionId": "kept-v1",
+            "sha256": asset_hash.removeprefix("sha256:"),
+            "byteCount": 10,
+            "mimeType": "image/png",
+            "width": 1920,
+            "height": 1080,
+        },
+    }
+    first_slot["payload"]["researchQuotePicture"] = picture
+    first["overlayEvents"] = first["overlayEvents"][:1]
+    first_box = first["overlayEvents"][0]
+    first_box["quoteBox"].update(
+        researchProjectId=picture["researchProjectId"],
+        researchSourceId=str(uuid4()),
+        researchQuoteUseId=str(uuid4()),
+        researchQuoteVersion=1,
+    )
+    last = first["tokens"][-1]
+    first_box["timing"].pop("durationMs")
+    first_box["timing"]["end"] = {
+        "kind": "audible_word_end",
+        "anchor": {
+            **first_box["timing"]["start"]["anchor"],
+            "tokenId": last["id"],
+            "quotedWord": last["value"],
+            "affinity": "after",
+        },
+    }
+
+    second = copy.deepcopy(first)
+    second.update(id=str(uuid4()), orderKey="b")
+    rows.append(second)
+    timing = copy.deepcopy(deps["narrationTimingMaps"][0])
+    timing["blockId"] = second["id"]
+    ids = {token["id"]: str(uuid4()) for token in second["tokens"]}
+    for token, observation in zip(second["tokens"], timing["tokens"], strict=True):
+        token["id"] = ids[token["id"]]
+        observation["tokenId"] = token["id"]
+    deps["narrationTimingMaps"].append(timing)
+    sequence = second["primaryVisualSequence"]
+    sequence["id"] = str(uuid4())
+    slot = sequence["slots"][0]
+    slot["id"] = str(uuid4())
+    payload_id = str(uuid4())
+    slot["payload"]["payloadId"] = payload_id
+    overlay = second["overlayEvents"][0]
+    overlay["id"] = str(uuid4())
+    overlay["payload"]["payloadId"] = str(uuid4())
+    overlay["quoteBox"].update(
+        researchQuoteId=str(uuid4()),
+        researchQuoteUseId=str(uuid4()),
+        backgroundPayloadId=payload_id,
+    )
+    for edge in ("start", "end"):
+        anchor = overlay["timing"][edge]["anchor"]
+        anchor.update(blockId=second["id"], tokenId=ids[anchor["tokenId"]])
+    deps["occurrenceResolutions"].append(
+        {
+            **deps["occurrenceResolutions"][0],
+            "payloadId": payload_id,
+            "owner": {
+                "kind": "primary_slot",
+                "sequenceId": sequence["id"],
+                "slotId": slot["id"],
+            },
+        }
+    )
+    deps["timeline"]["durationFrames"] *= 2
+    _refresh_document_closure(document, deps, manifest, report)
+    case.document_path.write_text(json.dumps(document))
+    case.dependencies_path.write_text(json.dumps(deps))
+
+    compiled = _compile_case(case)["manifest"]
+    pictures = [
+        event for event in compiled["events"] if event["kind"] == "primary_visual"
+    ]
+    assert len(pictures) == 1
+    assert len(pictures[0]["quoteBackgroundParts"]) == 2
+    assert sum(event["kind"] == "quote_box" for event in compiled["events"]) == 2
+    assert verify_v2_package(case.build().project_root).event_count == 5
 
 
 def test_quote_boxes_compile_package_roundtrip_and_attest(quote_case: Any) -> None:

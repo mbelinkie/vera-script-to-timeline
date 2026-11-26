@@ -331,6 +331,33 @@
         },
         "endOffset": {
           "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "researchQuoteProvenance": {
+          "$ref": "#/$defs/ResearchQuoteProvenanceV2"
+        }
+      }
+    },
+    "ResearchQuoteProvenanceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchProjectId",
+        "researchQuoteId",
+        "researchSourceId",
+        "useId"
+      ],
+      "properties": {
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchQuoteId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchSourceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "useId": {
+          "$ref": "#/$defs/EntityId"
         }
       }
     },
@@ -864,6 +891,10 @@
         "researchStill": {
           "$ref": "#/$defs/ResearchStillSnapshotV2",
           "description": "Immutable Research kept-still identity and original asset pin for this image occurrence. Display and thumbnail assets are acquired later and are never persisted here."
+        },
+        "researchQuotePicture": {
+          "$ref": "#/$defs/ResearchQuotePictureV2",
+          "description": "Immutable original image pin selected for a Research quote background."
         },
         "frameBinding": {
           "$ref": "#/$defs/ResearchFrameBindingV2"
@@ -1459,6 +1490,18 @@
       "properties": {
         "researchQuoteId": {
           "$ref": "#/$defs/EntityId"
+        },
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchSourceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchQuoteUseId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchQuoteVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
         },
         "displayText": {
           "type": "string"
@@ -3362,6 +3405,39 @@
         },
         "provenance": {
           "$ref": "#/$defs/ResearchStillProvenanceV2"
+        },
+        "original": {
+          "$ref": "#/$defs/ResearchStillAssetV2"
+        }
+      }
+    },
+    "ResearchQuotePictureV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchProjectId",
+        "ownerKind",
+        "ownerId",
+        "revisionId",
+        "original"
+      ],
+      "properties": {
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "ownerKind": {
+          "type": "string",
+          "enum": [
+            "web_capture",
+            "source",
+            "quote"
+          ]
+        },
+        "ownerId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "revisionId": {
+          "$ref": "#/$defs/EntityId"
         },
         "original": {
           "$ref": "#/$defs/ResearchStillAssetV2"

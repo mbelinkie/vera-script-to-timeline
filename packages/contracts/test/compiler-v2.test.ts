@@ -9,6 +9,7 @@ import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
+import { compareSecondaryTimingV2 } from "../src/secondary-timing-v2.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -2849,6 +2850,83 @@ describe("Research snapshot readiness (issue 367 phase 3)", () => {
 });
 
 describe("Quote box compiler bindings", () => {
+  it("emits one held image across adjacent quote rows with the same source and picture revision", () => {
+    const { doc, deps } = quoteBoxFixture();
+    const first = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const firstSlot = first.primaryVisualSequence!.slots[0];
+    if (firstSlot?.kind !== "content" || firstSlot.payload.kind !== "visual") throw new Error("Missing pictured row.");
+    firstSlot.payload.pictureKind = "image";
+    firstSlot.payload.sourceUsage = null;
+    firstSlot.payload.researchQuotePicture = { researchProjectId: id(80), ownerKind: "web_capture",
+      ownerId: id(81), revisionId: id(82), original: {
+        versionId: "retained-v1", sha256: "a".repeat(64), byteCount: 100, mimeType: "image/png", width: 10, height: 10,
+      } };
+    Object.assign(first.overlayEvents[0]!.quoteBox!, {
+      researchProjectId: id(80), researchSourceId: id(83), researchQuoteUseId: id(84), researchQuoteVersion: 1,
+    });
+
+    const second = structuredClone(first);
+    second.id = id(60);
+    second.orderKey = "a1";
+    second.tokens[0]!.id = id(61);
+    second.primaryVisualSequence!.id = id(62);
+    const secondSlot = second.primaryVisualSequence!.slots[0];
+    if (secondSlot?.kind !== "content" || secondSlot.payload.kind !== "visual") throw new Error("Missing pictured row.");
+    secondSlot.id = id(63);
+    secondSlot.payload.payloadId = id(64);
+    secondSlot.payload.source = { kind: "media_reference", mediaReferenceId: id(66) };
+    const secondBox = second.overlayEvents[0]!;
+    secondBox.id = id(67);
+    secondBox.payload.payloadId = id(68);
+    Object.assign(secondBox.quoteBox!, { researchQuoteId: id(69), researchQuoteUseId: id(85), backgroundPayloadId: id(64) });
+    for (const point of [secondBox.timing.start, secondBox.timing.end]) {
+      if (point?.kind !== "word" && point?.kind !== "audible_word_end") throw new Error("Missing quote range.");
+      Object.assign(point.anchor, { blockId: second.id, tokenId: second.tokens[0]!.id });
+    }
+    doc.activeDraft.blocks.push(second);
+    deps.document.textHash = digest("hello\nhello");
+
+    const map = structuredClone(deps.narrationTimingMaps[0]!);
+    map.blockId = second.id;
+    map.tokens[0].tokenId = second.tokens[0]!.id;
+    map.narrationAssetId = id(65);
+    map.audio!.narrationAssetId = id(65);
+    deps.narrationTimingMaps.push(map);
+    const outgoing = deps.occurrenceResolutions[0]!;
+    outgoing.selectedSourceRange = null;
+    deps.occurrenceResolutions.push({ ...structuredClone(outgoing), payloadId: secondSlot.payload.payloadId,
+      mediaReferenceId: id(66), owner: { kind: "primary_slot", sequenceId: second.primaryVisualSequence!.id, slotId: secondSlot.id },
+      preparedMediaRequirementKey: "prep:second-quote" });
+    const outgoingBinding = deps.preparedMedia[0]!;
+    outgoingBinding.requestedRange = { sourceInFrame: 0, duration: { numerator: 1, denominator: 30 },
+      preHandle: { numerator: 0, denominator: 1 }, postHandle: { numerator: 0, denominator: 1 } };
+    outgoingBinding.verification.decodedFrameCount = 1;
+    const incomingBinding = structuredClone(outgoingBinding);
+    incomingBinding.requirementKey = "prep:second-quote";
+    incomingBinding.originalSource.mediaReferenceId = id(66);
+    deps.preparedMedia.push(incomingBinding);
+
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    expect(compiled.manifest.events.filter(({ kind }) => kind === "primary_visual")).toEqual([
+      expect.objectContaining({ recordRange: { startFrame: 0, endFrame: 192 }, quoteBackgroundParts: [
+        expect.objectContaining({ blockId: first.id, payloadId: firstSlot.payload.payloadId,
+          recordRange: { startFrame: 0, endFrame: 96 } }),
+        expect.objectContaining({ blockId: second.id, payloadId: secondSlot.payload.payloadId,
+          recordRange: { startFrame: 96, endFrame: 192 } }),
+      ] }),
+    ]);
+    expect(compiled.manifest.events.filter(({ kind }) => kind === "quote_box")).toHaveLength(2);
+    expect(compiled.manifest.sources).toHaveLength(3); // One held image and two narration assets.
+    expect(() => compareSecondaryTimingV2(compiled.manifest, compiled.manifest)).not.toThrow();
+
+    secondSlot.payload.researchQuotePicture!.revisionId = id(86);
+    const changedPicture = compileTimelineV2(doc, deps);
+    if (!changedPicture.ok) throw new Error(JSON.stringify(changedPicture.diagnostics));
+    expect(changedPicture.manifest.events.filter(({ kind }) => kind === "primary_visual")).toHaveLength(2);
+  });
+
   it("compiles a quote graphic over its linked prepared background and keeps media-only needs pure", () => {
     const { doc, deps, backgroundPayloadId } = quoteBoxFixture();
     const needs = resolveMediaRequirementsV2(doc, {
@@ -2910,6 +2988,44 @@ describe("Quote box compiler bindings", () => {
     expect(missingBackground?.entity.id).toBe(overlayId);
     expect(compiled.manifest.events.some((event) => event.kind === "quote_box")).toBe(false);
     expect(compiled.manifest.events.some((event) => event.provenance.overlayEventId === overlayId)).toBe(false);
+  });
+
+  it("keeps the independently authored Library quote box after its background card is removed", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    Object.assign(row.overlayEvents[0]!.quoteBox!, {
+      researchQuoteUseId: id(95), researchProjectId: id(96), researchSourceId: id(97), researchQuoteVersion: 1,
+      backgroundPayloadId: id(99),
+    });
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box" &&
+      event.provenance.overlayEventId === overlayId)).toBe(true);
+  });
+
+  it("builds a missing Library quote picture as a slate behind the independent quote box", () => {
+    const { doc, deps, overlayId, backgroundPayloadId } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    Object.assign(row.overlayEvents[0]!.quoteBox!, {
+      researchQuoteUseId: id(95), researchProjectId: id(96), researchSourceId: id(97), researchQuoteVersion: 1,
+    });
+    const slot = row.primaryVisualSequence!.slots.find((item) =>
+      item.kind === "content" && item.payload.kind === "visual" && item.payload.payloadId === backgroundPayloadId);
+    if (slot?.kind !== "content") throw new Error("Missing quote background fixture.");
+    slot.payload = { kind: "visual", payloadId: backgroundPayloadId, pictureKind: "unresolved_visual",
+      source: { kind: "unresolved_visual", description: "Find a picture for this Research quote." },
+      sourceUsage: null, audioPolicy: "mute" };
+    deps.occurrenceResolutions = deps.occurrenceResolutions.filter((item) => item.payloadId !== backgroundPayloadId);
+    deps.preparedMedia = [];
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box" &&
+      event.provenance.overlayEventId === overlayId)).toBe(true);
+    expect(compiled.manifest.events.find((event) => event.kind === "placeholder")?.pictureTreatment).toEqual({
+      kind: "slate", purpose: "unresolved", text: "Find a picture for this Research quote.",
+    });
   });
 
   it("reports a timing repair when two quote boxes overlap on V4", () => {

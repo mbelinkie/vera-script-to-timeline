@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NarratedVisualPayloadV2, NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
+import type { NarratedVisualPayloadV2, NarrationBlockV2, ResearchQuotePictureV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import { attachVisualToWordsV2 } from "../src/authoring-v2-visual-lifecycle.js";
@@ -18,6 +18,9 @@ const templateRevision = "sha256:b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08
 function quote(): AuthorizedResearchQuoteV2 {
   return {
     researchQuoteId: researchId(890001),
+    researchProjectId: researchId(890003),
+    researchSourceId: researchId(890004),
+    researchQuoteVersion: 3,
     spokenText: "A historic line",
     displayText: "An edited display line",
     speakerName: "Ada Lovelace",
@@ -28,10 +31,19 @@ function quote(): AuthorizedResearchQuoteV2 {
   };
 }
 
+function picturePin(): ResearchQuotePictureV2 {
+  return {
+    researchProjectId: researchId(890003), ownerKind: "source", ownerId: researchId(890004),
+    revisionId: researchId(890005), original: {
+      versionId: "original-v1", sha256: "a".repeat(64), byteCount: 4096,
+      mimeType: "image/png", width: 640, height: 480,
+    },
+  };
+}
+
 function picture(): ResearchQuoteBackgroundV2 {
   return {
-    kind: "still_image",
-    source: { kind: "media_reference", mediaReferenceId: researchId(890002) },
+    kind: "still_image", picture: picturePin(),
     displayName: "Synthetic article picture",
   };
 }
@@ -74,8 +86,15 @@ function request(row: NarrationBlockV2, destination: ResearchQuotePlacementV2["d
   };
 }
 
-function placed(document: ScriptDocumentV2) {
-  const row = document.activeDraft.blocks[0];
+function gapRequest(
+  expectedDocumentRevision: number,
+  destination: Extract<ResearchQuotePlacementV2["destination"], { kind: "gap" }>,
+): ResearchQuotePlacementV2 {
+  return { expectedDocumentRevision, destination };
+}
+
+function placed(document: ScriptDocumentV2, rowId?: string) {
+  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && (!rowId || block.id === rowId));
   if (!row || row.type !== "narration") throw new Error("Expected narration row");
   const overlay = row.overlayEvents.find((event) => event.quoteBox);
   if (!overlay?.quoteBox) throw new Error("Expected Research quote overlay");
@@ -100,17 +119,20 @@ describe("place Research quote as one document edit", () => {
     expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     expect(result.document.rowEditRevision).toBe(1);
     const { row: edited, overlay, background } = placed(result.document);
-    expect(edited.text).toBe("Look A historic line closer");
-    expect(edited.tokens.map((token) => token.value)).toEqual(["Look", "A", "historic", "line", "closer"]);
+    expect(edited.text).toBe("Look “A historic line” closer");
+    expect(edited.tokens.map((token) => token.value)).toEqual(["Look", "“A", "historic", "line”", "closer"]);
     expect(edited.tokens[0]!.id).toBe(row.tokens[0]!.id);
     expect(edited.tokens[4]!.id).toBe(row.tokens[1]!.id);
     expect(edited.primaryVisualSequence!.slots).toContainEqual(previousSlot);
     expect(background.payload).toMatchObject({
-      pictureKind: "image", source: { kind: "media_reference", mediaReferenceId: researchId(890002) },
+      pictureKind: "image", source: { kind: "media_reference" }, researchQuotePicture: picturePin(),
       displayName: "Synthetic article picture",
     });
     expect(overlay.quoteBox).toMatchObject({
       researchQuoteId: quote().researchQuoteId,
+      researchProjectId: quote().researchProjectId,
+      researchSourceId: quote().researchSourceId,
+      researchQuoteVersion: quote().researchQuoteVersion,
       displayText: quote().displayText,
       speakerName: quote().speakerName,
       speakerTitle: quote().speakerTitle,
@@ -120,24 +142,29 @@ describe("place Research quote as one document edit", () => {
     });
     expect(overlay.timing).toMatchObject({
       kind: "timed",
-      start: { kind: "word", anchor: { tokenId: edited.tokens[1]!.id, quotedWord: "A" } },
-      end: { kind: "audible_word_end", anchor: { tokenId: edited.tokens[3]!.id, quotedWord: "line" } },
+      start: { kind: "word", anchor: { tokenId: edited.tokens[1]!.id, quotedWord: "“A" } },
+      end: { kind: "audible_word_end", anchor: { tokenId: edited.tokens[3]!.id, quotedWord: "line”" } },
     });
+    expect(edited.tokens.slice(1, 4).map((token) => token.researchQuoteProvenance)).toEqual(
+      Array.from({ length: 3 }, () => ({
+        researchProjectId: quote().researchProjectId, researchQuoteId: quote().researchQuoteId,
+        researchSourceId: quote().researchSourceId, useId: overlay.quoteBox!.researchQuoteUseId,
+      })),
+    );
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
     expect(doc).toEqual(before);
   });
 
-  it("attaches existing words with a Web Capture and does not insert narration", () => {
+  it("attaches existing words with a retained picture and does not insert narration", () => {
     const { doc, row } = fixture();
-    const result = placeResearchQuoteV2(doc, quote(), {
-      kind: "web_capture", source: { kind: "capture_revision", captureId: researchId(910001), revisionId: researchId(910002) },
-    }, request(row, { kind: "selected_words", startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[1]!.id }), generator());
+    const result = placeResearchQuoteV2(doc, quote(), picture(),
+      request(row, { kind: "selected_words", startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[1]!.id }), generator());
     expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     const { row: edited, overlay, background } = placed(result.document);
     expect(edited.text).toBe(row.text);
     expect(edited.tokens).toEqual(row.tokens);
     expect(background.payload).toMatchObject({
-      pictureKind: "capture", source: { kind: "capture_revision", captureId: researchId(910001), revisionId: researchId(910002) },
+      pictureKind: "image", researchQuotePicture: picturePin(),
     });
     expect(overlay.timing).toMatchObject({
       start: { anchor: { tokenId: row.tokens[0]!.id } },
@@ -160,6 +187,59 @@ describe("place Research quote as one document edit", () => {
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
   });
 
+  it("validates complete quote provenance and image-only pinned pictures", () => {
+    const { doc, row } = fixture();
+    const placedQuote = placeResearchQuoteV2(doc, quote(), picture(),
+      request(row, { kind: "insert", beforeTokenId: null }), generator());
+    expect(placedQuote.ok, JSON.stringify(placedQuote.diagnostics)).toBe(true);
+    if (!placedQuote.ok) return;
+    const validRow = placedQuote.document.activeDraft.blocks[0];
+    if (!validRow || validRow.type !== "narration") throw new Error("Expected narration row");
+
+    const mismatched = structuredClone(placedQuote.document);
+    const mismatchRow = mismatched.activeDraft.blocks[0];
+    if (!mismatchRow || mismatchRow.type !== "narration") throw new Error("Expected narration row");
+    const attributedToken = mismatchRow.tokens.find((token) => token.researchQuoteProvenance);
+    if (!attributedToken?.researchQuoteProvenance) throw new Error("Expected attributed speech");
+    attributedToken.researchQuoteProvenance.researchSourceId = researchId(890099);
+    expect(validateScriptDocumentV2(mismatched).diagnostics.map((item) => item.code))
+      .toContain("RESEARCH_QUOTE_PROVENANCE_INVALID");
+
+    const nonspoken = structuredClone(placedQuote.document);
+    const nonspokenRow = nonspoken.activeDraft.blocks[0];
+    if (!nonspokenRow || nonspokenRow.type !== "narration") throw new Error("Expected narration row");
+    const attributedNonspoken = nonspokenRow.tokens.find((token) => token.researchQuoteProvenance);
+    if (!attributedNonspoken) throw new Error("Expected attributed speech");
+    attributedNonspoken.spoken = false;
+    expect(validateScriptDocumentV2(nonspoken).diagnostics.map((item) => item.code))
+      .toContain("RESEARCH_QUOTE_PROVENANCE_INVALID");
+
+    const partialBox = structuredClone(placedQuote.document);
+    const box = partialBox.activeDraft.blocks[0];
+    if (!box || box.type !== "narration") throw new Error("Expected narration row");
+    delete box.overlayEvents[0]!.quoteBox!.researchSourceId;
+    expect(validateScriptDocumentV2(partialBox).diagnostics.map((item) => item.code))
+      .toContain("RESEARCH_QUOTE_PROVENANCE_INVALID");
+
+    const wrongPictureType = structuredClone(placedQuote.document);
+    const visualRow = wrongPictureType.activeDraft.blocks[0];
+    if (!visualRow || visualRow.type !== "narration") throw new Error("Expected narration row");
+    const background = visualRow.primaryVisualSequence!.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" &&
+      slot.payload.researchQuotePicture !== undefined);
+    if (!background || background.kind !== "content" || background.payload.kind !== "visual") {
+      throw new Error("Expected a pinned quote background");
+    }
+    background.payload.pictureKind = "capture";
+    delete background.payload.displayName;
+    background.payload.framingPolicy = "contain";
+    background.payload.source = { kind: "capture_revision", captureId: researchId(890098), revisionId: researchId(890097) };
+    const wrongPictureDiagnostics = validateScriptDocumentV2(wrongPictureType).diagnostics;
+    expect(wrongPictureDiagnostics.map((item) => item.code), JSON.stringify(wrongPictureDiagnostics))
+      .toContain("RESEARCH_QUOTE_PICTURE_INVALID");
+    expect(validateScriptDocumentV2(placedQuote.document).valid).toBe(true);
+  });
+
   it("inserts into an empty spoken row and retains independent per-use box details", () => {
     const { doc, row } = fixture();
     row.text = "";
@@ -169,7 +249,7 @@ describe("place Research quote as one document edit", () => {
       request(row, { kind: "insert", beforeTokenId: null }), generator());
     expect(first.ok, JSON.stringify(first.diagnostics)).toBe(true);
     const firstRow = placed(first.document).row;
-    expect(firstRow.text).toBe(quote().spokenText);
+    expect(firstRow.text).toBe(`“${quote().spokenText}”`);
 
     const second = placeResearchQuoteV2(first.document,
       { ...quote(), displayText: "Second-use display", citationText: "Edited citation", italicSpan: null, citationOverridden: true },
@@ -187,6 +267,135 @@ describe("place Research quote as one document edit", () => {
     expect(validateScriptDocumentV2(second.document).valid).toBe(true);
   });
 
+  it("creates a complete narration row at an exact gap as one Undo command", () => {
+    const { doc, row } = fixture();
+    const original = structuredClone(doc);
+    const prepared = prepareResearchQuotePlacementV2(doc, quote(), null, gapRequest(0, {
+      kind: "gap", sectionId: null, afterRowId: row.id, beforeRowId: null,
+    }), generator());
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.command.kind).toBe("create_row");
+    expect(doc).toEqual(original);
+    if (prepared.command.kind !== "create_row" || prepared.command.row.type !== "narration") return;
+    const created = prepared.command.row;
+    expect(created.text).toBe(`“${quote().spokenText}”`);
+    expect(created.overlayEvents).toHaveLength(1);
+    expect(created.tokens.every((token) => token.researchQuoteProvenance?.useId ===
+      created.overlayEvents[0]!.quoteBox!.researchQuoteUseId)).toBe(true);
+    expect(validateScriptDocumentV2(prepared.document).valid).toBe(true);
+
+    const session = createRowEditSessionV2(doc);
+    expect(session.apply(prepared.command).ok).toBe(true);
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().ok).toBe(true);
+    expect(session.document.activeDraft.blocks).toEqual(original.activeDraft.blocks);
+  });
+
+  it("extends one compatible same-row background across three adjacent quote uses", () => {
+    const { doc, row } = fixture();
+    const first = placeResearchQuoteV2(doc, quote(), picture(),
+      request(row, { kind: "insert", beforeTokenId: null }), generator());
+    expect(first.ok, JSON.stringify(first.diagnostics)).toBe(true);
+    const firstRow = first.document.activeDraft.blocks[0];
+    if (!firstRow || firstRow.type !== "narration") throw new Error("Expected first quote row");
+    const firstBox = firstRow.overlayEvents[0]!.quoteBox!;
+    const initialSlot = firstRow.primaryVisualSequence!.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" &&
+      slot.payload.payloadId === firstBox.backgroundPayloadId);
+    if (!initialSlot || initialSlot.kind !== "content") throw new Error("Expected the first quote background");
+
+    const secondQuote = { ...quote(), researchQuoteId: researchId(890006), spokenText: "Another line" };
+    const second = placeResearchQuoteV2(first.document, secondQuote, picture(),
+      { ...request(firstRow, { kind: "insert", beforeTokenId: null }), expectedDocumentRevision: 1 }, generator(930000));
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const secondRow = second.document.activeDraft.blocks[0];
+    if (!secondRow || secondRow.type !== "narration") throw new Error("Expected second quote row");
+    const thirdQuote = { ...quote(), researchQuoteId: researchId(890007), spokenText: "One last line" };
+    const third = placeResearchQuoteV2(second.document, thirdQuote, picture(),
+      { ...request(secondRow, { kind: "insert", beforeTokenId: null }), expectedDocumentRevision: 2 }, generator(940000));
+    expect(third.ok, JSON.stringify(third.diagnostics)).toBe(true);
+    const thirdRow = third.document.activeDraft.blocks[0];
+    if (!thirdRow || thirdRow.type !== "narration") throw new Error("Expected third quote row");
+    const boxes = thirdRow.overlayEvents.map((event) => event.quoteBox).filter((box) => box !== undefined);
+    expect(boxes).toHaveLength(3);
+    expect(new Set(boxes.map((box) => box.researchQuoteUseId)).size).toBe(3);
+    expect(new Set(boxes.map((box) => box.backgroundPayloadId))).toHaveLength(1);
+    const finalSlot = thirdRow.primaryVisualSequence!.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.payloadId === firstBox.backgroundPayloadId);
+    expect(finalSlot).toEqual(expect.objectContaining({ id: initialSlot.id, boundaryBefore: initialSlot.boundaryBefore }));
+    expect(validateScriptDocumentV2(third.document).valid).toBe(true);
+  });
+
+  it("extends an attached quote only when the next use continues the same source and picture", () => {
+    const { doc, row } = fixture();
+    const first = placeResearchQuoteV2(doc, quote(), picture(),
+      request(row, { kind: "selected_words", startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[0]!.id }), generator());
+    expect(first.ok, JSON.stringify(first.diagnostics)).toBe(true);
+    const firstRow = first.document.activeDraft.blocks[0];
+    if (!firstRow || firstRow.type !== "narration") throw new Error("Expected first quote row");
+    const firstBox = firstRow.overlayEvents[0]!.quoteBox!;
+    const nextQuote = { ...quote(), researchQuoteId: researchId(890010), spokenText: "A different saved quote" };
+    const second = placeResearchQuoteV2(first.document, nextQuote, picture(),
+      { ...request(firstRow, {
+        kind: "selected_words", startTokenId: firstRow.tokens[1]!.id, endTokenId: firstRow.tokens[1]!.id,
+      }), expectedDocumentRevision: 1 }, generator(945000));
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const secondRow = second.document.activeDraft.blocks[0];
+    if (!secondRow || secondRow.type !== "narration") throw new Error("Expected attached quote row");
+    const boxes = secondRow.overlayEvents.map((event) => event.quoteBox).filter((box) => box !== undefined);
+    expect(boxes).toHaveLength(2);
+    expect(boxes[0]!.backgroundPayloadId).toBe(firstBox.backgroundPayloadId);
+    expect(new Set(boxes.map((box) => box.researchQuoteUseId)).size).toBe(2);
+    expect(secondRow.text).toBe(row.text);
+    expect(validateScriptDocumentV2(second.document).valid).toBe(true);
+
+    const otherSource = { ...nextQuote, researchQuoteId: researchId(890011), researchSourceId: researchId(890012) };
+    const mismatch = placeResearchQuoteV2(first.document, otherSource, picture(),
+      { ...request(firstRow, {
+        kind: "selected_words", startTokenId: firstRow.tokens[1]!.id, endTokenId: firstRow.tokens[1]!.id,
+      }), expectedDocumentRevision: 1 }, generator(946000));
+    expect(mismatch.ok).toBe(false);
+  });
+
+  it("does not extend the quote background across another picture", () => {
+    const { doc, row } = fixture();
+    const first = placeResearchQuoteV2(doc, quote(), picture(),
+      request(row, { kind: "insert", beforeTokenId: row.tokens[1]!.id }), generator());
+    expect(first.ok, JSON.stringify(first.diagnostics)).toBe(true);
+    const current = first.document.activeDraft.blocks[0];
+    if (!current || current.type !== "narration") throw new Error("Expected first quote row");
+    const placedFirst = structuredClone(current);
+    const otherToken = placedFirst.tokens.find((token) => token.value === "closer")!;
+    const otherSlot = researchId(950001);
+    placedFirst.unattachedVisuals = [{ slotId: otherSlot, version: 1, payload: {
+      kind: "visual", payloadId: researchId(950002), pictureKind: "image",
+      source: { kind: "media_reference", mediaReferenceId: researchId(950003) }, sourceUsage: null, audioPolicy: "mute",
+    } }];
+    const attached = attachVisualToWordsV2(placedFirst, otherSlot, otherToken.id, otherToken.id);
+    expect("code" in attached).toBe(false);
+    const edit = createRowEditSessionV2(first.document);
+    const changed = edit.apply({ kind: "edit_row", rowId: placedFirst.id, row: placedFirst });
+    expect(changed.ok, JSON.stringify(changed.diagnostics)).toBe(true);
+    const intervening = edit.document;
+    expect(validateScriptDocumentV2(intervening).valid).toBe(true);
+
+    const secondQuote = { ...quote(), researchQuoteId: researchId(890008), spokenText: "A separate line" };
+    const second = placeResearchQuoteV2(intervening, secondQuote, picture(), {
+      ...request(placedFirst, { kind: "selected_words", startTokenId: otherToken.id, endTokenId: otherToken.id }), expectedDocumentRevision: 2,
+    }, generator(960000));
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const updated = second.document.activeDraft.blocks[0];
+    if (!updated || updated.type !== "narration") throw new Error("Expected narration row");
+    const boxes = updated.overlayEvents.map((event) => event.quoteBox).filter((box) => box !== undefined);
+    expect(boxes).toHaveLength(2);
+    expect(boxes[0]!.backgroundPayloadId).not.toBe(boxes[1]!.backgroundPayloadId);
+    expect([
+      ...updated.primaryVisualSequence!.slots.flatMap((slot) => slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload.payloadId] : []),
+      ...(updated.unattachedVisuals ?? []).map((item) => item.payload.payloadId),
+    ]).toContain(researchId(950002));
+  });
+
   it("is one existing session command and one Undo, with no history for a refusal", () => {
     const { doc, row } = fixture();
     const original = structuredClone(doc);
@@ -199,12 +408,12 @@ describe("place Research quote as one document edit", () => {
     const applied = session.apply(prepared.command);
     expect(applied.ok, JSON.stringify(applied.diagnostics)).toBe(true);
     expect(session.undoDepth).toBe(1);
-    expect(placed(session.document).row.text).toBe("Look closer A historic line");
+    expect(placed(session.document).row.text).toBe("Look closer “A historic line”");
     expect(session.undo().ok).toBe(true);
     expect(session.undoDepth).toBe(0);
     expect(session.document.activeDraft.blocks).toEqual(original.activeDraft.blocks);
     expect(session.redo().ok).toBe(true);
-    expect(placed(session.document).row.text).toBe("Look closer A historic line");
+    expect(placed(session.document).row.text).toBe("Look closer “A historic line”");
     const stale = prepareResearchQuotePlacementV2(session.document, quote(), null,
       request(row, { kind: "selected_words", startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[1]!.id }));
     expect(stale.ok).toBe(false);
@@ -234,8 +443,9 @@ describe("place Research quote as one document edit", () => {
     const invalids: Array<{ quote: AuthorizedResearchQuoteV2; background: ResearchQuoteBackgroundV2 }> = [
       { quote: invalidQuote, background: picture() },
       { quote: { ...quote(), researchQuoteId: "not-an-id" }, background: picture() },
+      { quote: { ...quote(), researchQuoteVersion: 0 }, background: picture() },
       { quote: { ...quote(), spokenText: "   " }, background: picture() },
-      { quote: quote(), background: { kind: "web_capture", source: { kind: "capture_revision", captureId: "bad", revisionId: researchId(999901) } } },
+      { quote: quote(), background: { kind: "still_image", picture: { ...picturePin(), ownerId: "bad" } } },
     ];
     for (const bad of invalids) {
       const result = placeResearchQuoteV2(doc, bad.quote, bad.background, base, generator());
@@ -251,8 +461,8 @@ describe("place Research quote as one document edit", () => {
     }
     let allocated = 0;
     const lateCollision = placeResearchQuoteV2(doc, quote(), picture(), base,
-      () => (++allocated === 7 ? row.id : researchId(920000 + allocated)));
-    expect(allocated).toBe(7); // The overlay's last ID fails only after the row and visuals were composed.
+      () => (++allocated === 9 ? row.id : researchId(920000 + allocated)));
+    expect(allocated).toBe(9); // The graphic is composed before its final payload ID collides.
     expect(lateCollision.ok).toBe(false);
     expect(lateCollision.document).toBe(doc);
     expect(doc).toEqual(original);
