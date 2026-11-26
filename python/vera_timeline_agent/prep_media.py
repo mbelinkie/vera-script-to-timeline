@@ -39,6 +39,7 @@ from .prep_media_research_still import (
     materialize_research_still,
 )
 from .quote_box_inputs import freeze_quote_box_inputs
+from .still_credit import freeze_still_credit_inputs
 from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
 from .v2_package import _compiler_hash
 
@@ -351,6 +352,7 @@ def prepare_project(
             raise ValueError("Compiler inputs belong to a different frozen script")
     authored_digest = _compiler_hash(raw_document)
     freeze_quote_box_inputs(raw_document, dependencies)
+    freeze_still_credit_inputs(raw_document, dependencies)
 
     def validated_document() -> Json:
         document, diagnostics = _validate_script(script)

@@ -59,7 +59,7 @@ const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
 // pictures. Other visual operations belong to separate browser stories.
 const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
-  "set_visual_range", "swap_ranges", "set_on_camera_framing",
+  "set_visual_range", "swap_ranges", "set_on_camera_framing", "set_research_still_credit",
 ]);
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -270,7 +270,7 @@ function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
 
 const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
+  "set_visual_range", "set_on_camera_framing", "set_research_still_credit", "move_visual_to_row", "attach_visual_to_words",
 ]);
 const REVISIONED_ROW_KINDS = new Set([
   "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
@@ -304,6 +304,11 @@ function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
     case "set_visual_range":
       if (!exact(value, ["kind", "blockId", "slotId", "startTokenId", "endTokenId"]) ||
           !id(value.startTokenId) || !id(value.endTokenId)) return null;
+      break;
+    case "set_research_still_credit":
+      if (!exact(value, ["kind", "blockId", "slotId", "payloadId", "show"]) ||
+          !uuid(value.blockId) || !uuid(value.slotId) || !uuid(value.payloadId) ||
+          typeof value.show !== "boolean") return null;
       break;
     case "set_on_camera_framing":
       if (!exact(value, ["kind", "blockId", "slotId", "framing"]) ||
@@ -1149,6 +1154,7 @@ export function createAuthoringHandler(
         if (!record(body) || !exact(body, ["document", "command", "expectedSequenceVersion"]) ||
             !document || !validateScriptDocumentV2(document).valid || !record(command) ||
             !AUTHORING_VISUAL_KINDS.has(command.kind) ||
+            (command.kind === "set_research_still_credit" && !visualCommand(command)) ||
             !Number.isSafeInteger(expectedSequenceVersion) || expectedSequenceVersion! < 0) {
           return Response.json({ error: "invalid_visual_command" }, { status: 400 });
         }

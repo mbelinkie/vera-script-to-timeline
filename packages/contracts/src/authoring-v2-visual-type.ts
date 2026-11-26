@@ -121,7 +121,7 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
         sourceUsage: null, audioPolicy: "mute",
         ...(kind !== "image" || previous?.framingPolicy !== undefined ? { framingPolicy } : {}),
         ...(kind === "image" && sourceKept && previous?.researchStill
-          ? { researchStill: previous.researchStill } : {}),
+          ? { researchStill: previous.researchStill, ...(previous.showResearchStillCredit === undefined ? {} : { showResearchStillCredit: previous.showResearchStillCredit }) } : {}),
         ...(kind === "image" && sourceKept && previous?.researchQuotePicture
           ? { researchQuotePicture: previous.researchQuotePicture } : {}),
       };

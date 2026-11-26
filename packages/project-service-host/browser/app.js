@@ -26,7 +26,7 @@ const prompterStatus = element("prompter-status");
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing",
+  "set_visual_range", "set_on_camera_framing", "set_research_still_credit",
   "move_visual_to_row", "attach_visual_to_words",
 ]);
 const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",

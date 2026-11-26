@@ -650,6 +650,7 @@ class NarratedVisualPayloadV2(TypedDict):
     imageMotion: NotRequired[ImageMotionV1]
     researchClip: NotRequired[ResearchClipSnapshotV2]
     researchStill: NotRequired[ResearchStillSnapshotV2]
+    showResearchStillCredit: NotRequired[bool]
     researchQuotePicture: NotRequired[ResearchQuotePictureV2]
     frameBinding: NotRequired[ResearchFrameBindingV2]
     selectedSourceRange: NotRequired[SelectedSourceRange]

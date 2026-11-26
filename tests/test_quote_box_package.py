@@ -11,10 +11,12 @@ from uuid import uuid4
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
 from issue177_package_fixture import _refresh_document_closure, make_package_case
+from PIL import Image
 from vera_timeline_agent import quote_box_inputs
 from vera_timeline_agent.build_compiler_bridge import invoke_bridge
 from vera_timeline_agent.native_image_motion import native_still_stem
 from vera_timeline_agent.placeholder_slate import transparent_graphic_carrier
+from vera_timeline_agent.still_credit import freeze_still_credit_inputs, render_credit
 from vera_timeline_agent.v2_package import (
     BUILD_DIRECTORY,
     DELIVERY_VIEW_FILENAME,
@@ -268,3 +270,82 @@ def test_quote_boxes_compile_package_roundtrip_and_attest(quote_case: Any) -> No
         "markerCount": verified.marker_count,
         "mediaCount": verified.media_count,
     }
+
+
+def test_still_credit_compiles_packages_and_verifies_real_graphic(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path / "fixture", scenario="still-credit")
+    document, deps, manifest, report = [
+        json.loads(path.read_text())
+        for path in (
+            case.document_path,
+            case.dependencies_path,
+            case.manifest_path,
+            case.report_path,
+        )
+    ]
+    row = document["activeDraft"]["blocks"][0]
+    payload = row["primaryVisualSequence"]["slots"][0]["payload"]
+    asset_hash = deps["occurrenceResolutions"][0]["sourceSnapshot"][
+        "contentHash"
+    ].removeprefix("sha256:")
+    pin = {
+        "researchProjectId": str(uuid4()),
+        "itemId": str(uuid4()),
+        "itemVersion": 1,
+        "sourceId": str(uuid4()),
+        "title": "Fixture still",
+        "credit": "Example Credit",
+        "provenance": {
+            "kind": "still_crop",
+            "sourceUrl": "https://example.com/a.jpg",
+            "resolvedUrl": "https://example.com/a.jpg",
+            "pageUrl": "https://example.com/",
+            "altText": "Fixture",
+            "parentItemId": str(uuid4()),
+            "crop": {"x": 0, "y": 0, "width": 1, "height": 1},
+            "inputSha256": asset_hash,
+        },
+        "original": {
+            "versionId": "kept-v1",
+            "sha256": asset_hash,
+            "byteCount": 46,
+            "mimeType": "image/jpeg",
+            "width": 1920,
+            "height": 1080,
+        },
+    }
+    payload["researchStill"] = pin
+    before = copy.deepcopy(deps)
+    assert not freeze_still_credit_inputs(document, deps)
+    assert deps == before
+    payload["showResearchStillCredit"] = True
+    assert freeze_still_credit_inputs(document, deps)
+    once = copy.deepcopy(deps)
+    assert freeze_still_credit_inputs(document, deps)
+    assert deps == once
+    _refresh_document_closure(document, deps, manifest, report)
+    case.document_path.write_text(json.dumps(document))
+    case.dependencies_path.write_text(json.dumps(deps))
+    compiled = _compile_case(case)["manifest"]
+    credits = [event for event in compiled["events"] if event["kind"] == "still_credit"]
+    assert len(credits) == 1
+    assert credits[0]["recordRange"] == {"startFrame": 24, "endFrame": 96}
+    assert credits[0]["stillCredit"]["text"] == pin["credit"]
+    built = case.build()
+    assert verify_v2_package(built.project_root).event_count == len(compiled["events"])
+    build_root = built.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((build_root / DELIVERY_VIEW_FILENAME).read_text())
+    event = next(event for event in view["events"] if event["kind"] == "still_credit")
+    source = next(
+        source for source in view["sources"] if source["id"] == event["sourceId"]
+    )
+    carrier = built.project_root / source["path"]
+    assert carrier.read_bytes() == render_credit(
+        pin["credit"], compiled["timeline"]["width"], compiled["timeline"]["height"]
+    )
+    with Image.open(carrier) as graphic:
+        assert graphic.mode == "RGBA"
+        assert graphic.getchannel("A").getextrema() == (0, 255)
+    assert attest_package_v2(built.project_root, tmp_path / "attestation.json").exists()

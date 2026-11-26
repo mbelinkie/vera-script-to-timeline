@@ -2274,6 +2274,38 @@ describe("pure v2 compiler", () => {
       readGolden("narrated-image-still-holds.manifest", compiled.manifestJson);
       readGolden("narrated-image-still-holds.report", compiled.reportJson);
     }
+    const pin = {
+      researchProjectId: id(900), itemId: id(901), itemVersion: 1, sourceId: id(902),
+      title: "Kept still", credit: "  Example Credit  ",
+      provenance: { kind: "still_crop" as const, sourceUrl: "https://example.com/a.jpg",
+        resolvedUrl: "https://example.com/a.jpg", pageUrl: "https://example.com/",
+        altText: "Fixture", parentItemId: id(903), crop: { x: 0, y: 0, width: 1, height: 1 }, inputSha256: "a".repeat(64) },
+      original: { versionId: "v1", sha256: "a".repeat(64), byteCount: 100, mimeType: "image/jpeg" as const, width: 1920, height: 1080 },
+    };
+    root.payload.researchStill = structuredClone(pin);
+    const overlay = row.overlayEvents[0]!;
+    overlay.payload.researchStill = structuredClone(pin);
+    const credits = () => {
+      const result = compileTimelineV2(doc, deps);
+      if (!result.ok) throw new Error(JSON.stringify(result));
+      return result.manifest.events.filter(event => event.kind === "still_credit");
+    };
+    expect(credits()).toEqual([]);
+    root.payload.showResearchStillCredit = false;
+    expect(credits()).toEqual([]);
+    root.payload.showResearchStillCredit = true;
+    deps.tracks.push({ id: "still-credit", kind: "video", index: 6, name: "Still Credits" });
+    deps.roles.overlayTrackIds.push("still-credit");
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 24, endFrame: 96 }, stillCredit: { text: "Example Credit" } }]);
+    root.payload.showResearchStillCredit = false;
+    overlay.payload.showResearchStillCredit = true;
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 24 }, stillCredit: { text: "Example Credit" } }]);
+    root.payload.showResearchStillCredit = true;
+    delete overlay.payload.researchStill.credit;
+    if (overlay.timing.kind !== "timed") throw new Error("Expected timed overlay");
+    overlay.timing.durationMs = 500;
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 12, endFrame: 96 }, stillCredit: { text: "Example Credit" } }]);
+
   });
 
   it("freezes presenter-still fallback, project default, and a distinct script override", () => {

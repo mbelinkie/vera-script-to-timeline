@@ -2065,6 +2065,22 @@ describe("browser authoring over the local project service", () => {
       slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
     expect(reopenedSlot).toBeDefined();
     expect(reopened?.primaryVisualSequence).toEqual(savedBeforeReload?.primaryVisualSequence);
+    const credit = card.getByRole("checkbox", { name: "Show credit on screen" });
+    expect(await credit.isChecked()).toBe(false);
+    await credit.check();
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const slot = row?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill);
+      return slot?.kind === "content" ? slot.payload : null;
+    }).toMatchObject({ showResearchStillCredit: true, researchStill: loggedStill });
+    await page.reload();
+    await expect.poll(() => credit.isChecked()).toBe(true);
+    await credit.uncheck();
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const slot = row?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill);
+      return slot?.kind === "content" ? slot.payload : null;
+    }).toMatchObject({ showResearchStillCredit: false, researchStill: loggedStill });
     await page.close();
   }, 90_000);
 

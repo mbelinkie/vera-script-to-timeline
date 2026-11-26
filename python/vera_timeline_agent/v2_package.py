@@ -55,6 +55,13 @@ from vera_timeline_agent.presenter_warning_validation import (
     validate_temporary_presenter_report,
 )
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
+from vera_timeline_agent.still_credit import (
+    TRACK_ID as STILL_CREDIT_TRACK_ID,
+)
+from vera_timeline_agent.still_credit import (
+    credit_text,
+    render_credit,
+)
 from vera_timeline_agent.transition_delivery_v2 import (
     TransitionRefusal,
     validate_signed_transitions,
@@ -945,7 +952,7 @@ def _validate_manifest_semantics(
                 raise _error(
                     f"primary visual event {event_id} is outside a root or child track"
                 )
-        elif event_kind in {"overlay_visual", "quote_box"}:
+        elif event_kind in {"overlay_visual", "quote_box", "still_credit"}:
             if track_id not in roles.get("overlayTrackIds", []) or role != "overlay":
                 raise _error(
                     f"overlay event {event_id} is outside a configured overlay track"
@@ -1058,7 +1065,10 @@ def _validate_manifest_semantics(
                 )
             if event_kind in {"primary_visual", "overlay_visual"}:
                 visual_source_ids.add(source_id)
-        elif event_kind in {"placeholder", "quote_box"} and source_id is not None:
+        elif (
+            event_kind in {"placeholder", "quote_box", "still_credit"}
+            and source_id is not None
+        ):
             raise _error(
                 f"{event_kind} event {event_id} must use its explicit event media"
             )
@@ -1223,6 +1233,89 @@ def _validate_manifest_semantics(
             )
 
         events_by_track[track_id].append(event)
+
+    # Reconstruct all topmost credited picture intervals independently from the
+    # frozen authored occurrence and the verified picture inventory.
+    credit_events = [
+        event for event in events.values() if event["kind"] == "still_credit"
+    ]
+    pictures = [
+        event
+        for event in events.values()
+        if event["kind"] in {"primary_visual", "overlay_visual", "placeholder"}
+    ]
+    expected_credits = {}
+    for picture in pictures:
+        text = credit_text(authored_visuals.get(picture["provenance"]["payloadId"], {}))
+        if not text:
+            continue
+        lane = tracks.get(STILL_CREDIT_TRACK_ID)
+        if (
+            not lane
+            or lane["kind"] != "video"
+            or STILL_CREDIT_TRACK_ID not in overlay_ids
+            or any(
+                track["kind"] == "video" and track["index"] > lane["index"]
+                for track in tracks.values()
+            )
+            or any(event["trackId"] == STILL_CREDIT_TRACK_ID for event in pictures)
+        ):
+            raise _error("still credit requires a dedicated topmost video track")
+        ranges = [_range(picture["recordRange"], "credited picture range")]
+        for above in pictures:
+            if tracks[above["trackId"]]["index"] <= tracks[picture["trackId"]]["index"]:
+                continue
+            left, right = _range(above["recordRange"], "covering picture range")
+            remaining = []
+            for start_frame, end_frame in ranges:
+                if right <= start_frame or left >= end_frame:
+                    remaining.append((start_frame, end_frame))
+                else:
+                    if start_frame < left:
+                        remaining.append((start_frame, left))
+                    if right < end_frame:
+                        remaining.append((right, end_frame))
+            ranges = remaining
+        for start_frame, end_frame in ranges:
+            identity = _stable_compiler_id(
+                f"still-credit:{picture['eventId']}:{start_frame}:{end_frame}"
+            )
+            expected_credits[identity] = (picture, text, start_frame, end_frame)
+    for event in credit_events:
+        expected = expected_credits.pop(event["eventId"], None)
+        if expected is None:
+            raise _error("unexpected still credit event")
+        picture, text, start_frame, end_frame = expected
+        provenance = {
+            **picture["provenance"],
+            "payloadId": None,
+            "sourceId": None,
+            "originalSourceHash": None,
+            "deliveredSourceHash": None,
+        }
+        if (
+            event["trackId"] != STILL_CREDIT_TRACK_ID
+            or event["recordRange"]
+            != {"startFrame": start_frame, "endFrame": end_frame}
+            or event["stillCredit"]
+            != {"pictureEventId": picture["eventId"], "text": text}
+            or event["provenance"] != provenance
+            or any(
+                event.get(key) is not None
+                for key in (
+                    "sourceRange",
+                    "sourceTimeMapping",
+                    "preparationBindingHash",
+                    "audio",
+                    "pictureTreatment",
+                )
+            )
+        ):
+            raise _error(
+                "still credit differs from its authored occurrence or visible range"
+            )
+    if expected_credits:
+        raise _error("an authored visible still credit is absent from the build")
 
     if authored_quotes:
         raise _error("an authored quote box is absent from the build")
@@ -2272,6 +2365,24 @@ def _quote_carrier(event_id: str, timeline: JsonObject) -> _InputArtifact:
     )
 
 
+def _still_credit_artifact(event: JsonObject, timeline: JsonObject) -> _InputArtifact:
+    try:
+        raw = render_credit(
+            event["stillCredit"]["text"], timeline["width"], timeline["height"]
+        )
+        stem = native_image_motion.native_still_stem(event["eventId"])
+    except (ValueError, OSError, UnicodeError) as error:
+        raise _error(f"still credit graphic cannot be rendered: {error}") from error
+    return _InputArtifact(
+        f"event:{event['eventId']}",
+        Path("."),
+        f"Media/Resolved/{stem}.png",
+        _hash_bytes(raw),
+        "still",
+        raw,
+    )
+
+
 def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
@@ -2521,6 +2632,9 @@ def _media_artifacts(
         if event["kind"] == "quote_box":
             carrier = _quote_carrier(event["eventId"], manifest["timeline"])
             artifacts[carrier.key] = carrier
+        elif event["kind"] == "still_credit":
+            credit = _still_credit_artifact(event, manifest["timeline"])
+            artifacts[credit.key] = credit
     by_binding = {
         _compiler_hash(item.record["binding"]): item for item in prepared.values()
     }
@@ -2717,7 +2831,7 @@ def _delivery_view(
         provenance = cast(JsonObject, event["provenance"])
         if kind == "script_marker":
             continue
-        if kind in {"placeholder", "quote_box"}:
+        if kind in {"placeholder", "quote_box", "still_credit"}:
             source_id = event_id
             key = f"event:{event_id}"
             native_kind = "still"
@@ -2828,7 +2942,7 @@ def _delivery_view(
                     "startFrame": selected_start,
                     "durationFrames": selected_end - selected_start,
                 }
-        elif kind in {"placeholder", "quote_box", "narration"}:
+        elif kind in {"placeholder", "quote_box", "still_credit", "narration"}:
             source_range = {
                 "startFrame": 0,
                 "durationFrames": record_end - record_start,
@@ -2955,7 +3069,7 @@ def _validate_delivery_view(
     sources = _unique_by_id(view.get("sources"), "delivery source")
     expected_source_ids = {
         event["eventId"]
-        if event["kind"] in {"placeholder", "quote_box", "source_audio"}
+        if event["kind"] in {"placeholder", "quote_box", "still_credit", "source_audio"}
         else cast(JsonObject, event["provenance"])["sourceId"]
         for event in cast(list[JsonObject], manifest["events"])
         if event["kind"] != "script_marker"
@@ -2970,7 +3084,9 @@ def _validate_delivery_view(
         and "imageMotion" in event["pictureTreatment"]
     }
     quote_ids = {
-        event["eventId"] for event in manifest["events"] if event["kind"] == "quote_box"
+        event["eventId"]
+        for event in manifest["events"]
+        if event["kind"] in {"quote_box", "still_credit"}
     }
     source_paths: dict[str, str] = {}
     for source_id, source in sources.items():
@@ -3054,6 +3170,18 @@ def _validate_delivery_view(
     }
     for event in cast(list[JsonObject], manifest["events"]):
         event_id = cast(str, event["eventId"])
+        if event["kind"] == "still_credit":
+            credit = _still_credit_artifact(event, manifest["timeline"])
+            source = sources[event_id]
+            if (
+                source["contentHash"] != credit.content_hash
+                or source["kind"] != "still"
+            ):
+                raise _error(
+                    f"still credit {event_id} has different generated graphic bytes"
+                )
+            artifact_map[credit.key] = credit
+            continue
         if event["kind"] == "quote_box":
             carrier = _quote_carrier(event_id, manifest["timeline"])
             source = sources[event_id]
@@ -3229,10 +3357,21 @@ def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
     for event_kind, kind, prefix, target in (
         ("music", "audio", "A", 5),
         ("quote_box", "video", "V", 4),
+        (
+            "still_credit",
+            "video",
+            "V",
+            max(
+                (track["index"] for track in tracks if track["kind"] == "video"),
+                default=0,
+            ),
+        ),
     ):
         if event_kind not in kinds:
             continue
-        occupied = {track["index"] for track in tracks if track["kind"] == kind}
+        occupied = {
+            track["index"] for track in [*tracks, *padding] if track["kind"] == kind
+        }
         for index in range(1, target):
             if index in occupied:
                 continue
@@ -4701,7 +4840,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
             )
     for event in cast(list[JsonObject], manifest.get("events", [])):
         event_id = cast(str, event["eventId"])
-        if event["kind"] in {"quote_box", "placeholder"}:
+        if event["kind"] in {"quote_box", "still_credit", "placeholder"}:
             view_source = sources.get(event_id)
             if view_source is None:
                 raise _error(

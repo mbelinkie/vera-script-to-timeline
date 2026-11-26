@@ -174,6 +174,21 @@ function applyCommand(
       return swapRanges(document, command.blockId, expectedVersion, command.firstSlotId, command.secondSlotId);
     case "set_visual_range":
       return coverageEdit(document, command.blockId, command.slotId, (row) => setVisualRangeV2(row, command.slotId, command.startTokenId, command.endTokenId));
+    case "set_research_still_credit": {
+      const row = findRow(document, command.blockId);
+      const sequence = row?.primaryVisualSequence;
+      if (!row || !sequence) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", command.blockId);
+      const slot = sequence.slots.find((item) => item.kind === "content" && item.id === command.slotId);
+      const waiting = row.unattachedVisuals?.find((item) => item.slotId === command.slotId);
+      const payload = slot?.kind === "content" ? slot.payload : waiting?.payload;
+      if (payload?.kind !== "visual" || !payload.researchStill || payload.payloadId !== command.payloadId || typeof command.show !== "boolean") {
+        return refused("RESEARCH_STILL_CREDIT_TARGET_INVALID", "Choose the same saved Research still occurrence.", command.blockId, command.slotId);
+      }
+      payload.showResearchStillCredit = command.show;
+      if (waiting) waiting.version += 1;
+      sequence.version += 1;
+      return changed([row.id], [command.slotId], [payload.payloadId]);
+    }
     case "set_on_camera_framing":
       return coverageEdit(document, command.blockId, command.slotId, (row) => setOnCameraFramingV2(row, command.slotId, command.framing));
     case "move_visual_to_row": {

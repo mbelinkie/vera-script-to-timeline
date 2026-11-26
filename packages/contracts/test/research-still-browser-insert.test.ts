@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { NarratedVisualPayloadV2, ResearchStillSnapshotV2 } from "../src/generated/contracts-v2.js";
+import { applyVisualSequenceEditV2 } from "../src/authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { retypeVisualPayloadV2 } from "../src/authoring-v2-visual-type.js";
 import { toWordlessPlacementV2 } from "../src/authoring-v2-wordless.js";
@@ -112,6 +113,41 @@ describe("Research still browser insertion: one atomic selected-words edit", () 
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
     expect(doc).toEqual(before);
     expect(still).toEqual(savedStill);
+  });
+
+  it("toggles one occurrence without changing its kept source or another use", () => {
+    const { doc, row } = fixture();
+    const still = stillSnapshot();
+    const first = insertResearchStillBrowserV2(doc, still, request(row, still));
+    expect(first.ok).toBe(true);
+    const firstRow = first.document.activeDraft.blocks[0];
+    if (firstRow?.type !== "narration") throw new Error("Expected narration");
+    const intent: ResearchStillBrowserInsertV2 = request(firstRow, still, 1);
+    intent.placement = { kind: "unattached", rowId: firstRow.id, expectedRowVersion: firstRow.version,
+      expectedSequenceVersion: firstRow.primaryVisualSequence!.version };
+    const second = insertResearchStillBrowserV2(first.document, still, intent);
+    expect(second.ok).toBe(true);
+    const placed = second.document.activeDraft.blocks[0];
+    if (placed?.type !== "narration") throw new Error("Expected narration");
+    const slot = placed.primaryVisualSequence!.slots.find((slot) => slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill);
+    if (!slot || slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected still");
+    expect(slot.payload.showResearchStillCredit).toBeUndefined();
+    const command = { kind: "set_research_still_credit" as const, blockId: placed.id,
+      slotId: slot.id, payloadId: slot.payload.payloadId, show: true };
+    const version = placed.primaryVisualSequence!.version;
+    const enabled = applyVisualSequenceEditV2(second.document, version, command);
+    expect(enabled.ok, JSON.stringify(enabled.diagnostics)).toBe(true);
+    expect(insertedPayload(enabled.document)).toEqual({ ...slot.payload, showResearchStillCredit: true });
+    const updated = enabled.document.activeDraft.blocks[0];
+    if (updated?.type !== "narration") throw new Error("Expected narration");
+    expect(updated.unattachedVisuals).toEqual(placed.unattachedVisuals);
+    expect(applyVisualSequenceEditV2(enabled.document, version + 1, { ...command, payloadId: researchId(999999) }).ok).toBe(false);
+    const disabled = applyVisualSequenceEditV2(enabled.document, version + 1, { ...command, show: false });
+    expect(disabled.ok).toBe(true);
+    expect(insertedPayload(disabled.document)).toEqual({ ...slot.payload, showResearchStillCredit: false });
+    const invalid = structuredClone(enabled.document);
+    delete insertedPayload(invalid).researchStill;
+    expect(validateScriptDocumentV2(invalid).valid).toBe(false);
   });
 
   it("adds an unattached kept image without modifying narration and advances both versions", () => {

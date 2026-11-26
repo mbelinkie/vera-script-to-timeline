@@ -665,7 +665,10 @@ def _validate_view(
             "primary_visual",
             "overlay_visual",
         }:
-            if isinstance(event, Mapping) and event.get("kind") == "quote_box":
+            if isinstance(event, Mapping) and event.get("kind") in {
+                "quote_box",
+                "still_credit",
+            }:
                 event_id = event.get("eventId")
                 if isinstance(event_id, str):
                     quote_box_source_ids.add(event_id)
@@ -1030,6 +1033,15 @@ def _validate_view(
                         raise WorkflowV2Error(
                             "placeholder bytes differ from the authored reference"
                         )
+            elif event_kind == "still_credit":
+                if (
+                    source_id != event_id
+                    or delivery_source.get("kind") != "still"
+                    or not isinstance(original.get("stillCredit"), Mapping)
+                    or not isinstance(provenance, Mapping)
+                    or provenance.get("sourceId") is not None
+                ):
+                    raise WorkflowV2Error("still credit identity or values are invalid")
             elif event_kind == "quote_box":
                 quote_box = original.get("quoteBox")
                 if (
@@ -1097,6 +1109,11 @@ def _validate_view(
                     raise WorkflowV2Error(
                         "source audio range differs from safe timeline counters"
                     )
+            elif event_kind == "still_credit":
+                if source_start != 0 or source_duration != record_duration:
+                    raise WorkflowV2Error(
+                        "still credit hold differs from its record duration"
+                    )
             elif isinstance(picture, Mapping) and picture.get("kind") == "still_frame":
                 if source_duration != record_duration:
                     raise WorkflowV2Error(
@@ -1107,7 +1124,13 @@ def _validate_view(
                 != _manifest_range(original["sourceRange"], "manifest source range")
             ):
                 raise WorkflowV2Error("delivery source range differs from the v2 event")
-        elif event_kind in {"source_audio", "placeholder", "quote_box", "music"}:
+        elif event_kind in {
+            "source_audio",
+            "placeholder",
+            "quote_box",
+            "still_credit",
+            "music",
+        }:
             raise WorkflowV2Error("delivery event has no native source range")
 
         occupied.setdefault(cast(str, track_id), []).append(
@@ -1179,7 +1202,7 @@ def _picture_supported(event_kind: object, picture: object, source_kind: str) ->
     if picture is None:
         return event_kind != "placeholder" and (
             source_kind in {"video", "audio"}
-            or (event_kind == "quote_box" and source_kind == "still")
+            or (event_kind in {"quote_box", "still_credit"} and source_kind == "still")
         )
     if not isinstance(picture, Mapping):
         return False
@@ -1338,6 +1361,15 @@ def _native_otio_transport_tracks(view: Mapping[str, Any]) -> list[dict[str, Any
     for event_kind, kind, prefix, target in (
         ("music", "audio", "A", 5),
         ("quote_box", "video", "V", 4),
+        (
+            "still_credit",
+            "video",
+            "V",
+            max(
+                (track["index"] for track in tracks if track["kind"] == "video"),
+                default=0,
+            ),
+        ),
     ):
         if event_kind not in kinds:
             continue
@@ -1367,7 +1399,7 @@ def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
     source_kinds = {source["id"]: source["kind"] for source in view["sources"]}
     return any(
         _uses_still_composition(event, source_kinds[event["sourceId"]])
-        and event.get("kind") != "quote_box"
+        and event.get("kind") not in {"quote_box", "still_credit"}
         and not (
             isinstance(event.get("pictureTreatment"), Mapping)
             and "imageMotion" in event["pictureTreatment"]
@@ -2204,7 +2236,7 @@ def _native_otio_single_frame_hold(
     return (
         source.get("kind") == "still"
         and (
-            event.get("kind") == "quote_box"
+            event.get("kind") in {"quote_box", "still_credit"}
             or (
                 isinstance(picture, Mapping)
                 and isinstance(picture.get("imageMotion"), Mapping)
@@ -3494,6 +3526,15 @@ def _event_source_provenance_matches(
             )
         # The verified package binds generated slate bytes to the authored text.
         return True
+    if event.get("kind") == "still_credit":
+        return (
+            source_id == event.get("id")
+            and source.get("kind") == "still"
+            and manifest_event.get("kind") == "still_credit"
+            and isinstance(manifest_event.get("stillCredit"), Mapping)
+            and isinstance(manifest_event.get("provenance"), Mapping)
+            and manifest_event["provenance"].get("sourceId") is None
+        )
     if event.get("kind") == "quote_box":
         return (
             source_id == event.get("id")
@@ -3570,7 +3611,7 @@ def _fractional_source_range_matches(
                 source_start, _source_duration = _frame_range(
                     event.get("sourceRange"), "still event source range"
                 )
-                if event.get("kind") in {"placeholder", "quote_box"}:
+                if event.get("kind") in {"placeholder", "quote_box", "still_credit"}:
                     manifest_start = 0
                     manifest_duration = record_duration
                     if manifest_event.get("sourceRange") is not None:
@@ -3589,6 +3630,7 @@ def _fractional_source_range_matches(
                     "overlay_visual",
                     "placeholder",
                     "quote_box",
+                    "still_credit",
                 }
                 or source_start != 0
                 or manifest_start != 0
