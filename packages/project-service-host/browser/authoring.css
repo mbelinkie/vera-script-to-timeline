@@ -1266,7 +1266,7 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .stash-panel select { min-width: 0; max-width: 100%; }
 .stash-panel [data-stash-saved-place] { position: sticky; bottom: 0; background: #fff; border: 1px solid #c8d6d9; padding: 0.5rem; }
 .stash-panel [data-stash-saved-description] { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }
-.stash-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
+.stash-entry-text { font-size: calc(1em * var(--stash-text-scale, 1)); white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
 #open-stash[aria-expanded="true"] { outline: 2px solid #c89b45; }
 .sorting-actions #sorting-accept { background: var(--gold); color: var(--ink); border-color: var(--gold); }
 .stash-drop-cursor { position: fixed; width: 3px; background: #c89b45; z-index: 40; pointer-events: none; }
@@ -1301,3 +1301,53 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .sorting-edit .script-row { min-height: 0; }
 .sorting-row--collapsed :is(.narration-cell, .visuals-cell) { display: none; }
 .sorting-row--moved { border-left: 3px solid var(--gold); }
+
+.sorting-edit .narration-cell { padding-right: 0.6rem; }
+.sorting-edit .visuals-cell:has(.sorting-connectors) { padding-left: 50px; }
+@media (max-width: 1024px) {
+  .sorting-edit .visuals-cell:has(.sorting-connectors) { padding-left: 42px; }
+}
+.sorting-connectors { position: absolute; inset: 0; pointer-events: none; }
+.sorting-connector { color: #8b6117; }
+.sorting-connector:nth-child(3n + 2) { color: #2d6874; }
+.sorting-connector:nth-child(3n + 3) { color: #695a8f; }
+.sorting-connector__pin,
+.sorting-connector__number {
+  border: 1px solid currentColor;
+  border-radius: 0.2rem;
+  background: white;
+  font: 650 10px/14px var(--font-ui, sans-serif);
+  min-width: 15px;
+  padding: 0 1px;
+  text-align: center;
+}
+.sorting-connector__pin {
+  position: absolute;
+  color: inherit;
+  top: calc(var(--from) - 7px);
+  left: 1px;
+  pointer-events: auto;
+}
+.sorting-connector__number {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  color: #363237;
+  z-index: 1;
+}
+.sorting-connector > span {
+  display: block;
+  position: absolute;
+  background: currentColor;
+  opacity: 0.62;
+}
+.sorting-connector__start { top: var(--from); left: 16px; width: calc(var(--track) - 16px); height: 1px; }
+.sorting-connector__vertical {
+  top: min(var(--from), var(--to));
+  left: var(--track);
+  width: 1px;
+  height: max(calc(var(--from) - var(--to)), calc(var(--to) - var(--from)));
+}
+.sorting-connector__end { top: var(--to); left: var(--track); width: calc(var(--port) - var(--track)); height: 1px; }
+.sorting-connector--active > span { opacity: 1; }
+.sorting-connected-card { outline: 2px solid var(--gold); }

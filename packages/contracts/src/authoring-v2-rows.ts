@@ -163,6 +163,7 @@ export type RowEditCommandV2 =
   | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
   /** Stash one visual (D91): lift it out of its row into a new Stash item with its source and trim. Never On Camera. */
   | { kind: "stash_visual"; rowId: string; slotId: string; bundleId: string; stashRowId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "insert_stash_visual"; stashRowId: string; destinationRowId: string; destinationSlotId: string }
   | { kind: "attach_stash_footage"; noteRowId: string; clipRowId: string }
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
   | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string }
@@ -346,10 +347,13 @@ function validAuthoredRowCommand(value: unknown): boolean {
   }
 }
 
+const uuid = (item: unknown): item is string => typeof item === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(item);
+
 /** Reserve all document UUID values, including IDs in media, Stash and extras. */
 function documentUuids(value: unknown, result = new Set<string>()): Set<string> {
   if (typeof value === "string") {
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value)) result.add(value.toLowerCase());
+    if (uuid(value)) result.add(value.toLowerCase());
   } else if (value && typeof value === "object") {
     for (const child of Object.values(value)) documentUuids(child, result);
   }
@@ -361,8 +365,6 @@ function validVisualOnlyCommand(value: unknown): boolean {
   if (value.kind === "delete_row_audio_span") {
     return exactKeys(value, ["kind", "cueId"]) && typeof value.cueId === "string" && value.cueId.length > 0;
   }
-  const uuid = (item: unknown): boolean => typeof item === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(item);
   if (value.kind === "move_wordless_visual") {
     const optional = ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"]
       .filter((key) => Object.hasOwn(value, key));
@@ -747,12 +749,13 @@ function hasExternalRowReferences(document: ScriptDocumentV2, rowId: string): bo
     .some((items) => items.some((item) => supportingRows(item, rows).has(rowId)));
 }
 
-function removeOrdinaryStashClip(document: ScriptDocumentV2, rowId: string): VisualOnlyBlockV2 | null {
+function removeOrdinaryStashClip(document: ScriptDocumentV2, rowId: string, includeSavedVisuals = false): VisualOnlyBlockV2 | null {
   const entry = document.stashOutline?.find((candidate) => candidate.rowId === rowId);
   const bundle = document.stash?.find((candidate) => candidate.rows.some((row) => row.id === rowId));
   const row = bundle?.rows.find((candidate) => candidate.id === rowId);
   // Do not silently migrate supporting-item or origin references into an embedded owner.
-  if (!entry || entry.kind !== "clip" || !bundle || row?.type !== "visual_only" ||
+  if (!entry || (entry.kind !== "clip" && !(includeSavedVisuals && entry.kind === "row")) ||
+    !bundle || row?.type !== "visual_only" ||
     bundle.supportingItems.length > 0 || hasExternalRowReferences(document, rowId)) return null;
   bundle.rows = bundle.rows.filter((candidate) => candidate.id !== rowId) as typeof bundle.rows;
   document.stash = document.stash!.filter((candidate) => candidate.rows.length > 0);
@@ -2460,6 +2463,38 @@ export function applyRowEditV2(
     markStashOriginEditedV2(row);
     entries.splice(insertAt, 0, { rowId: clip.id, kind: compact ? "clip" : "row", parentRowId: command.parentRowId, sectionId: command.sectionId });
     (working.stash ??= []).push({ id: command.bundleId, rows: [clip], supportingItems: [] });
+  } else if (command.kind === "insert_stash_visual") {
+    if (!exactKeys(command, ["kind", "stashRowId", "destinationRowId", "destinationSlotId"]) ||
+      !uuid(command.stashRowId) || !uuid(command.destinationRowId) || !uuid(command.destinationSlotId)) {
+      return refused(document, "ROW_COMMAND_INVALID", "Choose a saved visual, receiving row and a fresh visual slot.");
+    }
+    const target = blocks.find((row): row is NarrationBlockV2 =>
+      row.type === "narration" && row.id === command.destinationRowId);
+    const sequence = target?.primaryVisualSequence;
+    if (!target || !sequence || target.state !== "active" || target.plainDirection || !spokenTokensV2(target).length ||
+      target.version === Number.MAX_SAFE_INTEGER || sequence.version === Number.MAX_SAFE_INTEGER) {
+      return refused(document, "MOVE_DESTINATION_UNSAFE", "Choose an active row with spoken words to receive this visual.");
+    }
+    if (documentUuids(document).has(command.destinationSlotId.toLowerCase())) {
+      return refused(document, "VISUAL_ID_DUPLICATE", "Choose a new visual slot.");
+    }
+    ensureStashOutline(working);
+    const source = stashRowById(working, command.stashRowId);
+    if (source?.type !== "visual_only" || source.clearedNarration || source.additionalVisuals?.length ||
+      (working.stashGroups ?? []).some((group) => group.rowIds.includes(command.stashRowId))) {
+      return refused(document, "STASH_VISUAL_UNAVAILABLE", "Choose a single ungrouped stashed visual.");
+    }
+    const converted = toNarratedPlacementV2(wordlessPlacementsV2(source)[0]!);
+    if (!("value" in converted)) return refused(document, converted.code, converted.message);
+    if (!removeOrdinaryStashClip(working, command.stashRowId, true)) {
+      return refused(document, "STASH_VISUAL_UNAVAILABLE", "This visual has saved references that require restoring its whole row.");
+    }
+    target.unattachedVisuals = [...(target.unattachedVisuals ?? []), {
+      slotId: command.destinationSlotId, payload: converted.value, version: 1,
+    }];
+    sequence.version += 1;
+    target.version += 1;
+    markStashOriginEditedV2(target);
   } else if (command.kind === "set_stash_outline") {
     if (!Array.isArray(command.entries)) return refused(document, "STASH_OUTLINE_COMMAND_INVALID", "Provide the complete ordered Stash outline.");
     const current = ensureStashOutline(working);

@@ -5034,7 +5034,8 @@ describe("browser authoring over the local project service", () => {
     const open = async () => {
       await page.locator("#open-sorting").click();
       expect(await page.locator("#sorting-heading").evaluate((el) => el === document.activeElement)).toBe(true);
-      expect(await page.locator("#script-rows").isVisible()).toBe(false);
+      expect(await page.locator("#script-rows").isVisible()).toBe(true);
+      expect(await page.locator("#script-rows [contenteditable]:visible").count()).toBe(0);
       expect(await page.locator(".script-paper").count()).toBe(1);
       expect(await page.locator("#sorting-view").evaluate((el) => getComputedStyle(el).zoom))
         .toBe(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom));
@@ -5056,9 +5057,8 @@ describe("browser authoring over the local project service", () => {
     await move();
     await page.locator("#open-stash").click();
     expect(await page.locator("#stash-panel").isVisible()).toBe(true);
-    expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+    expect(await page.locator("[data-stash-form]").isVisible()).toBe(true);
     expect(await page.locator(`[data-stash-row-id="${parkedRow.id}"]`).innerText()).toContain(parkedRow.text);
-    expect(await page.locator("[data-saved-action]").count()).toBe(0);
     await page.locator("[data-stash-close]").click();
     await page.getByRole("button", { name: "← Back to script" }).click();
     expect(await page.locator("#script-rows").isVisible()).toBe(true);
@@ -5132,6 +5132,83 @@ describe("browser authoring over the local project service", () => {
     await other.close();
     await page.close();
   }, 90_000);
+
+  it.each([
+    { width: 1280, height: 800, outcome: "all", keepsEdits: true, keepsOrder: true },
+    { width: 1024, height: 768, outcome: "edits_only", keepsEdits: true, keepsOrder: false },
+    { width: 1280, height: 800, outcome: "sorting_only", keepsEdits: false, keepsOrder: true },
+    { width: 1024, height: 768, outcome: "discard", keepsEdits: false, keepsOrder: false },
+  ])("#616 saves $outcome with a pending preview at $width × $height", async ({
+    width, height, outcome, keepsEdits, keepsOrder,
+  }) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      await page.setViewportSize({ width, height });
+      const projectId = await createProject(page, origin, "Editable Sorting");
+      const fixture = draggableVisualFixture(projectId);
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      const baseline = await saved();
+      await page.reload();
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      const first = page.locator(`[data-sorting-row-id="${fixture.targetId}"]`);
+      await first.getByRole("button", { name: /^Expand one two/u }).click();
+      const lanes = first.locator("[data-lane]");
+      await expect.poll(() => lanes.count()).toBe(2);
+      const x = await lanes.evaluateAll((items) =>
+        items.map((item) => item.querySelector(".sorting-connector__vertical")?.getBoundingClientRect().left));
+      expect(x[0]).toBeGreaterThan(x[1]!);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const editor = first.locator("[data-narration-editor]");
+      await editor.press("End");
+      await editor.press("!");
+      await expect.poll(async () => await page.locator("#sorting-accept").isEnabled()).toBe(true);
+      // Trial Undo leaves both the working row and the saved document at the original content.
+      await page.getByRole("button", { name: "Undo trial action" }).click();
+      await expect.poll(() => editor.textContent()).toBe("one two three four five six seven eight nine ten");
+      await editor.press("End");
+      await editor.press("!");
+      await expect.poll(async () => await page.locator("#sorting-accept").isEnabled()).toBe(true);
+      await page.getByRole("button", { name: /^Move footage leaves this row.* up$/u }).click();
+      const order = () => page.locator("#script-rows .script-row").evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute("data-row-id")));
+      await expect.poll(async () => (await order())[0]).toBe(fixture.sourceId);
+      await page.getByRole("button", { name: "← Back to script" }).click();
+      expect((await order())[0]).toBe(fixture.sourceId);
+      expect(await page.locator("#script-rows [contenteditable]").count()).toBe(0);
+      expect(await saved()).toEqual(baseline);
+      await page.locator("#open-stash").click();
+      expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+      expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+      await page.locator("[data-stash-close]").click();
+      if (outcome === "discard") await page.getByRole("button", { name: "Discard all" }).click();
+      else {
+        await page.getByLabel("Changes to accept").selectOption(outcome);
+        await page.getByRole("button", { name: "Accept", exact: true }).click();
+      }
+      await page.getByRole("button", { name: "Sort rows", exact: true }).waitFor();
+      const accepted = await saved();
+      expect(accepted.revision).toBe(baseline.revision + Number(outcome !== "discard"));
+      const expectedFirst = keepsOrder ? fixture.sourceId : fixture.targetId;
+      expect(accepted.document.activeDraft.blocks[0]?.id).toBe(expectedFirst);
+      const authored = accepted.document.activeDraft.blocks.find((block) => block.id === fixture.targetId);
+      expect(authored?.type === "narration" && authored.text.includes("!")).toBe(keepsEdits);
+      if (outcome === "all") {
+        await page.getByRole("button", { name: "Undo Sort rows" }).click();
+        await expect.poll(async () => (await saved()).document.activeDraft.blocks)
+          .toEqual(baseline.document.activeDraft.blocks);
+        await page.reload();
+        await page.locator("#script-rows").waitFor();
+        expect((await order())[0]).toBe(fixture.targetId);
+      } else {
+        await page.reload();
+        await page.locator("#script-rows").waitFor();
+        expect((await order())[0]).toBe(expectedFirst);
+      }
+    } finally { await page.close(); }
+  }, 60_000);
 
   it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

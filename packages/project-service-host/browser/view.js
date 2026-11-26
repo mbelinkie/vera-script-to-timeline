@@ -332,6 +332,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       if (entry.overlay) {
         const payload = overlays.get(entry.overlay.overlayEventId);
         if (payload) list.append(renderVisualCard(document, payload, payload.researchClip, {
+          slotId: entry.overlay.overlayEventId, startTokenIndex: entry.overlay.startTokenIndex,
           footagePlacementId: entry.overlay.overlayEventId,
         }));
         continue;

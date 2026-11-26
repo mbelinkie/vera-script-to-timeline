@@ -286,7 +286,7 @@ function makeRowActions(state, rowElement) {
 
   if (typeof state.stashRow === "function") {
     const stash = button(state.root.ownerDocument, "",
-      row?.stashReturn || row?.stashNoteCopy ? "Return to stash" : "Stash row");
+      row?.stashOrigin?.returnEligible ? "Return to stash" : "Stash row");
     stash.dataset.rowStash = rowId;
     stash.dataset.rowAction = "stash";
     stash.setAttribute("role", "menuitem");

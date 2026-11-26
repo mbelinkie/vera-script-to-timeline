@@ -1,6 +1,6 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel } from "./rows-editor.js";
-import { mountNarration } from "./narration-editor.js";
+import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
@@ -488,7 +488,13 @@ function renderEditor() {
       },
     }));
   });
-  if (sortingTrial) decorateSortingRows(root, model);
+  if (sortingTrial) {
+    decorateSortingRows(root, model);
+    for (const row of root.querySelectorAll(".script-row")) {
+      const block = model.activeDraft.blocks.find((item) => item.id === row.dataset.rowId);
+      if (block?.type === "narration") narrationCleanup.push(mountVisualConnectors(row, block));
+    }
+  }
   if (requestedCardFocus) {
     const row = [...root.querySelectorAll("[data-row-id]")]
       .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
@@ -1245,7 +1251,7 @@ async function refreshProjection(documentModel, force, previousProjection = visu
 
 // Every intermediate document is private to this queued operation: a refusal
 // or failed request discards *all* steps without a save or an Undo snapshot.
-async function applyPlainPaste(document, intent) {
+async function applyPlainPaste(document, intent, apply = applyBrowserCommand) {
   const { rowId, startOffset, endOffset, blocks } = intent;
   const row = document.activeDraft.blocks.find((item) => item.id === rowId);
   const editableRow = row?.type === "narration" || row?.type === "visual_only" && row.clearedNarration;
@@ -1264,7 +1270,7 @@ async function applyPlainPaste(document, intent) {
   // later commands MUST use the token IDs returned by the actual model.
   const oldText = row.type === "narration" ? row.text : "";
   if (oldText.slice(startOffset, endOffset) !== insertedText) {
-    const edited = await applyBrowserCommand(working, {
+    const edited = await apply(working, {
       kind: "edit_narration_text", rowId, startOffset, endOffset, insertedText, editId: crypto.randomUUID(),
     });
     working = edited.document;
@@ -1282,7 +1288,7 @@ async function applyPlainPaste(document, intent) {
     const firstRight = current.tokens.find((token) => token.startOffset >= to);
     if (hasLeftWords && firstRight) {
       const newRowId = crypto.randomUUID();
-      const result = await applyBrowserCommand(working, {
+      const result = await apply(working, {
         kind: "split_row", rowId: currentRowId, newRowId, at: { beforeTokenId: firstRight.id },
       });
       working = result.document;
@@ -1299,7 +1305,7 @@ async function applyPlainPaste(document, intent) {
     // The pure split command rightly refuses wordless halves. Remove the
     // separator with a model edit, then use the existing exact-gap Add row.
     // This also preserves the existing row's token/visual identities.
-    const withoutBreak = await applyBrowserCommand(working, {
+    const withoutBreak = await apply(working, {
       kind: "edit_narration_text", rowId: currentRowId, startOffset: from,
       endOffset: to, insertedText: "", editId: crypto.randomUUID(),
     });
@@ -1311,7 +1317,7 @@ async function applyPlainPaste(document, intent) {
       ? item.beforeRowId === currentRowId : item.afterRowId === currentRowId);
     if (!gap) throw new Error("The paste insertion gap changed.");
     const newRowId = crypto.randomUUID();
-    const created = await applyBrowserCommand(working, {
+    const created = await apply(working, {
       kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap,
     });
     working = created.document;
@@ -1333,7 +1339,7 @@ export function beginSortingTrial() {
   sortingTrial = {
     projectId: activeProjectId, revision: documentRevision, digest: documentDigest,
     baseline: scriptDocument, document: scriptDocument, projection: visualProjection,
-    operations: [], movedRowIds: [], expanded: new Set(), busy: false, pending: 0, queue: Promise.resolve(),
+    operations: [], history: [], movedRowIds: [], expanded: new Set(), busy: false, pending: 0, queue: Promise.resolve(),
   };
   typingGroup = null;
   clearPreparedPrompter();
@@ -1360,17 +1366,15 @@ async function sortingRequest(trial, operations, action, outcome) {
   }
 }
 
-function sortingWork(trial, operations) {
-  return sortingRequest(trial, operations, "preview").then(async (result) => {
-    if (!sortingBaselineCurrent(trial)) return false;
-    const projection = result.projection ?? await fetchProjection(result.document).catch(() => null);
-    if (!sortingBaselineCurrent(trial)) return false;
-    trial.projection = projection;
-    trial.operations = operations;
-    trial.document = result.document;
-    trial.movedRowIds = result.movedRowIds;
-    return true;
-  });
+async function updateSortingDocument(trial, operations, result) {
+  if (!sortingBaselineCurrent(trial)) return false;
+  const projection = result.projection ?? await fetchProjection(result.document).catch(() => null);
+  if (!sortingBaselineCurrent(trial)) return false;
+  trial.projection = projection;
+  trial.operations = operations;
+  trial.document = result.document;
+  trial.movedRowIds = result.movedRowIds;
+  return true;
 }
 
 function queueSortingCommand(command, label, options) {
@@ -1381,32 +1385,50 @@ function queueSortingCommand(command, label, options) {
   trial.queue = trial.queue.then(async () => {
     if (!sortingBaselineCurrent(trial)) return false;
     const before = trial.document;
-    if (options.expectedRow) {
-      const expected = options.expectedRow;
-      const row = before.activeDraft.blocks.find((block) => block.id === expected.id);
-      if (row?.text !== expected.text || Boolean(row.plainDirection) !== expected.plainDirection) {
-        throw new Error("The row changed while you were typing.");
-      }
-    }
     if (options.prepareSplitInput) {
       const next = options.prepareSplitInput(before);
       if (!next) return true;
       ({ command, label, options } = next);
     }
-    if (options.research || options.researchStill || options.paste) {
-      throw new Error("This action is unavailable during Sorting. Return to your saved script to use it.");
+    if (options.expectedRow) {
+      const expected = options.expectedRow;
+      const row = before.activeDraft.blocks.find((block) => block.id === expected.id);
+      const matches = row?.type === "narration" && row.text === expected.text &&
+        Boolean(row.plainDirection) === expected.plainDirection;
+      const cleared = row?.type === "visual_only" && row.clearedNarration &&
+        expected.text === "" && !expected.plainDirection;
+      if (!matches && !cleared) throw new Error("The row changed while you were typing.");
     }
     const resolved = typeof command === "function" ? command(before) : command;
-    const operation = options.visual ? {
-      kind: "visual", command: resolved,
-      expectedSequenceVersion: before.activeDraft.blocks.find((row) => row.id === resolved.blockId)?.primaryVisualSequence?.version,
-    } : { kind: "command", command: resolved };
-    if (!await sortingWork(trial, [...trial.operations, operation])) return false;
+    const operations = [...trial.operations];
+    const apply = (operation) => {
+      operations.push(operation);
+      return sortingRequest(trial, operations, "preview");
+    };
+    let latest;
+    if (options.paste) {
+      const pasted = await applyPlainPaste(before, resolved, async (_model, part) => {
+        latest = await apply({ kind: "command", command: part });
+        return latest;
+      });
+      if (pasted.document !== before) structuralFocus = pasted.focusAfter;
+    } else {
+      const operation = options.visual ? {
+        kind: "visual", command: resolved,
+        expectedSequenceVersion: before.activeDraft.blocks.find((row) => row.id === resolved.blockId)?.primaryVisualSequence?.version,
+      } : { kind: "command", command: resolved };
+      latest = await apply(operation);
+    }
+    if (latest) {
+      const originalLength = trial.operations.length;
+      if (!await updateSortingDocument(trial, operations, latest)) return false;
+      trial.history.push(originalLength);
+    }
     if (options.focusAfter) structuralFocus = options.focusAfter;
     if (options.cardFocus) cardFocus = options.cardFocus;
     options.onSplitApplied?.(trial.document, structuralFocus);
     sortingStatus(label);
-    scheduleRender(options.structural || Boolean(options.onSplitApplied));
+    if (!options.renderAfterAction) scheduleRender(options.structural || options.paste || Boolean(options.onSplitApplied));
     return true;
   }).catch((error) => {
     if (sortingTrial === trial) sortingStatus(error.message);
@@ -1424,7 +1446,7 @@ function queueSortingCommand(command, label, options) {
 }
 
 export function moveSortingTrial(command) {
-  return command?.kind === "move_rows" ? queueSortingCommand(command, "Move rows", { structural: true }) : Promise.resolve(false);
+  return command?.kind === "move_rows" ? queueSortingCommand(command, "Move rows", { structural: true, renderAfterAction: true }) : Promise.resolve(false);
 }
 
 export function discardSortingTrial() {
@@ -1623,7 +1645,6 @@ element("open-sorting").addEventListener("click", () => {
   if (!beginSortingTrial()) return;
   researchPanel?.close();
   researchStillPanel?.close();
-  stashPanel?.close(false);
   activeAttach = null;
   activeReselect = null;
   setSortingMode(true);
@@ -1640,8 +1661,12 @@ function undoSorting() {
   if (!trial || trial.preview || trial.acceptance || !trial.operations.length) return;
   void runSortingAction(async () => {
     trial.busy = true;
-    try { return await sortingWork(trial, trial.operations.slice(0, -1)); }
-    finally { trial.busy = false; }
+    try {
+      const operations = trial.operations.slice(0, trial.history.at(-1));
+      if (!await updateSortingDocument(trial, operations, await sortingRequest(trial, operations, "preview"))) return false;
+      trial.history.pop();
+      return true;
+    } finally { trial.busy = false; }
   });
 }
 element("sorting-undo").addEventListener("click", undoSorting);
@@ -2230,7 +2255,7 @@ retrySave.addEventListener("click", () => {
 });
 
 function protectDraft(event) {
-  if (sortingTrial?.operations.length || sortingTrial?.pending || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
+  if (sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
     event.preventDefault();
     event.returnValue = true;
   }
@@ -2266,8 +2291,8 @@ const stashActions = createStashActions((command, label, options) => {
 }, editorDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: editorDocument, readOnly: () => Boolean(sortingTrial?.preview || pendingExtras),
-  applyCommand: applyBrowserCommand, fetchProjection,
+  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || pendingExtras),
+  applyCommand: applyBrowserCommand, fetchProjection, attachVisual: beginAttach,
   getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
   onOpen: () => {
     if (!element("footage-panel").hidden) researchPanel.close();
