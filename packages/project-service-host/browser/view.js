@@ -78,6 +78,42 @@ function appendVisualImage(document, target, src, label, artKind) {
   target.append(image);
 }
 
+function loadQuotePicture(media, payloadId, label, artKind, loader) {
+  media.dataset.quotePictureMedia = "";
+  let active = true;
+  let objectUrl = null;
+  const cleanup = () => {
+    active = false;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+  };
+  media.__veraQuotePictureCleanup = cleanup;
+  void Promise.resolve().then(() => loader(payloadId)).then((asset) => {
+    if (!active || !asset || !/^image\/(?:png|jpeg|webp)$/u.test(asset.mimeType)) return;
+    const image = media.ownerDocument.createElement("img");
+    image.alt = "";
+    image.loading = "lazy";
+    image.decoding = "async";
+    objectUrl = URL.createObjectURL(new Blob([asset.bytes], { type: asset.mimeType }));
+    image.src = objectUrl;
+    image.addEventListener("error", () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+      if (active) {
+        image.replaceWith(makePlaceholderArt(media.ownerDocument, label, artKind));
+      }
+    }, { once: true });
+    if (active) media.replaceChildren(image);
+    else URL.revokeObjectURL(objectUrl);
+  }).catch(() => undefined);
+}
+
+function releaseQuotePictures(root) {
+  for (const media of root.querySelectorAll("[data-quote-picture-media]")) {
+    media.__veraQuotePictureCleanup?.();
+  }
+}
+
 function makePlaceholderArt(document, label, artKind) {
   const art = makeElement(document, "div", "visual-art visual-art--" + artKind);
   art.setAttribute("aria-hidden", "true");
@@ -106,10 +142,11 @@ function onCameraControls(document, blockId, slotId, framing, visualCommand) {
 
 function renderVisualCard(document, payload, researchClip, options = {}) {
   const { blockId, slotId, framing, visualCommand, reselect } = options;
+  const quoteBox = options.quoteBox;
   const isOnCamera = payload?.kind === "on_camera";
   const kind = visualKind(payload);
   const definition = visualKinds[kind];
-  const kindLabel = payload && payload.kind === "on_camera"
+  const kindLabel = quoteBox ? "Quote Box" : payload && payload.kind === "on_camera"
     ? "On Camera"
     : payload && payload.kind === "undefined"
       ? "Visual undefined"
@@ -128,6 +165,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   card.dataset.previewable = String(previewable);
   card.dataset.slotId = options.slotId ?? "";
   if (options.payloadId) card.dataset.payloadId = options.payloadId;
+  if (options.overlayId) card.dataset.overlayId = options.overlayId;
   if (researchClip && options.footagePlacementId) card.dataset.footagePlacement = options.footagePlacementId;
   if (options.draggable && payload?.kind === "visual") {
     card.draggable = true;
@@ -136,17 +174,95 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   }
   if (options.startTokenIndex !== undefined) card.dataset.cueStart = String(options.startTokenIndex);
   if (options.flash) card.classList.add("visual-card--moved");
-  card.setAttribute("aria-label", kindLabel + ": " + label);
+  card.setAttribute("aria-label", kindLabel + ": " + (quoteBox?.displayText || label));
   if (previewable) card.tabIndex = 0;
 
   const media = makeElement(document, "div", "visual-card__image");
   media.setAttribute("aria-hidden", "true");
   appendVisualImage(document, media, imageSource, label, definition.art);
+  if (!imageSource && payload?.researchQuotePicture && typeof options.quotePicture === "function") {
+    loadQuotePicture(media, payload.payloadId, label, definition.art, options.quotePicture);
+  }
   card.append(media);
 
   const meta = makeElement(document, "figcaption", "visual-card__meta");
   meta.append(makeElement(document, "span", "visual-card__type", kindLabel));
-  if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
+  if (!quoteBox && label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
+  if (quoteBox) {
+    const quote = makeElement(document, "blockquote", "visual-card__quote-text", quoteBox.displayText);
+    meta.append(quote);
+    const speaker = [quoteBox.speakerName, quoteBox.speakerTitle].filter((part) => typeof part === "string" && part.trim()).join(", ");
+    if (speaker) meta.append(makeElement(document, "span", "visual-card__quote-speaker", speaker));
+    const citation = makeElement(document, "cite", "visual-card__quote-citation");
+    const source = quoteBox.citationText ?? "";
+    const span = quoteBox.italicSpan;
+    const characters = [...source];
+    if (span && Number.isSafeInteger(span.start) && Number.isSafeInteger(span.end) &&
+        span.start >= 0 && span.end > span.start && span.end <= characters.length) {
+      citation.append(document.createTextNode(characters.slice(0, span.start).join("")));
+      citation.append(makeElement(document, "em", "", characters.slice(span.start, span.end).join("")));
+      citation.append(document.createTextNode(characters.slice(span.end).join("")));
+    } else citation.textContent = source;
+    if (source) meta.append(citation);
+    meta.append(makeElement(document, "span", "visual-card__quote-template", "EV24 Quote Box"));
+    if (options.quoteRangeLabel) {
+      meta.append(makeElement(document, "span", "visual-card__quote-range", options.quoteRangeLabel));
+    }
+    if (typeof options.quoteBoxEdit === "function" && options.rowId && options.overlayId) {
+      const editor = makeElement(document, "details", "visual-card__quote-editor");
+      editor.append(makeElement(document, "summary", "", "Edit quote box"));
+      const displayLabel = makeElement(document, "label", "", "Display text");
+      const displayInput = makeElement(document, "textarea", "visual-card__quote-input");
+      displayInput.value = quoteBox.displayText;
+      displayInput.rows = 3;
+      displayLabel.append(displayInput);
+      const displaySave = makeElement(document, "button", "", "Save display text");
+      displaySave.type = "button";
+      displaySave.disabled = true;
+      displayInput.addEventListener("input", () => { displaySave.disabled = displayInput.value === quoteBox.displayText; });
+      displaySave.addEventListener("click", () => {
+        void options.quoteBoxEdit({ rowId: options.rowId, overlayId: options.overlayId,
+          expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion,
+          edit: { displayText: displayInput.value } });
+      });
+      const citationLabel = makeElement(document, "label", "", "Citation");
+      const citationInput = makeElement(document, "textarea", "visual-card__quote-input");
+      citationInput.value = source;
+      citationInput.rows = 2;
+      citationLabel.append(citationInput);
+      const citationSave = makeElement(document, "button", "", "Save citation");
+      citationSave.type = "button";
+      citationSave.disabled = true;
+      citationInput.addEventListener("input", () => { citationSave.disabled = citationInput.value === source; });
+      citationSave.addEventListener("click", () => {
+        void options.quoteBoxEdit({ rowId: options.rowId, overlayId: options.overlayId,
+          expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion,
+          edit: { citationText: citationInput.value } });
+      });
+      editor.append(displayLabel, displaySave, citationLabel, citationSave);
+      if (typeof options.quoteBoxRangeEdit === "function") {
+        const rangeHint = makeElement(document, "p", "visual-card__quote-range-hint",
+          "Select spoken words in the narration, then set this box’s range.");
+        const rangeButton = makeElement(document, "button", "visual-card__quote-range-edit", "Set range to selected words");
+        rangeButton.type = "button";
+        rangeButton.dataset.quoteBoxRangeEdit = "";
+        rangeButton.addEventListener("click", () => {
+          void options.quoteBoxRangeEdit({ rowId: options.rowId, overlayId: options.overlayId,
+            expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion });
+        });
+        editor.append(rangeHint, rangeButton);
+      }
+      meta.append(editor);
+      const remove = makeElement(document, "button", "visual-card__quote-delete", "Delete quote box");
+      remove.type = "button";
+      remove.addEventListener("click", () => {
+        void options.quoteBoxEdit({ rowId: options.rowId, overlayId: options.overlayId,
+          expectedRowVersion: options.rowVersion, expectedOverlayVersion: options.overlayVersion,
+          edit: { delete: true } });
+      });
+      meta.append(remove);
+    }
+  }
   if (researchClip && !payload?.frameBinding) {
     meta.append(makeElement(document, "span", "visual-card__source-state", "Research · Playback unavailable"));
   }
@@ -169,11 +285,14 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     attach.type = "button";
     attach.dataset.attachVisual = "";
     attach.setAttribute("aria-pressed", String(options.attaching === true));
-    attach.addEventListener("click", (event) => {
-      event.stopPropagation();
-      options.attach?.(blockId, slotId);
-    });
-    meta.append(waiting, attach);
+    meta.append(waiting);
+    if (options.attach) {
+      attach.addEventListener("click", (event) => {
+        event.stopPropagation();
+        options.attach(blockId, slotId);
+      });
+      meta.append(attach);
+    }
   }
   if (options.holdSeconds !== undefined) {
     const hold = makeElement(document, "label", "visual-card__hold", "Hold");
@@ -274,7 +393,15 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
       });
       menu.append(reselectAction);
     }
-    menu.append(change, remove);
+    menu.append(change);
+    if (options.stashable) {
+      const stash = makeElement(document, "button", "", "Stash visual");
+      stash.type = "button";
+      stash.dataset.visualStash = "";
+      stash.setAttribute("role", "menuitem");
+      menu.append(stash);
+    }
+    menu.append(remove);
     const types = makeElement(document, "div", "visual-card__types");
     types.dataset.visualTypes = "";
     types.setAttribute("role", "menu");
@@ -309,7 +436,16 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
+function quoteBoxRangeLabel(row, event) {
+  const spoken = (row.tokens ?? []).filter((token) => token?.spoken !== false);
+  const startId = event.timing?.start?.anchor?.tokenId;
+  const endId = event.timing?.end?.anchor?.tokenId;
+  const start = spoken.findIndex((token) => token.id === startId);
+  const end = spoken.findIndex((token) => token.id === endId);
+  return start >= 0 && end >= start ? `Range · words ${start + 1}–${end + 1}` : "Range · words need review";
+}
+
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -319,7 +455,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     const slots = new Map((block.primaryVisualSequence?.slots ?? [])
       .filter((slot) => slot.kind === "content").map((slot) => [slot.id, slot.payload]));
     const waiting = new Map((block.unattachedVisuals ?? []).map((item) => [item.slotId, item.payload]));
-    const overlays = new Map(block.overlayEvents.map((event) => [event.id, event.payload]));
+    const overlays = new Map(block.overlayEvents.map((event) => [event.id, event]));
     const cues = (projectedRow?.cards ?? []).map((card, index) => ({
       card, index, start: card.startTokenIndex ?? Number.POSITIVE_INFINITY,
     }));
@@ -330,9 +466,13 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       a.start - b.start || (a.card ? -1 : 1) - (b.card ? -1 : 1) || a.index - b.index);
     for (const entry of projectedRow?.renderable ? ordered : []) {
       if (entry.overlay) {
-        const payload = overlays.get(entry.overlay.overlayEventId);
-        if (payload) list.append(renderVisualCard(document, payload, payload.researchClip, {
-          footagePlacementId: entry.overlay.overlayEventId,
+        const event = overlays.get(entry.overlay.overlayEventId);
+        if (event) list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
+          slotId: entry.overlay.overlayEventId, startTokenIndex: entry.overlay.startTokenIndex,
+          footagePlacementId: entry.overlay.overlayEventId, quoteBox: event.quoteBox,
+          rowId: block.id, rowVersion: block.version, overlayId: event.id,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
         }));
         continue;
       }
@@ -363,11 +503,12 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
         startTokenIndex: card.startTokenIndex,
         flash: flashIds?.has(card.slotId),
-        draggable: card.kind === "visual" || card.kind === "unattached_visual",
+        draggable: Boolean(visualCommand) && (card.kind === "visual" || card.kind === "unattached_visual"),
         waiting: card.kind === "unattached_visual",
         attaching: attaching?.rowId === block.id && attaching.slotId === card.slotId,
-        attach,
-        editable: card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual",
+        attach, quotePicture,
+        editable: Boolean(visualCommand) && (card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual"),
+        stashable: allowStash && payload.kind === "visual",
       }));
     }
     if (!projectedRow?.renderable) {
@@ -376,7 +517,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       for (const slot of block.primaryVisualSequence?.slots ?? []) {
         if (slot.kind === "content") {
           list.append(renderVisualCard(document, slot.payload, slot.payload.researchClip, {
-            footagePlacementId: slot.id,
+            footagePlacementId: slot.id, quotePicture,
           }));
         } else if (slot.kind === "return") {
           const parent = byId.get(slot.parentSlotId);
@@ -385,8 +526,13 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
           list.append(makeElement(document, "div", "visual-return", `↩ ${label} resumes`));
         }
       }
-      for (const { id, payload } of block.overlayEvents ?? []) {
-        list.append(renderVisualCard(document, payload, payload.researchClip, { footagePlacementId: id }));
+      for (const event of block.overlayEvents ?? []) {
+        list.append(renderVisualCard(document, event.payload, event.payload.researchClip, {
+          footagePlacementId: event.id, quoteBox: event.quoteBox,
+          rowId: block.id, rowVersion: block.version, overlayId: event.id,
+          overlayVersion: event.version, quoteBoxEdit, quoteBoxRangeEdit, quotePicture,
+          quoteRangeLabel: event.quoteBox ? quoteBoxRangeLabel(block, event) : null,
+        }));
       }
       for (const { slotId, payload } of block.unattachedVisuals ?? []) {
         list.append(renderVisualCard(document, payload, payload.researchClip, { footagePlacementId: slotId }));
@@ -394,14 +540,14 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     }
   }
   if (block.type === "visual_only") {
+    const implicitHoldMs = block.additionalVisuals?.length ? 4000 : projectVisualHoldMs;
     for (const visual of [block, ...(block.additionalVisuals ?? [])]) {
       const timing = visual.visualOnlyTiming;
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
-        payloadId: visual.payload.payloadId, draggable: true,
+        payloadId: visual.payload.payloadId, draggable: Boolean(visualCommand),
         footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
-        holdSeconds: timing?.durationOverrideMs !== undefined && !timing.matchAudioDuration &&
-          !timing.selectedSourceRange && visual.payload.pictureKind !== "unresolved_visual" &&
-          visual.payload.pictureKind !== "clip" ? timing.durationOverrideMs / 1000 : undefined,
+        holdSeconds: visualCommand && timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
+          visual.payload.pictureKind !== "clip" ? (timing.durationOverrideMs ?? implicitHoldMs) / 1000 : undefined,
       }));
     }
   }
@@ -484,7 +630,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -509,11 +655,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs = 3000, allowStash = false, quoteBoxEdit, quoteBoxRangeEdit, quotePicture } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -521,6 +667,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
     : [];
   const projectedRows = new Map((projection?.rows ?? []).map((row) => [row.blockId, row]));
 
+  releaseQuotePictures(root);
   root.replaceChildren();
   let rowCount = 0;
 
@@ -534,7 +681,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless, projectVisualHoldMs, allowStash, quoteBoxEdit, quoteBoxRangeEdit, quotePicture));
       rowCount += 1;
     }
   }
@@ -543,7 +690,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
 }
 
 /** The card DOM is ephemeral; one delegated menu handler survives rerenders. */
-export function mountVisualCardMenus(root, command) {
+export function mountVisualCardMenus(root, command, stashVisual) {
   const close = () => {
     for (const actions of root.querySelectorAll(".visual-card__actions")) {
       actions.querySelector("[data-visual-action-menu]").hidden = true;
@@ -572,6 +719,9 @@ export function mountVisualCardMenus(root, command) {
       menu.hidden = true;
       types.hidden = false;
       types.querySelector("[role='menuitem']:not(:disabled)")?.focus();
+    } else if (button.matches("[data-visual-stash]")) {
+      close();
+      void stashVisual?.(rowId, slotId);
     } else if (button.matches("[data-visual-delete], [data-visual-new-type]")) {
       const type = button.dataset.visualNewType;
       close();

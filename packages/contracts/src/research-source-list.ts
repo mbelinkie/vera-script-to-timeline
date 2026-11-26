@@ -7,6 +7,7 @@ export interface ResearchLibraryItemReference {
   projectId: string;
   itemId: string;
   kind: ResearchLibraryItemKind;
+  sourceId?: string;
 }
 
 /**
@@ -41,11 +42,15 @@ export function usedResearchLibraryItems(
   quoteProjectId: string,
 ): ResearchLibraryItemReference[] {
   const items: ResearchLibraryItemReference[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
   const add = (item: ResearchLibraryItemReference): void => {
     const key = JSON.stringify([item.projectId, item.itemId, item.kind]);
-    if (seen.has(key)) return;
-    seen.add(key);
+    const index = seen.get(key);
+    if (index !== undefined) {
+      if (!items[index]!.sourceId && item.sourceId) items[index] = { ...items[index]!, sourceId: item.sourceId };
+      return;
+    }
+    seen.set(key, items.length);
     items.push(item);
   };
 
@@ -62,7 +67,21 @@ export function usedResearchLibraryItems(
     if (block.type !== "narration") continue;
     for (const event of block.overlayEvents) {
       const quote = event.quoteBox;
-      if (quote) add({ projectId: quoteProjectId, itemId: quote.researchQuoteId, kind: "quote" });
+      if (quote) add({
+        projectId: quote.researchProjectId ?? quoteProjectId,
+        itemId: quote.researchQuoteId,
+        kind: "quote",
+        ...(quote.researchSourceId ? { sourceId: quote.researchSourceId } : {}),
+      });
+    }
+    for (const token of block.tokens) {
+      const quote = token.researchQuoteProvenance;
+      if (quote) add({
+        projectId: quote.researchProjectId,
+        itemId: quote.researchQuoteId,
+        kind: "quote",
+        sourceId: quote.researchSourceId,
+      });
     }
   }
   for (const usage of indexResearchClipUsageV2(activeOnly)) {

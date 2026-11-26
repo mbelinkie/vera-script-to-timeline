@@ -11,6 +11,7 @@ import projectSettingsSchema from "../../../contracts/authoring-project-settings
 };
 import type {
   ContentSlot,
+  NarratedVisualPayloadV2,
   NarrationBlockV2,
   ReturnSlot,
   ScriptDocumentV2,
@@ -228,7 +229,23 @@ export function validateScriptDocumentV2(
       );
       if (event.quoteBox) {
         validateQuoteBox(event.quoteBox, `${eventPath}/quoteBox`, block.id, event.id, diagnostics);
+        const useId = event.quoteBox.researchQuoteUseId;
+        if (useId) {
+          const uses = block.tokens.filter((token) =>
+            token.researchQuoteProvenance?.useId.toLowerCase() === useId.toLowerCase());
+          if (uses.some((token) => {
+            const provenance = token.researchQuoteProvenance!;
+            return provenance.researchProjectId.toLowerCase() !== event.quoteBox!.researchProjectId?.toLowerCase() ||
+              provenance.researchQuoteId.toLowerCase() !== event.quoteBox!.researchQuoteId.toLowerCase() ||
+              provenance.researchSourceId.toLowerCase() !== event.quoteBox!.researchSourceId?.toLowerCase();
+          })) diagnostics.push({
+            code: "RESEARCH_QUOTE_PROVENANCE_INVALID",
+            message: "The quote box and its spoken words must keep the same Research identity.",
+            jsonPath: `${eventPath}/quoteBox/researchQuoteUseId`, blockId: block.id, entityId: event.id,
+          });
+        }
       }
+      validateQuotePicture(event.payload, `${eventPath}/payload`, block.id, diagnostics);
     });
   }
 
@@ -411,6 +428,8 @@ export function validateScriptDocumentV2(
     row.primaryVisualSequence?.slots.forEach((slot, slotIndex) => {
       if (slot.kind !== "content" || slot.payload.kind !== "visual") return;
       const payload = slot.payload;
+      validateQuotePicture(payload,
+        `/activeDraft/blocks/${index}/primaryVisualSequence/slots/${slotIndex}/payload`, row.id, diagnostics);
       const sourceId = payload.source.kind === "media_reference" ? payload.source.mediaReferenceId : undefined;
       validateBoundedResearch(payload.researchClip, payload.frameBinding,
         payload.selectedSourceRange, payload.pictureKind, sourceId,
@@ -645,9 +664,27 @@ function validateTokens(
     const after = row.text.charCodeAt(offset);
     return before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff;
   };
+  const quoteUses = new Map<string, NonNullable<NarrationBlockV2["tokens"][number]["researchQuoteProvenance"]>>();
   row.tokens.forEach((token, index) => {
     const tokenPath = `${path}/tokens/${index}`;
     addId(token.id, `${tokenPath}/id`, row.id);
+    if (token.researchQuoteProvenance) {
+      if (token.spoken === false) diagnostics.push({
+        code: "RESEARCH_QUOTE_PROVENANCE_INVALID",
+        message: "Only spoken narration tokens can retain Research quote attribution.",
+        jsonPath: `${tokenPath}/researchQuoteProvenance`, blockId: row.id, entityId: token.id,
+      });
+      const useId = token.researchQuoteProvenance.useId.toLowerCase();
+      const prior = quoteUses.get(useId);
+      if (prior && (prior.researchProjectId.toLowerCase() !== token.researchQuoteProvenance.researchProjectId.toLowerCase() ||
+          prior.researchQuoteId.toLowerCase() !== token.researchQuoteProvenance.researchQuoteId.toLowerCase() ||
+          prior.researchSourceId.toLowerCase() !== token.researchQuoteProvenance.researchSourceId.toLowerCase())) diagnostics.push({
+        code: "RESEARCH_QUOTE_PROVENANCE_INVALID",
+        message: "A Research quote use must keep one project, quote and source identity across its spoken words.",
+        jsonPath: `${tokenPath}/researchQuoteProvenance`, blockId: row.id, entityId: token.id,
+      });
+      else quoteUses.set(useId, token.researchQuoteProvenance);
+    }
     if (
       token.startOffset < previousEnd ||
       token.endOffset <= token.startOffset ||
@@ -1077,6 +1114,15 @@ function validateQuoteBox(
   eventId: string,
   diagnostics: AuthoringDiagnosticV2[],
 ): void {
+  const identityFields = [quoteBox.researchProjectId, quoteBox.researchSourceId,
+    quoteBox.researchQuoteUseId, quoteBox.researchQuoteVersion];
+  if (identityFields.some((value) => value !== undefined) && identityFields.some((value) => value === undefined)) {
+    diagnostics.push({
+      code: "RESEARCH_QUOTE_PROVENANCE_INVALID",
+      message: "A Research quote box must retain its complete project, source, use and version identity.",
+      jsonPath: path, blockId, entityId: eventId,
+    });
+  }
   for (const field of ["displayText", "speakerName", "speakerTitle", "citationText"] as const) {
     if (!hasUnpairedSurrogate(quoteBox[field])) continue;
     diagnostics.push({
@@ -1099,6 +1145,20 @@ function validateQuoteBox(
       entityId: eventId,
     });
   }
+}
+
+function validateQuotePicture(
+  payload: NarratedVisualPayloadV2,
+  path: string,
+  blockId: string,
+  diagnostics: AuthoringDiagnosticV2[],
+): void {
+  if (!payload.researchQuotePicture || payload.pictureKind === "image") return;
+  diagnostics.push({
+    code: "RESEARCH_QUOTE_PICTURE_INVALID",
+    message: "A pinned Research quote picture must remain an image background.",
+    jsonPath: `${path}/researchQuotePicture`, blockId, entityId: payload.payloadId,
+  });
 }
 
 function validatePointAnchor(

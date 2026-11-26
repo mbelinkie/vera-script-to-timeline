@@ -4,12 +4,19 @@
  * included in errors or returned values.
  */
 import { createHash } from "node:crypto";
+import type { ResearchQuotePictureV2, ResearchStillAssetV2 } from "./generated/contracts-v2.js";
 import {
   snapshotResearchCandidateV2,
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
 import { readResearchLibraryItem, readResearchLibrarySource, type ResearchLibraryItemKind } from "./research-library-records.js";
-import { readKeptStillManifest, readStillItem, UnsupportedKeptStillError, type ResearchStillChoice } from "./research-still-records.js";
+import { describeResearchQuote, readResearchQuote, type ResearchQuoteRecord } from "./research-quote-records.js";
+import {
+  readKeptOriginalAsset, readKeptStillManifest, readStillItem,
+  UnsupportedKeptStillError, type ResearchStillChoice,
+} from "./research-still-records.js";
+
+export { publicResearchQuote, type ResearchQuoteChoice, type ResearchQuoteRecord } from "./research-quote-records.js";
 
 export interface ResearchProject {
   id: string;
@@ -20,6 +27,42 @@ const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
 const STILL_PAGE_SIZE = 12;
+const QUOTE_PAGE_SIZE = 20;
+const MAX_LIBRARY_OFFSET = 100_000;
+const EXTENSION_CAPTURE_PAGE_SIZE = 50;
+
+function record(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function validId(value: unknown): value is string {
+  return typeof value === "string" && UUID.test(value);
+}
+
+async function readKeptImage(response: Response, asset: ResearchStillAssetV2): Promise<Uint8Array> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Research returned an empty kept image.");
+  const bytes = new Uint8Array(asset.byteCount);
+  let offset = 0;
+  try {
+    const length = response.headers.get("content-length");
+    if (response.status !== 200 || response.headers.get("content-type") !== asset.mimeType ||
+        (length !== null && length !== String(asset.byteCount))) throw new Error("Invalid Research image headers.");
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (offset + value.length > bytes.length) throw new Error("Research image exceeds its kept size.");
+      bytes.set(value, offset);
+      offset += value.length;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  if (offset !== bytes.length || createHash("sha256").update(bytes).digest("hex") !== asset.sha256) {
+    throw new Error("Research image does not match the kept copy.");
+  }
+  return bytes;
+}
 
 export class ResearchReadError extends Error {
   readonly status: number;
@@ -29,6 +72,8 @@ export class ResearchReadError extends Error {
     this.status = status;
   }
 }
+
+type LibraryUpdate = { expectedVersion: number } & ({ content: object } | { latestDisplayText: string });
 
 export function isResearchId(value: string): boolean {
   return UUID.test(value);
@@ -88,7 +133,7 @@ export function createResearchClient(options: {
   }
   const request = options.request ?? fetch;
 
-  async function send(path: string, accept: string, update?: { expectedVersion: number; content: object }): Promise<Response> {
+  async function send(path: string, accept: string, update?: LibraryUpdate): Promise<Response> {
     let response: Response;
     try {
       response = await request(new URL(path, origin), {
@@ -103,7 +148,7 @@ export function createResearchClient(options: {
       });
     } catch {
       // Fetch errors may embed the full request URL or headers, including secrets.
-      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current citation."
+      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current version."
         : "Research is unavailable on this Mac.");
     }
     if (response.status >= 300 && response.status < 400 || response.redirected) {
@@ -118,16 +163,16 @@ export function createResearchClient(options: {
         : "Research project or record was not found.");
     }
     if (update && response.status === 409) {
-      throw new Error("Research quote changed before the edit was saved. Reload the quote and retry.");
+      throw new ResearchReadError(409, "Research quote changed before the edit was saved. Reload the quote and retry.");
     }
     if (!response.ok) {
-      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current citation."
+      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current version."
         : "Research could not complete this read-only request.");
     }
     return response;
   }
 
-  async function requestJson(path: string, update?: { expectedVersion: number; content: object }): Promise<unknown> {
+  async function requestJson(path: string, update?: LibraryUpdate): Promise<unknown> {
     const response = await send(path, "application/json", update);
     try {
       return await response.json() as unknown;
@@ -167,13 +212,127 @@ export function createResearchClient(options: {
     return readResearchLibraryItem(await get(path), projectId, itemId, kind);
   }
 
+  async function source(projectId: string, sourceId: string) {
+    return readResearchLibrarySource(
+      await get(libraryPath(projectId, "sources", sourceId)), projectId, sourceId,
+    );
+  }
+
+  async function quotePicture(projectId: string, quote: ResearchQuoteRecord, thumbnail = false) {
+    if (!validId(projectId) || projectId.toLowerCase() !== quote.researchProjectId ||
+        !validId(quote.sourceId) || !validId(quote.itemId)) {
+      throw new Error("Research picture owner does not match the quote.");
+    }
+    projectId = projectId.toLowerCase();
+    const project = `/api/projects/${projectId}`;
+    // Pictures are optional. A permission failure still refuses the operation.
+    async function optional<T>(read: () => T | Promise<T>): Promise<T | null> {
+      try { return await read(); } catch (error) {
+        if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+        return null;
+      }
+    }
+
+    async function top(): Promise<ResearchQuotePictureV2 | null> {
+      const path = `${project}/sources/${quote.sourceId}/extension-captures`;
+      for (let offset = 0; offset <= MAX_LIBRARY_OFFSET; offset += EXTENSION_CAPTURE_PAGE_SIZE) {
+        const page = await optional(() => get(`${path}?offset=${offset}`));
+        if (page === null) return null;
+        if (!Array.isArray(page) || page.length > EXTENSION_CAPTURE_PAGE_SIZE) {
+          throw new Error("Invalid Research article picture list.");
+        }
+        for (const receipt of page as unknown[]) {
+          if (!record(receipt) || receipt.sourceId !== quote.sourceId || !validId(receipt.captureId) ||
+              !Array.isArray(receipt.assets)) throw new Error("Research article picture has a different source.");
+          const asset = (receipt.assets as unknown[]).find((candidate): candidate is Record<string, unknown> =>
+            record(candidate) && candidate.role === "top");
+          if (!asset) continue;
+          if (!validId(asset.revisionId) || asset.mimeType !== "image/png" ||
+              !record(asset.provenance) || asset.provenance.kind !== "user_supplied" ||
+              asset.provenance.source !== "browser_extension") throw new Error("Invalid Research article picture revision.");
+          const original = await optional(() => readKeptOriginalAsset(asset));
+          if (original) return { researchProjectId: projectId, ownerKind: "web_capture",
+            ownerId: receipt.captureId.toLowerCase(), revisionId: asset.revisionId.toLowerCase(), original };
+        }
+        if (page.length < EXTENSION_CAPTURE_PAGE_SIZE) return null;
+      }
+      return null;
+    }
+
+    async function reference(ownerKind: "source" | "quote", ownerId: string) {
+      const path = `${project}/library-reference-pictures/${ownerKind}/${ownerId}`;
+      return optional(async () => {
+        const manifest = await get(path);
+        if (!record(manifest) || !validId(manifest.revisionId) || !record(manifest.assets)) {
+          throw new Error("Invalid Research attached picture revision.");
+        }
+        const picture: ResearchQuotePictureV2 = { researchProjectId: projectId, ownerKind, ownerId,
+          revisionId: manifest.revisionId.toLowerCase(), original: readKeptOriginalAsset(manifest.assets.original) };
+        const asset = thumbnail ? readKeptOriginalAsset(manifest.assets.thumbnail) : picture.original;
+        const bytes = await readKeptImage(
+          await send(`${path}/${thumbnail ? "thumbnail" : "original"}`, asset.mimeType), asset,
+        );
+        const after = await get(path);
+        if (!record(after) || after.revisionId !== manifest.revisionId || !record(after.assets) ||
+            JSON.stringify(readKeptOriginalAsset(after.assets.original)) !== JSON.stringify(picture.original)) {
+          throw new Error("The attached picture changed while its kept bytes were read.");
+        }
+        return { picture, bytes, mimeType: asset.mimeType };
+      });
+    }
+
+    if (quote.sourceKind === "web_page") {
+      const picture = await optional(top);
+      if (picture) {
+        const { ownerId, revisionId, original } = picture;
+        const retained = await optional(async () => ({ picture, mimeType: original.mimeType,
+          bytes: await readKeptImage(
+            await send(`${project}/extension-captures/${ownerId}/assets/top?revisionId=${revisionId}`, original.mimeType),
+            original,
+          ) }));
+        if (retained) return retained;
+      }
+    }
+    return await reference("quote", quote.itemId) ?? reference("source", quote.sourceId);
+  }
+
   return {
     item,
+    source,
+    readQuotePicture: quotePicture,
 
-    async source(projectId: string, sourceId: string) {
-      return readResearchLibrarySource(
-        await get(libraryPath(projectId, "sources", sourceId)), projectId, sourceId,
-      );
+    async quotes(projectId: string, offset: number): Promise<{ quotes: ResearchQuoteRecord[]; nextOffset: number | null }> {
+      if (!UUID.test(projectId) || !Number.isSafeInteger(offset) || offset < 0 || offset > MAX_LIBRARY_OFFSET) {
+        throw new Error("Invalid Research quote page.");
+      }
+      const params = new URLSearchParams({ kind: "quote", limit: String(QUOTE_PAGE_SIZE + 1), offset: String(offset) });
+      const page = await get(`/api/projects/${projectId}/items?${params}`);
+      if (!Array.isArray(page) || page.length > QUOTE_PAGE_SIZE + 1) throw new Error("Invalid Research quote page.");
+      const choices = page.slice(0, QUOTE_PAGE_SIZE).map((value: unknown) => readResearchQuote(value, projectId));
+      const sources = new Map([...new Set(choices.map(({ sourceId }) => sourceId))]
+        .map((sourceId) => [sourceId, source(projectId, sourceId)]));
+      const quotes = await Promise.all(choices.map(async (choice) =>
+        describeResearchQuote(choice, await sources.get(choice.sourceId)!)));
+      const more = offset + QUOTE_PAGE_SIZE;
+      return { quotes, nextOffset: page.length > QUOTE_PAGE_SIZE && more <= MAX_LIBRARY_OFFSET ? more : null };
+    },
+
+    async quote(projectId: string, quoteId: string): Promise<ResearchQuoteRecord> {
+      const quote = readResearchQuote(await get(libraryPath(projectId, "items", quoteId)), projectId, quoteId);
+      return describeResearchQuote(quote, await source(projectId, quote.sourceId));
+    },
+
+    async setQuoteDisplayText(projectId: string, quoteId: string, expectedVersion: number, latestDisplayText: string) {
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1 ||
+          typeof latestDisplayText !== "string" || latestDisplayText.length > 20_000 ||
+          /[\0\p{Surrogate}]/u.test(latestDisplayText)) {
+        throw new Error("Research display text is invalid or too long.");
+      }
+      const response = await requestJson(libraryPath(projectId, "items", quoteId), { expectedVersion, latestDisplayText });
+      const saved = readResearchLibraryItem(response, projectId, quoteId, "quote");
+      if (saved.version <= expectedVersion || saved.content.latestDisplayText !== latestDisplayText) {
+        throw new Error("Research could not confirm the quote display edit.");
+      }
     },
 
     async setQuoteCitation(projectId: string, quoteId: string, text: string | undefined) {
@@ -262,28 +421,7 @@ export function createResearchClient(options: {
     async stillThumbnail(projectId: string, itemId: string, version: number) {
       const { kept: { thumbnail } } = await keptStill(projectId, itemId, version);
       const response = await send(`${libraryPath(projectId, "stills", itemId)}/assets/thumbnail`, thumbnail.mimeType);
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Research returned an empty thumbnail.");
-      const bytes = new Uint8Array(thumbnail.byteCount);
-      let offset = 0;
-      try {
-        const length = response.headers.get("content-length");
-        if (response.status !== 200 || response.headers.get("content-type") !== thumbnail.mimeType ||
-            (length !== null && length !== String(thumbnail.byteCount))) throw new Error("Invalid Research thumbnail headers.");
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (offset + value.length > bytes.length) throw new Error("Research thumbnail exceeds its kept size.");
-          bytes.set(value, offset);
-          offset += value.length;
-        }
-      } finally {
-        await reader.cancel().catch(() => undefined);
-      }
-      if (offset !== bytes.length || createHash("sha256").update(bytes).digest("hex") !== thumbnail.sha256) {
-        throw new Error("Research thumbnail does not match the kept copy.");
-      }
-      return { bytes, mimeType: thumbnail.mimeType };
+      return { bytes: await readKeptImage(response, thumbnail), mimeType: thumbnail.mimeType };
     },
   };
 }

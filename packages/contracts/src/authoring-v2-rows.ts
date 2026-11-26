@@ -12,7 +12,8 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
-  appendWordlessV2, liftWordlessV2, newWordlessPlaceholderV2,
+  appendWordlessV2, defaultWordlessHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
+  LEGACY_VISUAL_HOLD_MS, NEW_VISUAL_HOLD_MS, preserveWordlessHoldV2,
   promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
 } from "./authoring-v2-wordless.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
@@ -67,7 +68,8 @@ function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | Author
     }
     placements.push({
       payload,
-      visualOnlyTiming: { kind: "visual_only" as const, ...(selectedSourceRange ? { selectedSourceRange } : {}) },
+      visualOnlyTiming: { kind: "visual_only" as const, ...(selectedSourceRange
+        ? { selectedSourceRange } : { durationOverrideMs: NEW_VISUAL_HOLD_MS }) },
       ...(researchClip ? { researchClip } : {}),
       ...(frameBinding ? { frameBinding } : {}),
     });
@@ -105,7 +107,7 @@ function restoreClearedNarration(
     const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
     // Four seconds is the new source-free default, not an authored nondefault
     // hold. It can be discarded when the restored visual waits for words.
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== 4000) {
+    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== NEW_VISUAL_HOLD_MS) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {
@@ -158,13 +160,14 @@ export type RowEditCommandV2 =
   | { kind: "delete_stash_section"; sectionId: string }
   | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null }
   | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
-  | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; atStart?: true }
   /** Stash one visual (D91): lift it out of its row into a new Stash item with its source and trim. Never On Camera. */
   | { kind: "stash_visual"; rowId: string; slotId: string; bundleId: string; stashRowId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "insert_stash_visual"; stashRowId: string; destinationRowId: string; destinationSlotId: string }
   | { kind: "attach_stash_footage"; noteRowId: string; clipRowId: string }
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
-  | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string }
-  | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string }
+  | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string; destination?: StashReturnDestinationV2 }
+  | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string; clearText?: true }
   | { kind: "trim_research_clip"; clipRowId: string; edge: "in" | "out"; frame: number }
   | { kind: "trim_research_clip"; clipRowId: string; edge: "clear_out" }
   | { kind: "place_attached_footage"; noteRowId: string; destination: RowGapV2 }
@@ -188,7 +191,7 @@ export type RowEditCommandV2 =
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
   | { kind: "delete_row_audio_span"; cueId: string }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
-  | { kind: "delete_rows"; rowIds: string[] }
+  | { kind: "delete_rows"; rowIds: string[]; stashBranch?: { attachedClipIds: string[] } }
   | SplitRowCommandV2
   | JoinRowsCommandV2
   | StageDirectionEditCommandV2;
@@ -336,7 +339,10 @@ function validAuthoredRowCommand(value: unknown): boolean {
         !Object.hasOwn(value.row, "clearedNarration") && rowGapPayload(value.destination);
     }
     if (value.kind === "delete_rows") {
-      return exactKeys(value, ["kind", "rowIds"]) && rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
+      const branch = value.stashBranch;
+      return exactKeys(value, Object.hasOwn(value, "stashBranch") ? ["kind", "rowIds", "stashBranch"] : ["kind", "rowIds"]) &&
+        (!Object.hasOwn(value, "stashBranch") || plainObject(branch) && exactKeys(branch, ["attachedClipIds"]) && rowIdsPayload(branch.attachedClipIds)) &&
+        rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
     }
     return false;
   } catch {
@@ -344,10 +350,13 @@ function validAuthoredRowCommand(value: unknown): boolean {
   }
 }
 
+const uuid = (item: unknown): item is string => typeof item === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(item);
+
 /** Reserve all document UUID values, including IDs in media, Stash and extras. */
 function documentUuids(value: unknown, result = new Set<string>()): Set<string> {
   if (typeof value === "string") {
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value)) result.add(value.toLowerCase());
+    if (uuid(value)) result.add(value.toLowerCase());
   } else if (value && typeof value === "object") {
     for (const child of Object.values(value)) documentUuids(child, result);
   }
@@ -359,8 +368,6 @@ function validVisualOnlyCommand(value: unknown): boolean {
   if (value.kind === "delete_row_audio_span") {
     return exactKeys(value, ["kind", "cueId"]) && typeof value.cueId === "string" && value.cueId.length > 0;
   }
-  const uuid = (item: unknown): boolean => typeof item === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(item);
   if (value.kind === "move_wordless_visual") {
     const optional = ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"]
       .filter((key) => Object.hasOwn(value, key));
@@ -459,9 +466,13 @@ function validAttachmentCommand(value: unknown): boolean {
         typeof value.clipRowId === "string" && value.clipRowId.length > 0 &&
         typeof value.releasedBundleId === "string" && value.releasedBundleId.length > 0;
     case "detach_stash_footage":
-      return exactKeys(value, ["kind", "noteRowId", "bundleId"]) && typeof value.bundleId === "string" && value.bundleId.length > 0;
+      return exactKeys(value, ["kind", "noteRowId", "bundleId", ...(Object.hasOwn(value, "destination") ? ["destination"] : [])]) &&
+        typeof value.bundleId === "string" && value.bundleId.length > 0 &&
+        (!Object.hasOwn(value, "destination") || stashReturnDestinationPayload(value.destination));
     case "cleanup_blank_stash_note":
-      return exactKeys(value, ["kind", "noteRowId", "clipBundleId"]) && typeof value.clipBundleId === "string" && value.clipBundleId.length > 0;
+      return exactKeys(value, ["kind", "noteRowId", "clipBundleId", ...(Object.hasOwn(value, "clearText") ? ["clearText"] : [])]) &&
+        (!Object.hasOwn(value, "clearText") || value.clearText === true) &&
+        typeof value.clipBundleId === "string" && value.clipBundleId.length > 0;
     default: return false;
   }
 }
@@ -745,12 +756,13 @@ function hasExternalRowReferences(document: ScriptDocumentV2, rowId: string): bo
     .some((items) => items.some((item) => supportingRows(item, rows).has(rowId)));
 }
 
-function removeOrdinaryStashClip(document: ScriptDocumentV2, rowId: string): VisualOnlyBlockV2 | null {
+function removeOrdinaryStashClip(document: ScriptDocumentV2, rowId: string, includeSavedVisuals = false): VisualOnlyBlockV2 | null {
   const entry = document.stashOutline?.find((candidate) => candidate.rowId === rowId);
   const bundle = document.stash?.find((candidate) => candidate.rows.some((row) => row.id === rowId));
   const row = bundle?.rows.find((candidate) => candidate.id === rowId);
   // Do not silently migrate supporting-item or origin references into an embedded owner.
-  if (!entry || entry.kind !== "clip" || !bundle || row?.type !== "visual_only" ||
+  if (!entry || (entry.kind !== "clip" && !(includeSavedVisuals && entry.kind === "row")) ||
+    !bundle || row?.type !== "visual_only" ||
     bundle.supportingItems.length > 0 || hasExternalRowReferences(document, rowId)) return null;
   bundle.rows = bundle.rows.filter((candidate) => candidate.id !== rowId) as typeof bundle.rows;
   document.stash = document.stash!.filter((candidate) => candidate.rows.length > 0);
@@ -1230,7 +1242,7 @@ function audioSpanTouchesRows(document: ScriptDocumentV2, selected: Set<string>)
   });
 }
 
-function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] } | AuthoringDiagnosticV2 {
+function deleteRows(working: ScriptDocumentV2, rowIds: string[], stashBranch?: { attachedClipIds: string[] }): { rows: Row[] } | AuthoringDiagnosticV2 {
   const activeRows = working.activeDraft.blocks.filter((block): block is Row => block.type !== "section");
   const stashedRows = (working.stash ?? []).flatMap((bundle) => bundle.rows);
   const activeIds = new Set(activeRows.map((row) => row.id));
@@ -1243,7 +1255,20 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
 
   const selected = new Set(rowIds);
   const removedRows = [...activeRows, ...stashedRows].filter((row) => selected.has(row.id));
-  if (removedRows.some((row) => row.type === "narration" && row.attachedFootage)) {
+  const attached = removedRows.flatMap((row) => row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []);
+  if (stashBranch) {
+    const expected = new Set(stashBranch.attachedClipIds);
+    if (activeSelected.length || attached.length !== stashBranch.attachedClipIds.length || attached.some((id) => !expected.has(id))) {
+      return diagnostic("STASH_ATTACHMENT_REVIEW_REQUIRED", "Delete only saved Stash items with their current attached footage.");
+    }
+    for (const group of working.stashGroups ?? []) {
+      if (!group.rowIds.some((id) => selected.has(id))) continue;
+      if (!group.rowIds.every((id) => selected.has(id))) {
+        return diagnostic("STASH_GROUP_ATOMIC_REQUIRED", "Delete all rows of a Stash group together.");
+      }
+      removeGroup(working, group.id);
+    }
+  } else if (attached.length) {
     return diagnostic("STASH_ATTACHMENT_REVIEW_REQUIRED", "Detach the owned footage or use explicit blank-note cleanup before deleting its note.");
   }
   if (audioSpanTouchesRows(working, selected)) return diagnostic("AUDIO_REVIEW_REQUIRED", "A saved row audio span touches these rows. Review or remove that audio intent before deleting them.");
@@ -1436,7 +1461,10 @@ function saveStashGroup(working: ScriptDocumentV2, command: SaveStashGroupComman
 }
 
 /** One immutable local transaction. A refusal returns the original input object. */
-export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
+export function applyRowEditV2(
+  document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2,
+  projectHoldMs = LEGACY_VISUAL_HOLD_MS,
+): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
     if (command.kind === "stash_rows" && (!isJsonValue(command) ||
@@ -1980,7 +2008,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const index = blocks.findIndex((item) => item.id === command.rowId);
     const row = blocks[index];
     if (row?.type === "visual_only") {
-      const issue = appendWordlessV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId);
+      const issue = appendWordlessV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId, 1, projectHoldMs);
       if (issue) return refused(document, issue.code, issue.message);
       markStashOriginEditedV2(row);
     } else if (row?.type === "narration") {
@@ -2033,9 +2061,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const mapped = source.clearedNarration?.slots.find((item) => item.visualId === command.payloadId);
       const slotId = mapped?.id ?? command.destinationSlotId ?? "";
+      const placement = preserveWordlessHoldV2(original, defaultWordlessHoldV2(source, projectHoldMs));
       // Verify the destination before lifting. A refused move must leave the source untouched.
       if (target.type === "narration") {
-        const promoted = promoteWordlessNarrationV2(target, original, slotId, mapped ? mapped.version + 1 : 1);
+        const promoted = promoteWordlessNarrationV2(target, placement, slotId, mapped ? mapped.version + 1 : 1);
         if (!("value" in promoted)) return refused(document, promoted.code, promoted.message);
         const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
         if (!("value" in taken)) return refused(document, taken.code, taken.message);
@@ -2045,7 +2074,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
           return refused(document, "WORDLESS_DESTINATION_SLOT_REQUIRED", "Provide a unique slot ID to preserve cleared narration.");
         }
         const preview = structuredClone(target);
-        const issue = appendWordlessV2(preview, original, slotId, mapped ? mapped.version + 1 : 1);
+        const issue = appendWordlessV2(preview, placement, slotId, mapped ? mapped.version + 1 : 1, projectHoldMs);
         if (issue) return refused(document, issue.code, issue.message);
         const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
         if (!("value" in taken)) return refused(document, taken.code, taken.message);
@@ -2087,7 +2116,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const target = visuals.find((item) => item.payload.payloadId === command.payloadId);
       if (!target) return refused(document, "VISUAL_NOT_FOUND", "Choose an existing visual in this row.");
-      if (target.payload.pictureKind === "clip" || target.payload.pictureKind === "unresolved_visual") {
+      if (target.payload.pictureKind === "clip" || target.visualOnlyTiming.selectedSourceRange) {
         return refused(document, "VISUAL_HOLD_INVALID", "Only a still or other untimed visual can have an editable hold; clips use their trimmed length.");
       }
       if (target.visualOnlyTiming.matchAudioDuration) {
@@ -2177,14 +2206,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       for (const visual of [row, ...row.additionalVisuals ?? []]) {
         if (visual.payload.pictureKind !== "clip" && visual.payload.pictureKind !== "unresolved_visual" &&
           visual.visualOnlyTiming.durationOverrideMs === undefined) {
-          visual.visualOnlyTiming.durationOverrideMs = 4000;
+          visual.visualOnlyTiming.durationOverrideMs = NEW_VISUAL_HOLD_MS;
         }
       }
     }
     blocks.splice(index, 0, row);
     moved = [row];
   } else if (command.kind === "delete_rows") {
-    const deleted = deleteRows(working, command.rowIds);
+    const deleted = deleteRows(working, command.rowIds, command.stashBranch);
     if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
     moved = deleted.rows;
   } else if (command.kind === "split_row" || command.kind === "join_rows") {
@@ -2285,14 +2314,31 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       note.attachedFootage = { clip };
     } else if (attachmentCommand.kind === "detach_stash_footage") {
       if (!note.attachedFootage) return refused(document, "STASH_ATTACHMENT_SLOT_EMPTY", "This note has no footage to detach.");
-      const at = entries.findIndex((entry) => entry.rowId === note.id) + 1;
-      if (!releaseAttachedClip(working, note.id, attachmentCommand.bundleId, note.id, noteEntry.sectionId, at)) {
+      const destination = attachmentCommand.destination;
+      const parentId = destination ? destination.parentRowId : note.id;
+      const sectionId = destination ? destination.sectionId : noteEntry.sectionId;
+      let at = entries.findIndex((entry) => entry.rowId === note.id) + 1;
+      if (destination) {
+        const siblings = entries.filter((entry) => entry.parentRowId === parentId && entry.sectionId === sectionId);
+        const after = destination.afterRowId === null ? -1 : siblings.findIndex((entry) => entry.rowId === destination.afterRowId);
+        const before = siblings[after + 1]?.rowId ?? null;
+        if (!sectionExists(working, sectionId) || (parentId !== null && !entries.some((entry) =>
+          entry.rowId === parentId && entry.kind === "note" && entry.sectionId === sectionId)) ||
+          destination.afterRowId !== null && after < 0 || before !== destination.beforeRowId) {
+          return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current exact Stash location for the detached footage.");
+        }
+        at = destination.beforeRowId !== null && destination.afterRowId === null
+          ? entries.findIndex((entry) => entry.rowId === destination.beforeRowId)
+          : outlineInsertionIndex(working, entries, parentId, sectionId, destination.afterRowId)!;
+      }
+      if (!releaseAttachedClip(working, note.id, attachmentCommand.bundleId, parentId, sectionId, at)) {
         return refused(document, "STASH_ATTACHMENT_BUNDLE_INVALID", "Choose an unused bundle ID for the detached footage.");
       }
     } else {
       const noteSlot = note.primaryVisualSequence?.slots.length === 1 ? note.primaryVisualSequence.slots[0] : undefined;
-      if (!note.attachedFootage || note.plainDirection !== true || note.text.trim() !== "" ||
-        note.tokens.length !== 0 || note.overlayEvents.length !== 0 ||
+      const clearingText = attachmentCommand.clearText === true;
+      if (!note.attachedFootage || note.plainDirection !== true ||
+        (!clearingText && (note.text.trim() !== "" || note.tokens.length !== 0)) || note.overlayEvents.length !== 0 ||
         note.annotations?.length || note.performanceBeats?.length || note.notes.length !== 0 ||
         noteSlot?.kind !== "content" || noteSlot.relation.kind !== "base" ||
         noteSlot.boundaryBefore.kind !== "row_start" || noteSlot.payload.kind !== "on_camera" ||
@@ -2372,7 +2418,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       const parent = entries.find((entry) => entry.rowId === command.parentRowId);
       if (!parent || parent.kind !== "note" || parent.sectionId !== command.sectionId) return refused(document, "STASH_OUTLINE_PARENT_INVALID", "Nest an item under a saved note in the same Stash section.");
     }
-    const insertAt = outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
+    if (command.kind === "create_stash_clip" && Object.hasOwn(command, "atStart") &&
+        (command.atStart !== true || command.afterRowId !== null)) {
+      return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose an exact start or sibling position.");
+    }
+    const first = command.kind === "create_stash_clip" && command.atStart
+      ? entries.findIndex((entry) => entry.parentRowId === command.parentRowId && entry.sectionId === command.sectionId) : -1;
+    const insertAt = first >= 0 ? first :
+      outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
     if (insertAt === null) return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current sibling in the same Stash outline location.");
     let row: Row;
     let kind: StashOutlineEntryV2["kind"];
@@ -2432,6 +2485,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const lifted = liftVisualV2(row, command.slotId, "stashed");
     if (isCoverageRefusalV2(lifted)) return { ok: false, document, diagnostics: [{ ...diagnostic(lifted.code, lifted.message), blockId: row.id, entityId: lifted.entityId ?? command.slotId }] };
     const visual = lifted.payload;
+    if (visual.researchStill || visual.researchQuotePicture) {
+      return refused(document, "WORDLESS_RESEARCH_STILL_UNSUPPORTED",
+        "Stash the whole row to keep this Research picture's saved-copy provenance.");
+    }
     const footage = visual.pictureKind === "clip";
     if (footage && !visual.selectedSourceRange) {
       return refused(document, "STASH_VISUAL_TRIM_REQUIRED", "This footage has an in-point but no chosen length, so Stash cannot keep its trim. Trim it in the row first, then stash it.");
@@ -2454,6 +2511,38 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     markStashOriginEditedV2(row);
     entries.splice(insertAt, 0, { rowId: clip.id, kind: compact ? "clip" : "row", parentRowId: command.parentRowId, sectionId: command.sectionId });
     (working.stash ??= []).push({ id: command.bundleId, rows: [clip], supportingItems: [] });
+  } else if (command.kind === "insert_stash_visual") {
+    if (!exactKeys(command, ["kind", "stashRowId", "destinationRowId", "destinationSlotId"]) ||
+      !uuid(command.stashRowId) || !uuid(command.destinationRowId) || !uuid(command.destinationSlotId)) {
+      return refused(document, "ROW_COMMAND_INVALID", "Choose a saved visual, receiving row and a fresh visual slot.");
+    }
+    const target = blocks.find((row): row is NarrationBlockV2 =>
+      row.type === "narration" && row.id === command.destinationRowId);
+    const sequence = target?.primaryVisualSequence;
+    if (!target || !sequence || target.state !== "active" || target.plainDirection || !spokenTokensV2(target).length ||
+      target.version === Number.MAX_SAFE_INTEGER || sequence.version === Number.MAX_SAFE_INTEGER) {
+      return refused(document, "MOVE_DESTINATION_UNSAFE", "Choose an active row with spoken words to receive this visual.");
+    }
+    if (documentUuids(document).has(command.destinationSlotId.toLowerCase())) {
+      return refused(document, "VISUAL_ID_DUPLICATE", "Choose a new visual slot.");
+    }
+    ensureStashOutline(working);
+    const source = stashRowById(working, command.stashRowId);
+    if (source?.type !== "visual_only" || source.clearedNarration || source.additionalVisuals?.length ||
+      (working.stashGroups ?? []).some((group) => group.rowIds.includes(command.stashRowId))) {
+      return refused(document, "STASH_VISUAL_UNAVAILABLE", "Choose a single ungrouped stashed visual.");
+    }
+    const converted = toNarratedPlacementV2(wordlessPlacementsV2(source)[0]!);
+    if (!("value" in converted)) return refused(document, converted.code, converted.message);
+    if (!removeOrdinaryStashClip(working, command.stashRowId, true)) {
+      return refused(document, "STASH_VISUAL_UNAVAILABLE", "This visual has saved references that require restoring its whole row.");
+    }
+    target.unattachedVisuals = [...(target.unattachedVisuals ?? []), {
+      slotId: command.destinationSlotId, payload: converted.value, version: 1,
+    }];
+    sequence.version += 1;
+    target.version += 1;
+    markStashOriginEditedV2(target);
   } else if (command.kind === "set_stash_outline") {
     if (!Array.isArray(command.entries)) return refused(document, "STASH_OUTLINE_COMMAND_INVALID", "Provide the complete ordered Stash outline.");
     const current = ensureStashOutline(working);
@@ -2486,6 +2575,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     });
     if (eligible.length === 0) return refused(document, "STASH_NOTHING_TO_PLACE", "There is no unfinished Stash material to place in the script.");
     const moving = new Set(eligible.filter((entry) => entry.kind !== "note").map((entry) => entry.rowId));
+    for (const group of working.stashGroups ?? []) {
+      if (!group.rowIds.some((rowId) => moving.has(rowId))) continue;
+      if (group.rowIds.some((rowId) => command.rowIds.includes(rowId)) ||
+          !group.rowIds.every((rowId) => moving.has(rowId))) {
+        return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Place all rows of a Stash group together.");
+      }
+      removeGroup(working, group.id);
+    }
     const origins = new Map<string, StashOriginV2>();
     for (const entry of eligible) {
       const anchors = outlineSiblingAnchors(entries, entry.rowId);
@@ -2637,7 +2734,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
 }
 
 /** Session-owned history is independent of consumer views; no collaborative undo is implied. */
-export function createRowEditSessionV2(initial: ScriptDocumentV2) {
+export function createRowEditSessionV2(initial: ScriptDocumentV2, projectHoldMs = LEGACY_VISUAL_HOLD_MS) {
   let current = structuredClone(initial);
   let revision = current.rowEditRevision ?? 0;
   const history: ScriptDocumentV2[] = [];
@@ -2671,7 +2768,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
         current = { ...structuredClone(split.before), rowEditRevision: revision };
         return { ok: true, document: structuredClone(current), diagnostics: [] };
       }
-      const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command);
+      const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command, projectHoldMs);
       if (result.ok) {
         lastSplit = command.kind === "split_row"
           ? { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] }
@@ -2693,7 +2790,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       const blockId = command.kind === "move_payload" ? command.sourceBlockId : command.blockId;
       const row = current.activeDraft.blocks.find((block) => block.id === blockId);
       const sequenceVersion = row?.type === "narration" ? row.primaryVisualSequence?.version ?? 0 : 0;
-      const result = applyVisualSequenceEditV2(current, sequenceVersion, command);
+      const result = applyVisualSequenceEditV2(current, sequenceVersion, command, projectHoldMs);
       if (!result.ok) return { ...result, document: structuredClone(current) };
       history.push(current);
       redoHistory.length = 0;

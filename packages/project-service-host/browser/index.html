@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/authoring.css">
     <link rel="stylesheet" href="/rows-editor.css">
     <link rel="stylesheet" href="/narration-editor.css">
+    <link rel="stylesheet" href="/stash-row-editor.css">
     <script type="module" src="/app.js"></script>
   </head>
   <body>
@@ -51,7 +52,7 @@
 
         <div class="toolbar-controls" role="group" aria-label="Script actions and view settings">
           <button id="undo" type="button" disabled>↶ Undo</button>
-          <button id="open-footage" type="button" aria-controls="footage-panel" aria-expanded="false" aria-keyshortcuts="Control+Shift+F Meta+Shift+F">Footage</button>
+          <button id="open-footage" type="button" aria-controls="footage-panel" aria-expanded="false" aria-keyshortcuts="Control+Shift+F Meta+Shift+F">Library</button>
           <button id="open-stash" type="button" aria-controls="stash-panel" aria-expanded="false">Stash</button>
           <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
           <button id="open-prompter" class="prompter-trigger" type="button" disabled>Export prompter…</button>
@@ -69,22 +70,34 @@
         </div>
       </header>
 
-      <aside id="footage-panel" class="footage-panel" aria-label="Research footage" hidden>
+      <aside id="footage-panel" class="footage-panel" aria-label="Research Library" hidden>
         <div class="footage-panel__heading">
-          <h2 data-footage-heading>Footage</h2>
-          <button type="button" data-footage-close aria-label="Close footage">Close</button>
+          <h2 data-footage-heading>Library</h2>
+          <button type="button" data-footage-close aria-label="Close Library">Close</button>
         </div>
         <label for="footage-project">Research project</label>
         <select id="footage-project" data-footage-project><option value="">Choose project…</option></select>
-        <label for="footage-search">Search title or transcript</label>
-        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search logged footage">
+        <div class="footage-panel__kinds" role="group" aria-label="Library kind">
+          <button type="button" data-footage-kind="all" aria-pressed="true">All</button>
+          <button type="button" data-footage-kind="footage" aria-pressed="false">Footage</button>
+          <button type="button" data-footage-kind="quotes" aria-pressed="false">Quotes</button>
+        </div>
+        <label for="footage-search">Search Library</label>
+        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search footage and quotes">
         <div class="footage-panel__filters">
           <label for="footage-sort">Sort</label>
           <select id="footage-sort" data-footage-sort><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title</option></select>
           <label class="footage-panel__checkbox"><input type="checkbox" data-footage-used> Show used</label>
         </div>
+        <div class="footage-panel__filters footage-panel__filters--detail">
+          <label for="footage-logger">Logger</label>
+          <select id="footage-logger" data-footage-logger aria-label="Filter by logger"><option value="">Any logger</option></select>
+          <label for="footage-topic">Topic</label>
+          <select id="footage-topic" data-footage-topic aria-label="Filter by topic"><option value="">Any topic</option></select>
+        </div>
         <p data-footage-status role="status" aria-live="polite"></p>
         <div data-footage-results class="footage-panel__results" aria-label="Logged clips"></div>
+        <button type="button" data-footage-load-more hidden>Load more quotes</button>
         <section data-footage-preview class="footage-panel__preview" aria-label="Saved footage preview" hidden>
           <div class="footage-panel__preview-heading">
             <h3 data-footage-preview-title></h3>
@@ -109,13 +122,31 @@
             <button type="button" data-footage-cancel>Cancel choice</button>
           </div>
         </div>
-        <p class="footage-panel__hint">Preview uses the clip's saved export range. Drag a clip to a narration row or a + Add row gap.</p>
+        <section data-quote-placement class="footage-panel__placement" aria-label="Quote placement" hidden>
+          <h3 data-quote-selected>Place quote</h3>
+          <label for="quote-rows">Insert at the end of narration</label>
+          <select id="quote-rows" data-quote-rows aria-label="Narration row for quote"></select>
+          <div class="footage-panel__placement-buttons">
+            <button type="button" data-quote-place>Place quote</button>
+            <button type="button" data-quote-cancel>Cancel choice</button>
+          </div>
+        </section>
+        <p class="footage-panel__hint">Preview plays a clip’s saved range. Drag footage to a narration row or row gap. Drag a quote to insert it, or drop it on words to attach it without changing the narration.</p>
       </aside>
 
       <aside id="stash-panel" class="stash-panel" aria-labelledby="stash-heading" hidden>
         <div class="stash-panel__heading">
           <h2 id="stash-heading">Stash <span data-stash-count></span></h2>
           <button type="button" data-stash-close aria-label="Close Stash">Close</button>
+        </div>
+        <div class="stash-panel__view">
+          <label><input type="checkbox" data-stash-hide-completed> Hide completed</label>
+          <label class="range-control">
+            <span aria-hidden="true">Aa</span>
+            <input type="range" min="80" max="200" step="5" value="100" aria-label="Stash text size" data-stash-text-size>
+          </label>
+          <button type="button" data-stash-add-section>Add section</button>
+          <button type="button" data-stash-add-clip>Add clip</button>
         </div>
         <form data-stash-form>
           <label for="stash-note">Add note</label>
@@ -130,6 +161,7 @@
           <p data-stash-saved-description></p>
           <label for="stash-saved-destination">Draft destination</label>
           <select id="stash-saved-destination" required></select>
+          <label data-stash-include-label><input type="checkbox" data-stash-include-descendants checked> Include items below</label>
           <button type="submit" data-stash-saved-confirm>Restore</button>
           <button type="button" data-stash-saved-cancel>Cancel</button>
         </form>
@@ -139,6 +171,7 @@
           <button type="submit">Insert note</button>
           <button type="button" data-stash-cancel>Cancel</button>
         </form>
+        <div data-stash-editor-host></div>
       </aside>
 
       <aside id="research-still-panel" class="research-still-panel" role="dialog" aria-modal="false"
@@ -184,13 +217,20 @@
 
         <section id="sorting-view" class="sorting-view" aria-labelledby="sorting-heading" hidden>
           <h2 id="sorting-heading" tabindex="-1">Sorting</h2>
-          <p>Try a different row order without changing the saved Draft.</p>
           <div class="sorting-actions">
-            <button id="sorting-accept" type="button">Accept</button>
+            <button id="sorting-undo" type="button" disabled>Undo trial action</button>
             <button id="sorting-discard" type="button">Discard all</button>
+            <div class="sorting-acceptance">
+              <button id="sorting-accept" type="button">Accept</button>
+              <button id="sorting-outcomes" type="button" aria-label="Acceptance options"
+                aria-controls="sorting-choices" aria-expanded="false">▾</button>
+              <div id="sorting-choices" role="group" aria-label="Changes to accept" hidden>
+                <button type="button" data-sorting-outcome="edits_only">Keep edits, undo sorting</button>
+                <button type="button" data-sorting-outcome="sorting_only">Keep sorting, undo edits</button>
+              </div>
+            </div>
           </div>
           <p id="sorting-status" role="status" aria-live="polite"></p>
-          <div id="sorting-rows"></div>
         </section>
         <section class="script-paper" aria-label="Script">
           <div id="script-rows" class="script-rows"></div>

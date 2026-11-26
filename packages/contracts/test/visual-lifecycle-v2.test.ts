@@ -739,6 +739,22 @@ describe("#578 stash one visual", () => {
     });
   });
 
+  it("#616 moves one stashed visual onto narration with its source and trim intact", () => {
+    const start = twoRows();
+    const stashed = act(start, stash("F", 1)).document;
+    const command = { kind: "insert_stash_visual" as const, stashRowId: id(60_002),
+      destinationRowId: rowId(2), destinationSlotId: id(60_003) };
+    refusedWith(stashed, { ...command, destinationSlotId: rowId(2) }, "VISUAL_ID_DUPLICATE");
+    const session = createRowEditSessionV2(stashed);
+    const placed = session.apply(command);
+    expect(placed.ok).toBe(true);
+    expect(placed.document.stash?.flatMap((bundle) => bundle.rows)).toEqual([]);
+    expect(find(placed.document, 2).unattachedVisuals).toEqual([{
+      slotId: command.destinationSlotId, version: 1, payload: footage(1),
+    }]);
+    expect(session.undo().document).toEqual({ ...stashed, rowEditRevision: 3 });
+  });
+
   it("stashes a visual that is not footage as one saved row, and one that is waiting for words", () => {
     const { document } = act(twoRows(), stash("S1", 2));
     expect(cards(document, 2)).toEqual(["OC wide 0-5", "S2 5-10"]);
