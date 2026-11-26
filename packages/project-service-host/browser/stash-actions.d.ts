@@ -119,7 +119,8 @@ export function createStashActions(queue: StashEditorQueue, getDocument: () => S
     insertStashVisual: (stashRowId: string, destinationRowId: string, destinationSlotId: string,
       expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     attachFootage: (noteRowId: string, clipRowId: string, replace?: boolean) => Promise<boolean>;
-    detachFootage: (noteRowId: string) => Promise<boolean>;
+    detachFootage: (noteRowId: string, destination?: StashOutlineDestination, expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+    placeAttached: (noteRowId: string, destination: DraftGap, expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     stashGroup: (rowIds: readonly string[], sectionId?: string | null,
       parentRowId?: string | null, afterRowId?: string | null) => Promise<boolean>;
     saveMembers: (members: Array<NonNullable<ScriptDocumentV2["stash"]>[number]["rows"][number]>,

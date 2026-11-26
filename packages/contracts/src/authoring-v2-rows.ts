@@ -160,14 +160,14 @@ export type RowEditCommandV2 =
   | { kind: "delete_stash_section"; sectionId: string }
   | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null }
   | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
-  | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; atStart?: true }
   /** Stash one visual (D91): lift it out of its row into a new Stash item with its source and trim. Never On Camera. */
   | { kind: "stash_visual"; rowId: string; slotId: string; bundleId: string; stashRowId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
   | { kind: "insert_stash_visual"; stashRowId: string; destinationRowId: string; destinationSlotId: string }
   | { kind: "attach_stash_footage"; noteRowId: string; clipRowId: string }
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
-  | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string }
-  | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string }
+  | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string; destination?: StashReturnDestinationV2 }
+  | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string; clearText?: true }
   | { kind: "trim_research_clip"; clipRowId: string; edge: "in" | "out"; frame: number }
   | { kind: "trim_research_clip"; clipRowId: string; edge: "clear_out" }
   | { kind: "place_attached_footage"; noteRowId: string; destination: RowGapV2 }
@@ -463,9 +463,13 @@ function validAttachmentCommand(value: unknown): boolean {
         typeof value.clipRowId === "string" && value.clipRowId.length > 0 &&
         typeof value.releasedBundleId === "string" && value.releasedBundleId.length > 0;
     case "detach_stash_footage":
-      return exactKeys(value, ["kind", "noteRowId", "bundleId"]) && typeof value.bundleId === "string" && value.bundleId.length > 0;
+      return exactKeys(value, ["kind", "noteRowId", "bundleId", ...(Object.hasOwn(value, "destination") ? ["destination"] : [])]) &&
+        typeof value.bundleId === "string" && value.bundleId.length > 0 &&
+        (!Object.hasOwn(value, "destination") || stashReturnDestinationPayload(value.destination));
     case "cleanup_blank_stash_note":
-      return exactKeys(value, ["kind", "noteRowId", "clipBundleId"]) && typeof value.clipBundleId === "string" && value.clipBundleId.length > 0;
+      return exactKeys(value, ["kind", "noteRowId", "clipBundleId", ...(Object.hasOwn(value, "clearText") ? ["clearText"] : [])]) &&
+        (!Object.hasOwn(value, "clearText") || value.clearText === true) &&
+        typeof value.clipBundleId === "string" && value.clipBundleId.length > 0;
     default: return false;
   }
 }
@@ -2294,14 +2298,31 @@ export function applyRowEditV2(
       note.attachedFootage = { clip };
     } else if (attachmentCommand.kind === "detach_stash_footage") {
       if (!note.attachedFootage) return refused(document, "STASH_ATTACHMENT_SLOT_EMPTY", "This note has no footage to detach.");
-      const at = entries.findIndex((entry) => entry.rowId === note.id) + 1;
-      if (!releaseAttachedClip(working, note.id, attachmentCommand.bundleId, note.id, noteEntry.sectionId, at)) {
+      const destination = attachmentCommand.destination;
+      const parentId = destination ? destination.parentRowId : note.id;
+      const sectionId = destination ? destination.sectionId : noteEntry.sectionId;
+      let at = entries.findIndex((entry) => entry.rowId === note.id) + 1;
+      if (destination) {
+        const siblings = entries.filter((entry) => entry.parentRowId === parentId && entry.sectionId === sectionId);
+        const after = destination.afterRowId === null ? -1 : siblings.findIndex((entry) => entry.rowId === destination.afterRowId);
+        const before = siblings[after + 1]?.rowId ?? null;
+        if (!sectionExists(working, sectionId) || (parentId !== null && !entries.some((entry) =>
+          entry.rowId === parentId && entry.kind === "note" && entry.sectionId === sectionId)) ||
+          destination.afterRowId !== null && after < 0 || before !== destination.beforeRowId) {
+          return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current exact Stash location for the detached footage.");
+        }
+        at = destination.beforeRowId !== null && destination.afterRowId === null
+          ? entries.findIndex((entry) => entry.rowId === destination.beforeRowId)
+          : outlineInsertionIndex(working, entries, parentId, sectionId, destination.afterRowId)!;
+      }
+      if (!releaseAttachedClip(working, note.id, attachmentCommand.bundleId, parentId, sectionId, at)) {
         return refused(document, "STASH_ATTACHMENT_BUNDLE_INVALID", "Choose an unused bundle ID for the detached footage.");
       }
     } else {
       const noteSlot = note.primaryVisualSequence?.slots.length === 1 ? note.primaryVisualSequence.slots[0] : undefined;
-      if (!note.attachedFootage || note.plainDirection !== true || note.text.trim() !== "" ||
-        note.tokens.length !== 0 || note.overlayEvents.length !== 0 ||
+      const clearingText = attachmentCommand.clearText === true;
+      if (!note.attachedFootage || note.plainDirection !== true ||
+        (!clearingText && (note.text.trim() !== "" || note.tokens.length !== 0)) || note.overlayEvents.length !== 0 ||
         note.annotations?.length || note.performanceBeats?.length || note.notes.length !== 0 ||
         noteSlot?.kind !== "content" || noteSlot.relation.kind !== "base" ||
         noteSlot.boundaryBefore.kind !== "row_start" || noteSlot.payload.kind !== "on_camera" ||
@@ -2381,7 +2402,14 @@ export function applyRowEditV2(
       const parent = entries.find((entry) => entry.rowId === command.parentRowId);
       if (!parent || parent.kind !== "note" || parent.sectionId !== command.sectionId) return refused(document, "STASH_OUTLINE_PARENT_INVALID", "Nest an item under a saved note in the same Stash section.");
     }
-    const insertAt = outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
+    if (command.kind === "create_stash_clip" && Object.hasOwn(command, "atStart") &&
+        (command.atStart !== true || command.afterRowId !== null)) {
+      return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose an exact start or sibling position.");
+    }
+    const first = command.kind === "create_stash_clip" && command.atStart
+      ? entries.findIndex((entry) => entry.parentRowId === command.parentRowId && entry.sectionId === command.sectionId) : -1;
+    const insertAt = first >= 0 ? first :
+      outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
     if (insertAt === null) return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current sibling in the same Stash outline location.");
     let row: Row;
     let kind: StashOutlineEntryV2["kind"];
@@ -2441,6 +2469,10 @@ export function applyRowEditV2(
     const lifted = liftVisualV2(row, command.slotId, "stashed");
     if (isCoverageRefusalV2(lifted)) return { ok: false, document, diagnostics: [{ ...diagnostic(lifted.code, lifted.message), blockId: row.id, entityId: lifted.entityId ?? command.slotId }] };
     const visual = lifted.payload;
+    if (visual.researchStill || visual.researchQuotePicture) {
+      return refused(document, "WORDLESS_RESEARCH_STILL_UNSUPPORTED",
+        "Stash the whole row to keep this Research picture's saved-copy provenance.");
+    }
     const footage = visual.pictureKind === "clip";
     if (footage && !visual.selectedSourceRange) {
       return refused(document, "STASH_VISUAL_TRIM_REQUIRED", "This footage has an in-point but no chosen length, so Stash cannot keep its trim. Trim it in the row first, then stash it.");
@@ -2527,6 +2559,14 @@ export function applyRowEditV2(
     });
     if (eligible.length === 0) return refused(document, "STASH_NOTHING_TO_PLACE", "There is no unfinished Stash material to place in the script.");
     const moving = new Set(eligible.filter((entry) => entry.kind !== "note").map((entry) => entry.rowId));
+    for (const group of working.stashGroups ?? []) {
+      if (!group.rowIds.some((rowId) => moving.has(rowId))) continue;
+      if (group.rowIds.some((rowId) => command.rowIds.includes(rowId)) ||
+          !group.rowIds.every((rowId) => moving.has(rowId))) {
+        return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Place all rows of a Stash group together.");
+      }
+      removeGroup(working, group.id);
+    }
     const origins = new Map<string, StashOriginV2>();
     for (const entry of eligible) {
       const anchors = outlineSiblingAnchors(entries, entry.rowId);

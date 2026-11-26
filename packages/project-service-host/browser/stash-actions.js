@@ -264,6 +264,9 @@ function editedNoteCommand(documentModel, rowId, text, makeId) {
     !text.trim() && !row.attachedFootage) {
     throw new Error("Enter text or keep attached footage on this Stash note.");
   }
+  if (!text.trim() && row.attachedFootage) {
+    return { kind: "cleanup_blank_stash_note", noteRowId: rowId, clipBundleId: makeId(), clearText: true };
+  }
   if (row.version >= Number.MAX_SAFE_INTEGER) throw new Error("This note cannot be edited again.");
   const replacement = structuredClone(row);
   replacement.text = text;
@@ -474,13 +477,16 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
         return { kind: replace ? "replace_stash_footage" : "attach_stash_footage",
           noteRowId, clipRowId, ...(replace ? { releasedBundleId: idFactory() } : {}) };
       }, replace ? "Replace Stash footage" : "Attach Stash footage"),
-    detachFootage: (noteRowId) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
+    detachFootage: (noteRowId, destination, expectedModel) => queueStashCommand(queueCommand, queueExtras, getDocument, makeId,
       (current, idFactory) => {
         const note = projectStash(current).flatMap((section) => section.entries)
           .find((entry) => entry.rowId === noteRowId && entry.kind === "note");
         if (!note?.row.attachedFootage) throw new Error("This note has no attached footage.");
-        return { kind: "detach_stash_footage", noteRowId, bundleId: idFactory() };
-      }, "Detach Stash footage"),
+        return { kind: "detach_stash_footage", noteRowId, bundleId: idFactory(),
+          ...(destination ? { destination } : {}) };
+      }, "Detach Stash footage", false, expectedModel),
+    placeAttached: (noteRowId, destination, expectedModel) => queueStashCommand(queueCommand, queueExtras,
+      getDocument, makeId, { kind: "place_attached_footage", noteRowId, destination }, "Place attached footage", false, expectedModel),
     stashGroup: (rowIds, sectionId = null, parentRowId = null, afterRowId = null) => {
       const current = getDocument();
       const intent = captureWholeRowStash(current, rowIds);

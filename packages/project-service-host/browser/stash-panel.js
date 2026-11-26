@@ -1,4 +1,4 @@
-import { captureStashNoteDrop, captureSavedPlacement, draftGapChoices, savedPlacementCommand } from "./stash-actions.js";
+import { captureStashNoteDrop, captureSavedPlacement, draftGapChoices, savedPlacementCommand, stashOutlineMoveCommand } from "./stash-actions.js";
 import { mountStashRowEditor } from "./stash-row-editor.js";
 import { mountFootagePlayer } from "./footage-player.js";
 
@@ -127,14 +127,14 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   let rendered = "";
   let drag = null;
   let preview = null;
+  let stashTarget = null;
   let choices = [];
   let chosen = null;
   let savedChoice = null;
   let pending = false;
   let generation = 0;
-  let internalDropTarget = null;
-  let externalDropTarget = null;
   let editNoteRow = null;
+  let noteLocation = null;
   let rowEditor = null;
   try { hideCompleted.checked = localStorage.getItem("vera.authoring.stash-hide-completed") === "true"; } catch { /* Current tab preference still works. */ }
   try { textSize.value = localStorage.getItem("vera.authoring.stash-size") ?? "100"; } catch { textSize.value = "100"; }
@@ -148,10 +148,10 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   if (applyCommand && editorHost) rowEditor = mountStashRowEditor({ host: editorHost, getDocument,
     applyCommand, fetchProjection, onSave: actions.saveMembers });
   const clearDrag = () => {
+    entries.querySelector(".stash-entry--dragging")?.classList.remove("stash-entry--dragging");
     drag = null;
     preview = null;
-    internalDropTarget = null;
-    externalDropTarget = null;
+    stashTarget = null;
     marker.hidden = true;
     marker.style.width = "3px";
     marker.style.height = "";
@@ -173,11 +173,9 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     clearDrag();
     stashPlayer.hide();
     clearScriptDrag();
-    externalDropTarget = null;
-    internalDropTarget = null;
     cancelPlace();
     cancelSaved();
-    if (reset) { input.value = ""; section.value = ""; }
+    if (reset) { input.value = ""; section.value = ""; noteLocation = null; }
     status.textContent = "";
     if (focus) toggle.focus();
   }
@@ -210,6 +208,32 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     destinations.focus();
   }
 
+  function describeSavedPlacement() {
+    if (savedChoice?.kind !== "place_stash_rows") return;
+    const selected = new Set(savedChoice.rowIds);
+    const branch = new Set(selected);
+    let copied = 0;
+    let moved = 0;
+    let attached = 0;
+    for (const entry of actions.view().flatMap((item) => item.entries)) {
+      if (includeDescendants?.checked && branch.has(entry.parentRowId)) branch.add(entry.rowId);
+      if (!branch.has(entry.rowId) || entry.row.stashChecklist?.completed &&
+          !(entry.kind === "note" && selected.has(entry.rowId))) continue;
+      if (entry.kind === "note") {
+        copied++;
+        if (entry.row.attachedFootage) attached++;
+      } else moved++;
+    }
+    const changes = [];
+    if (copied) changes.push(`copy ${copied} as spoken text${attached ? " with attached footage" : ""}`);
+    if (moved) changes.push(`move ${moved} from Stash`);
+    const count = copied + moved;
+    root.querySelector("[data-stash-saved-description]").textContent = count
+      ? `Places ${count} ${count === 1 ? "row" : "rows"} · ${changes.join(", ")}.`
+      : "There is no unfinished material to place.";
+    savedConfirm.disabled = count === 0;
+  }
+
   function chooseSaved(entry, kind, opener, rowIds = entry.group ?
     getDocument()?.stashGroups?.find((group) => group.id === entry.group.id)?.rowIds ?? [entry.rowId] : [entry.rowId]) {
     if (readOnly() || pending) return;
@@ -217,7 +241,8 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     cancelSaved();
     const model = getDocument();
     const gaps = draftGapChoices(model);
-    const include = kind === "place_stash_rows" ? Boolean(includeDescendants?.checked) : undefined;
+    if (includeDescendants) includeDescendants.checked = true;
+    const include = kind === "place_stash_rows" ? true : undefined;
     const first = gaps.length && captureSavedPlacement(model, kind, rowIds, gaps[0].gap, include);
     if (!first) {
       status.textContent = "No exact Draft destination is available.";
@@ -241,6 +266,8 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           "Move the saved row back into Draft with its original identity.";
     if (includeLabel) includeLabel.hidden = !savedChoice.includeEnabled || !savedChoice.branch || !entry.hasDescendants;
     savedConfirm.textContent = action;
+    savedConfirm.disabled = false;
+    describeSavedPlacement();
     const placeholder = make(doc, "option", "Choose an exact Draft gap…");
     placeholder.value = "";
     savedDestinations.replaceChildren(placeholder, ...options.map(({ label }, index) => {
@@ -254,21 +281,24 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     savedDestinations.focus();
   }
 
-  function chooseGroup(entry, opener) {
-    if (readOnly() || pending || !entry.group) return;
+  function chooseGroup(entry, opener, attached = false) {
+    if (readOnly() || pending || !attached && !entry.group) return;
     cancelPlace();
     cancelSaved();
     const model = getDocument();
-    const group = model?.stashGroups?.find((item) => item.id === entry.group.id);
+    const group = entry.group && model?.stashGroups?.find((item) => item.id === entry.group.id);
     const options = draftGapChoices(model).map(({ gap, label }) => ({ label, intent: { destination: gap } }));
-    if (!group || !options.length) {
+    if ((!attached && !group) || !options.length) {
       status.textContent = "No exact Draft destination is available.";
       return;
     }
-    savedChoice = { rowId: entry.rowId, rowIds: [...group.rowIds], groupId: group.id,
-      model, opener, kind: "place_stash_group", options };
-    root.querySelector("[data-stash-saved-description]").textContent = `Move all ${group.rowIds.length} group rows into Draft as one group.`;
-    savedConfirm.textContent = "Place group";
+    savedChoice = { rowId: entry.rowId, groupId: group?.id,
+      model, opener, kind: attached ? "place_attached_footage" : "place_stash_group", options };
+    root.querySelector("[data-stash-saved-description]").textContent = attached
+      ? "Move the attached footage into its own script row."
+      : `Move all ${group.rowIds.length} group rows into Draft as one group.`;
+    savedConfirm.textContent = attached ? "Place footage" : "Place group";
+    savedConfirm.disabled = false;
     if (includeLabel) includeLabel.hidden = true;
     const placeholder = make(doc, "option", "Choose an exact Draft gap…");
     placeholder.value = "";
@@ -286,7 +316,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   async function placeSaved() {
     if (readOnly() || pending || !savedChoice || savedDestinations.value === "") return;
     const selection = savedChoice;
-    if (selection.kind === "place_stash_group") {
+    if (selection.kind === "place_stash_group" || selection.kind === "place_attached_footage") {
       const destination = selection.options[Number(savedDestinations.value)]?.intent.destination;
       if (!destination || getDocument() !== selection.model) {
         cancelSaved();
@@ -296,12 +326,14 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
       }
       pending = true;
       const started = generation;
-      const ok = await actions.placeGroup(selection.groupId, destination, selection.model);
+      const ok = await (selection.kind === "place_attached_footage"
+        ? actions.placeAttached(selection.rowId, destination, selection.model)
+        : actions.placeGroup(selection.groupId, destination, selection.model));
       pending = false;
       if (generation !== started) return;
       cancelSaved();
       update();
-      status.textContent = ok ? "Group placed in Draft." : "Group was not placed. Review saved references or script status.";
+      status.textContent = ok ? "Saved material placed in Draft." : "Placement was refused. Review saved references or script status.";
       focusOpener(selection.opener, selection.rowId, selection.kind);
       return;
     }
@@ -526,7 +558,11 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
       const addNote = make(doc, "button", `Add note to ${item.title}`);
       addNote.type = "button";
       addNote.disabled = readonly;
-      addNote.addEventListener("click", () => { section.value = item.id ?? ""; input.focus(); });
+      addNote.addEventListener("click", () => {
+        noteLocation = null;
+        section.value = item.id ?? "";
+        input.focus();
+      });
       heading.append(addNote);
       if (item.id && !readonly) {
         const addSectionClip = make(doc, "button", `Add clip to ${item.title}`);
@@ -575,11 +611,20 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           li.classList.toggle("stash-entry--completed", check.checked);
           li.append(checkLabel);
           if (!readonly) {
-            const placeNote = make(doc, "button", "Place in script…");
+            const placeNote = make(doc, "button", "Insert into narration…");
             placeNote.type = "button";
             placeNote.setAttribute("aria-label", `Place note ${label} in script`);
             placeNote.addEventListener("click", () => choose(entry.rowId, placeNote));
             li.append(placeNote);
+            const addChild = make(doc, "button", "Add child note");
+            addChild.type = "button";
+            addChild.addEventListener("click", () => {
+              noteLocation = { sectionId: item.id, parentRowId: entry.rowId, afterRowId: null };
+              section.value = item.id ?? "";
+              input.focus();
+              status.textContent = `Adding a note under “${label}”.`;
+            });
+            li.append(addChild);
             const edit = make(doc, "button", "Edit note");
             edit.type = "button";
             edit.dataset.savedAction = "edit-note";
@@ -642,6 +687,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           const clipSnapshot = clip.researchClip;
           const strip = make(doc, "div", `Attached footage · ${clipSnapshot?.video?.title ?? clip.payload?.displayName ?? "Saved clip"} · ${loggedRange(clipSnapshot)}`);
           strip.className = "stash-attached-footage";
+          strip.draggable = !readonly;
           li.append(strip);
           if (clipSnapshot) {
             const preview = make(doc, "button", "Preview attached footage");
@@ -654,6 +700,11 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
             replace.type = "button";
             replace.addEventListener("click", () => chooseLoggedClip({ noteRowId: entry.rowId, from: replace }));
             li.append(replace);
+            const placeClip = make(doc, "button", "Place attached footage…");
+            placeClip.type = "button";
+            placeClip.dataset.savedAction = "place_attached_footage";
+            placeClip.addEventListener("click", () => chooseGroup(entry, placeClip, true));
+            li.append(placeClip);
             const detach = make(doc, "button", "Detach footage");
             detach.type = "button";
             detach.addEventListener("click", () => void runMutation(() => actions.detachFootage(entry.rowId),
@@ -676,7 +727,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         origin.className = "stash-entry-origin";
         if (entry.kind !== "note" || entry.originalDraft.gap) li.append(origin);
         if (!readonly) {
-          if (!entry.group && entry.kind === "note" && entry.hasDescendants) actionButton("place_stash_rows", "Place note and items below…");
+          if (!entry.group && entry.kind === "note") actionButton("place_stash_rows", "Place in script…");
           else if (!entry.group && entry.kind !== "note") {
             const needsPlacement = entry.kind !== "row" || entry.parentRowId !== null || entry.hasDescendants || Boolean(entry.group);
             actionButton(needsPlacement ? "place_stash_rows" : "restore_stash_rows", needsPlacement ? "Place in script…" : "Restore…");
@@ -706,6 +757,11 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
           const previousNote = [...item.entries.slice(0, Math.max(0, first))].reverse().find((candidate) =>
             candidate.kind === "note" && candidate.parentRowId === entry.parentRowId && !movingIds.includes(candidate.rowId));
           move("Nest under previous note", previousNote ? { sectionId: item.id, parentRowId: previousNote.rowId, afterRowId: null } : null);
+          const remove = make(doc, "button", entry.group ? "Delete group" : "Delete saved item");
+          remove.type = "button";
+          remove.addEventListener("click", () => void runMutation(() => actions.deleteSaved(entry.rowId),
+            "Deleted from Stash.", "The item was not deleted. See script status."));
+          controls.append(remove);
           li.append(controls);
         }
         li.draggable = !readonly;
@@ -744,27 +800,172 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     return rect && intent.noteSnapshot === drag.snapshot ? { intent, rect } : null;
   }
 
+  function drawLine(rect, y = rect.top) {
+    marker.hidden = false;
+    Object.assign(marker.style, { left: `${rect.left}px`, top: `${y}px`, width: `${rect.width}px`, height: "3px" });
+  }
+
+  function scriptDestination(event) {
+    if (!drag || drag.model !== getDocument() || !event.dataTransfer?.types.includes(itemDragType)) return null;
+    let divider = event.target.closest?.("[data-row-gap]");
+    const targetRow = event.target.closest?.(".script-row");
+    if (!divider && targetRow) {
+      const box = targetRow.getBoundingClientRect();
+      if (event.clientY <= box.top + 8 && targetRow.previousElementSibling?.matches("[data-row-gap]")) {
+        divider = targetRow.previousElementSibling;
+      } else if (event.clientY >= box.bottom - 8 && targetRow.nextElementSibling?.matches("[data-row-gap]")) {
+        divider = targetRow.nextElementSibling;
+      }
+    }
+    if (divider && script.contains(divider)) {
+      const gap = { sectionId: divider.dataset.sectionId || null,
+        afterRowId: divider.dataset.afterRowId || null, beforeRowId: divider.dataset.beforeRowId || null };
+      return { node: divider, gap, include: !event.altKey };
+    }
+    if (drag.attached) return null;
+    const cell = event.target.closest?.(".visuals-cell");
+    const rowId = cell?.closest(".script-row")?.dataset.rowId;
+    const row = drag.model.activeDraft.blocks.find((item) => item.id === rowId);
+    if (!drag.entry.group && drag.entry.row.type === "visual_only" && !drag.entry.row.clearedNarration &&
+        !drag.entry.row.additionalVisuals?.length && cell && row?.type === "narration" &&
+        row.state === "active" && !row.plainDirection && row.primaryVisualSequence && row.tokens.some((word) => word.spoken !== false)) {
+      const card = event.target.closest?.(".visual-card");
+      const rect = card?.getBoundingClientRect();
+      return { node: cell, rowId, y: rect && (event.clientY < (rect.top + rect.bottom) / 2 ? rect.top : rect.bottom) };
+    }
+    const inline = target(event);
+    return inline ? { intent: inline.intent, rect: inline.rect } : null;
+  }
+
+  function stashDestination(event, source) {
+    const sectionNode = event.target.closest?.("[data-stash-section]");
+    if (!sectionNode || !entries.contains(sectionNode)) return null;
+    const sectionId = sectionNode.dataset.stashSection || null;
+    const group = actions.view().find((item) => item.id === sectionId);
+    if (!group) return null;
+    const item = event.target.closest?.("[data-stash-row-id]");
+    const targetEntry = group.entries.find((entry) => entry.rowId === item?.dataset.stashRowId);
+    const box = (item ?? sectionNode.querySelector("ul")).getBoundingClientRect();
+    const fraction = box.height ? (event.clientY - box.top) / box.height : 0;
+    const inside = targetEntry?.kind === "note" && fraction >= 0.25 && fraction <= 0.75;
+    if (inside && source?.entry.kind === "clip" && event.target.closest(".stash-attached-footage")) {
+      return { box, y: box.bottom, attachTo: targetEntry.rowId, replace: Boolean(targetEntry.row.attachedFootage) };
+    }
+    const parentRowId = inside ? targetEntry.rowId : targetEntry?.parentRowId ?? null;
+    const siblings = group.entries.filter((entry) => entry.parentRowId === parentRowId);
+    const index = inside || !targetEntry ? siblings.length : siblings.findIndex((entry) => entry.rowId === targetEntry.rowId);
+    const before = !inside && targetEntry && fraction < 0.5;
+    const size = !inside && targetEntry?.group ? targetEntry.group.size : 1;
+    const position = before ? index : Math.min(index + size, siblings.length);
+    return { box, y: before ? box.top : box.bottom, destination: { sectionId, parentRowId,
+      afterRowId: siblings[position - 1]?.rowId ?? null, beforeRowId: siblings[position]?.rowId ?? null } };
+  }
+
+  function stashInput(event) {
+    if (root.hidden || readOnly() || pending || !event.dataTransfer) return null;
+    if (drag && drag.model === getDocument() && event.dataTransfer.types.includes(itemDragType)) {
+      return { inside: drag };
+    }
+    const source = getScriptDrag();
+    if (!source || source.snapshot !== getDocument() || !event.dataTransfer.types.includes(
+      source.kind === "rows" ? scriptRowsDragType : scriptVisualDragType)) return null;
+    return { outside: source };
+  }
+
+  entries.addEventListener("dragstart", (event) => {
+    const item = event.target.closest?.("[data-stash-row-id]");
+    if (!item || readOnly() || pending || !event.dataTransfer || event.target.closest("button, input, textarea, select")) return;
+    const entry = actions.view().flatMap((section) => section.entries).find((itemEntry) => itemEntry.rowId === item.dataset.stashRowId);
+    if (!entry) return;
+    const model = getDocument();
+    const attached = Boolean(event.target.closest(".stash-attached-footage"));
+    drag = { id: entry.rowId, entry, model, attached, projectId: model.projectId, snapshot: JSON.stringify(entry.row) };
+    event.dataTransfer.setData(itemDragType, entry.rowId);
+    if (entry.kind === "note" && !attached) event.dataTransfer.setData(dragType, entry.rowId);
+    event.dataTransfer.effectAllowed = entry.kind === "note" && !attached ? "copyMove" : "move";
+    event.dataTransfer.setDragImage(event.target.closest(".stash-attached-footage") ?? item, -12, -12);
+    item.classList.add("stash-entry--dragging");
+  });
+  doc.addEventListener("dragend", clearDrag);
+  entries.addEventListener("dragover", (event) => {
+    const input = stashInput(event);
+    stashTarget = input && stashDestination(event, input.inside);
+    if (stashTarget && input.inside && !input.inside.attached && !stashTarget.attachTo) {
+      try { stashOutlineMoveCommand(input.inside.model, input.inside.id, stashTarget.destination); }
+      catch { stashTarget = null; }
+    }
+    marker.hidden = !stashTarget;
+    if (!stashTarget) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    drawLine(stashTarget.box, stashTarget.y);
+  });
+  entries.addEventListener("dragleave", (event) => {
+    if (!entries.contains(event.relatedTarget)) marker.hidden = true;
+  });
+  entries.addEventListener("drop", (event) => {
+    const input = stashInput(event);
+    const next = input && stashDestination(event, input.inside);
+    const key = (target) => JSON.stringify([target?.destination, target?.attachTo, target?.replace]);
+    const valid = next && stashTarget && key(next) === key(stashTarget);
+    clearDrag();
+    clearScriptDrag();
+    if (!valid) return;
+    event.preventDefault();
+    const { inside, outside } = input;
+    const destination = next.destination;
+    const action = inside?.attached
+      ? () => actions.detachFootage(inside.id, destination, inside.model)
+      : inside ? next.attachTo
+      ? () => actions.attachFootage(next.attachTo, inside.id, next.replace)
+      : () => actions.moveOutline(inside.id, destination)
+      : outside.kind === "visual"
+        ? () => actions.stashVisual(outside.rowId, outside.slotId, destination, outside.snapshot)
+        : outside.rowIds.length > 1
+          ? () => actions.stashGroup(outside.rowIds, destination.sectionId, destination.parentRowId, destination.afterRowId)
+          : () => actions.stashRows(outside.rowIds, destination, outside.snapshot);
+    void runMutation(action, "Stash updated.", "The drop was not saved. See script status.");
+  });
+
   script.addEventListener("dragover", (event) => {
-    if (!drag) return;
-    const next = target(event);
+    if (!drag || root.hidden || readOnly() || pending) return;
+    const next = scriptDestination(event);
     marker.hidden = !next;
-    preview = next?.intent ?? null;
+    preview = next ? { gap: next.gap, rowId: next.rowId, intent: next.intent } : null;
     if (!next) return;
     event.preventDefault();
     event.stopPropagation();
-    event.dataTransfer.dropEffect = "copy";
-    Object.assign(marker.style, { left: `${next.rect.x}px`, top: `${next.rect.y}px`, height: `${next.rect.height}px` });
+    event.dataTransfer.dropEffect = drag.entry.kind === "note" && !drag.attached ? "copy" : "move";
+    if (next.rect) {
+      Object.assign(marker.style, { left: `${next.rect.x}px`, top: `${next.rect.y}px`, width: "3px", height: `${next.rect.height}px` });
+    } else drawLine(next.node.getBoundingClientRect(), next.y || undefined);
   }, true);
-  script.addEventListener("dragleave", () => { marker.hidden = true; });
+  script.addEventListener("dragleave", (event) => {
+    if (!script.contains(event.relatedTarget)) marker.hidden = true;
+  });
   script.addEventListener("drop", (event) => {
-    if (!drag || ![...(event.dataTransfer?.types ?? [])].includes(dragType)) return;
+    if (!drag || !event.dataTransfer?.types.includes(itemDragType)) return;
+    const source = drag;
+    const next = scriptDestination(event);
+    const exact = next && event.dataTransfer.getData(itemDragType) === source.id &&
+      JSON.stringify(preview) === JSON.stringify({ gap: next.gap, rowId: next.rowId, intent: next.intent });
+    clearDrag();
+    if (!exact) return;
     event.preventDefault();
     event.stopPropagation();
-    const next = event.dataTransfer.getData(dragType) === drag.id ? target(event) : null;
-    const exact = next && JSON.stringify(preview) === JSON.stringify(next.intent);
-    clearDrag();
-    if (exact) void insert(next.intent);
-    else status.textContent = "The drop point changed. Drag the note again.";
+    if (next.intent) void insert(next.intent);
+    else if (next.rowId) void runMutation(() => actions.insertStashVisual(source.id, next.rowId, crypto.randomUUID(), source.model),
+      "Visual moved to the script. Choose Attach to words to set its range.", "The visual could not be moved. See script status.");
+    else if (source.attached) void runMutation(() => actions.placeAttached(source.id, next.gap, source.model),
+      "Attached footage moved to its own row.", "The footage could not be placed. See script status.");
+    else if (source.entry.group) void runMutation(() => actions.placeGroup(source.entry.group.id, next.gap, source.model),
+      "Group moved to the script.", "The group could not be placed. See script status.");
+    else {
+      const intent = captureSavedPlacement(source.model, "place_stash_rows", [source.id], next.gap, next.include);
+      if (intent) void runMutation(() => actions.placeSaved(intent),
+        source.entry.kind === "note" ? "Note copied as spoken text." : "Saved material moved to the script.",
+        "The item could not be placed. See script status.");
+    }
   }, true);
   toggle.addEventListener("click", () => root.hidden ? open() : close());
   root.querySelector("[data-stash-close]").addEventListener("click", () => close());
@@ -782,21 +983,26 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     // Native text Undo belongs to the unsaved note field, not the script.
     if (event.target === input && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") event.stopPropagation();
   });
+  section.addEventListener("change", () => { noteLocation = null; });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (readOnly() || pending || !input.value.trim()) return;
     pending = true;
     const text = input.value;
     const started = generation;
-    const ok = await actions.addNote(text, { sectionId: section.value || null });
+    const ok = await actions.addNote(text, noteLocation ?? { sectionId: section.value || null });
     pending = false;
     if (generation !== started) return;
     if (ok) {
-      if (input.value === text) input.value = "";
+      if (input.value === text) {
+        input.value = "";
+        noteLocation = null;
+      }
       update();
     }
     status.textContent = ok ? "Note added." : "Note was not saved. See script status.";
   });
+  includeDescendants?.addEventListener("change", describeSavedPlacement);
   savedPlace.addEventListener("submit", (event) => {
     event.preventDefault();
     void placeSaved();

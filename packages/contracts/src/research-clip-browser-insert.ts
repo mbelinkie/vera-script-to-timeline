@@ -104,7 +104,7 @@ export function insertResearchClipBrowserV2(
       }
       const create: RowEditCommandV2 = {
         kind: "create_stash_clip", row: occurrence, bundleId: nextId(),
-        sectionId: placement.sectionId, parentRowId: null, afterRowId: null,
+        sectionId: placement.sectionId, parentRowId: null, afterRowId: null, atStart: true,
       };
       const added = applyRowEditV2(document, request.expectedDocumentRevision, create);
       if (!added.ok) return added;

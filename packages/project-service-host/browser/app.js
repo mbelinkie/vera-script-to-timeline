@@ -439,7 +439,8 @@ function renderEditor() {
     projection: editorProjection(), visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
     addWordless: addWordlessVisual, projectVisualHoldMs, allowStash: true,
-    quoteBoxEdit: queueResearchQuoteBoxEdit, quoteBoxRangeEdit: queueQuoteBoxRangeEdit,
+    quoteBoxEdit: sortingTrial ? undefined : queueResearchQuoteBoxEdit,
+    quoteBoxRangeEdit: sortingTrial ? undefined : queueQuoteBoxRangeEdit,
     quotePicture: researchPlacedQuotePictureGet,
     flashIds: flashVisualIds,
   });
@@ -450,7 +451,7 @@ function renderEditor() {
     stashVisual));
 
   narrationCleanup.push(mountVisualCardDragging(root));
-  narrationCleanup.push(mountResearchDragging(root));
+  if (!sortingTrial) narrationCleanup.push(mountResearchDragging(root));
   narrationCleanup.push(mountWordlessControls(root));
   rowsCleanup = mountRowsEditor(root, model, {
     createBlankRow: createBlankNarrationRow,
@@ -682,7 +683,7 @@ function mountVisualCardDragging(root) {
     target?.classList.remove("script-row--visual-drop-target");
     reorderMarker?.classList.remove("visual-card--reorder-before");
     root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
-    if (dragging && stashScriptDrag?.kind === "visual") stashScriptDrag = null;
+    if (dragging) stashScriptDrag = null;
     dragging = null;
     target = null;
     reorderMarker = null;
@@ -706,8 +707,11 @@ function mountVisualCardDragging(root) {
     event.dataTransfer.setData("application/x-vera-visual", "picture");
     if (row.type === "narration") {
       stashScriptDrag = { kind: "visual", rowId, slotId, payloadId, snapshot: editorDocument() };
-      event.dataTransfer.setDragImage(card, -12, -12);
+    } else if (!row.additionalVisuals?.length) {
+      stashScriptDrag = { kind: "rows", rowIds: [rowId], snapshot: editorDocument() };
+      event.dataTransfer.setData("application/x-vera-script-rows", "rows");
     }
+    if (stashScriptDrag) event.dataTransfer.setDragImage(card, -12, -12);
     card.classList.add("visual-card--dragging");
   };
   const destination = (event) => {
@@ -2261,7 +2265,12 @@ function retryExtrasWrite() {
     const sameBasis = () => activeProjectId === projectId && scriptDocument === prior &&
       documentRevision === body.expectedRevision && documentDigest === digest &&
       !documentSaving && !documentDirty && !pendingDocument;
-    if (!sameBasis()) throw new Error("The open script changed. Reload the saved script.");
+    if (!sameBasis()) {
+      pendingExtras = undefined;
+      extrasFailure = { message: "The open script changed. Reload the saved script.", action: "conflict" };
+      conflicted = true;
+      return false;
+    }
     if (!pending.receipt) {
       const receipt = await api(isUndo ? path : path + "/extras-operations", isUndo ? "PUT" : "POST", body);
       if (receipt.projectId !== projectId || receipt.clientMutationId !== body.clientMutationId ||

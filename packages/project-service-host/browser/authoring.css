@@ -1434,3 +1434,5 @@ html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }
   border-radius: 0.3rem;
   background: #f2f2ed;
 }
+
+.stash-entry--dragging { outline: 2px solid var(--gold); }

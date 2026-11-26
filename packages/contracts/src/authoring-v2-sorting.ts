@@ -152,7 +152,9 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
-  const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
+  const optional = kind === "create_stash_note" ? ["mode"] : kind === "create_stash_clip" ? ["atStart"] :
+    kind === "cleanup_blank_stash_note" ? ["clearText"] : kind === "detach_stash_footage" ? ["destination"] :
+    kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
     kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] :
       kind === "move_wordless_visual" ? ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
