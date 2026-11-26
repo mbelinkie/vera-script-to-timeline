@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
@@ -275,7 +275,7 @@ describe("browser Sorting trial HTTP boundary", () => {
     expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
     expect(sorting.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
     expect(narration(sorting.document, source.id).text).toBe(source.text);
-    expect(framing(sorting.document)).toBe("wide");
+    expect(framing(sorting.document)).toBe(onCamera.payload.kind === "on_camera" ? onCamera.payload.framing : undefined);
     const all = await accept("all");
     expect(all.ok, JSON.stringify(all.diagnostics)).toBe(true);
     expect(all.changed).toBe(true);
@@ -307,6 +307,96 @@ describe("browser Sorting trial HTTP boundary", () => {
     const invalidOutcome = await authorized(f.path, { ...body, action: "accept", outcome: "replace_document" });
     expect(invalidOutcome.status).toBe(400);
     expect(f.head.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+  });
+
+  it("composes a Stash visual transfer independently from narration edits for selective acceptance", async () => {
+    const f = fixture();
+    const sourceInHead = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    if (!sourceInHead || sourceInHead.type !== "narration") throw new Error("fixture narration row is missing");
+    const movedSlotInHead = sourceInHead.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual");
+    if (movedSlotInHead?.kind !== "content" || movedSlotInHead.payload.kind !== "visual") throw new Error("fixture has no transferable visual");
+    movedSlotInHead.payload.selectedSourceRange = { startFrame: 0, durationFrames: 1 };
+    movedSlotInHead.payload.sourceUsage = { ...movedSlotInHead.payload.sourceUsage, sourceInFrame: 0 };
+    const trimmed = checkedDocument(f.head.document, f.head.projectId);
+    f.head.document = trimmed.document;
+    f.head.digest = trimmed.digest;
+    const source = sourceInHead;
+    const movedSlot = movedSlotInHead;
+    const narration = (document: ScriptDocumentV2) => {
+      const row = document.activeDraft.blocks.find((block) => block.id === source.id);
+      if (!row || row.type !== "narration") throw new Error("fixture narration row is missing");
+      return row;
+    };
+    const transfer = { kind: "stash_visual", rowId: source.id, slotId: movedSlot.id,
+      bundleId: randomUUID(), stashRowId: randomUUID(), sectionId: null, parentRowId: null, afterRowId: null };
+    const edit = { kind: "edit_narration_text", rowId: source.id, startOffset: source.text.length,
+      endOffset: source.text.length, insertedText: " edited", editId: randomUUID() };
+    const operations = [{ kind: "command", command: transfer }, { kind: "command", command: edit }];
+    const requestBody = (outcome: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action: "accept", outcome,
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody(outcome))).json() as CommandResult & { changed: boolean };
+    const all = await accept("all");
+    expect(all.ok, JSON.stringify(all.diagnostics)).toBe(true);
+    expect(all.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId)).toBe(true);
+    expect(narration(all.document).text).toBe(`${source.text} edited`);
+
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId) ?? false).toBe(false);
+    expect(narration(edits.document).text).toBe(`${source.text} edited`);
+
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === transfer.stashRowId) ?? false).toBe(true);
+    expect(narration(sorting.document).text).toBe(source.text);
+  });
+
+  it("keeps an independently inserted Stash visual with sorting-only and restores it with edits-only", async () => {
+    const f = fixture();
+    const source = f.head.document.activeDraft.blocks.find((row) => row.id === f.source.id);
+    if (!source || source.type !== "narration") throw new Error("fixture narration row is missing");
+    const clip = source.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual");
+    if (clip?.kind !== "content" || clip.payload.kind !== "visual") throw new Error("fixture has no clip");
+    clip.payload.selectedSourceRange = { startFrame: 0, durationFrames: 1 };
+    clip.payload.sourceUsage = { ...clip.payload.sourceUsage, sourceInFrame: 0 };
+    const trimmed = applyRowEditV2(f.head.document, f.head.document.rowEditRevision ?? 0, {
+      kind: "stash_visual", rowId: source.id, slotId: clip.id, bundleId: randomUUID(),
+      stashRowId: randomUUID(), sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(trimmed.ok, JSON.stringify(trimmed.diagnostics)).toBe(true);
+    const saved = checkedDocument(trimmed.document, f.head.projectId);
+    f.head.document = saved.document;
+    f.head.digest = saved.digest;
+    const stashRow = saved.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.type === "visual_only");
+    if (!stashRow || stashRow.type !== "visual_only") throw new Error("saved Stash visual is missing");
+    const insertion = { kind: "insert_stash_visual", stashRowId: stashRow.id,
+      destinationRowId: f.narrated.id, destinationSlotId: randomUUID() };
+    const narrationEdit = { kind: "edit_narration_text", rowId: source.id, startOffset: source.text.length,
+      endOffset: source.text.length, insertedText: " edited", editId: randomUUID() };
+    const operations = [{ kind: "command", command: insertion }, { kind: "command", command: narrationEdit }];
+    const requestBody = (outcome: "all" | "edits_only" | "sorting_only") => ({
+      expectedRevision: f.head.revision, expectedDigest: f.head.digest, operations, action: "accept", outcome,
+    });
+    const { authorized } = await authoringRequests(f.projects);
+    const accept = async (outcome: "all" | "edits_only" | "sorting_only") =>
+      await (await authorized(f.path, requestBody(outcome))).json() as CommandResult;
+    const edits = await accept("edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === stashRow.id)).toBe(true);
+    const editsTarget = edits.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    expect(editsTarget?.type === "narration" ? editsTarget.unattachedVisuals : undefined).toBeUndefined();
+    const sorting = await accept("sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === stashRow.id)).toBe(false);
+    const target = sorting.document.activeDraft.blocks.find((row) => row.id === f.narrated.id);
+    expect(target?.type === "narration" && target.unattachedVisuals?.some((item) => item.slotId === insertion.destinationSlotId)).toBe(true);
+    const sortedSource = sorting.document.activeDraft.blocks.find((row) => row.id === source.id);
+    expect(sortedSource?.type === "narration" ? sortedSource.text : undefined).toBe(source.text);
   });
 });
 

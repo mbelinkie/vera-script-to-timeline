@@ -4,12 +4,13 @@ import { randomUUID } from "node:crypto";
 import type { RowGapV2, ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import { createResearchClipOccurrenceV2, type ResearchLoggedCandidateInputV2 } from "./authoring-v2-research-snapshot.js";
 import { isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
-import { applyRowEditV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
+import { applyRowEditV2, type RowEditCommandV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 import { attachVisualToWordsV2 } from "./authoring-v2-visual-lifecycle.js";
 import { toNarratedPlacementV2, wordlessPlacementsV2 } from "./authoring-v2-wordless.js";
 
 export type ResearchClipBrowserDestinationV2 =
   | { kind: "gap"; destination: RowGapV2 }
+  | { kind: "stash"; sectionId: string | null; noteRowId: string | null; replace: boolean }
   | { kind: "unattached"; rowId: string; expectedRowVersion: number; expectedSequenceVersion: number }
   | { kind: "selected_words"; rowId: string; expectedRowVersion: number; expectedSequenceVersion: number;
       startTokenId: string; endTokenId: string };
@@ -43,7 +44,7 @@ export function insertResearchClipBrowserV2(
   candidate: ResearchLoggedCandidateInputV2,
   request: ResearchClipBrowserInsertV2,
   makeId: () => string = randomUUID,
-): RowEditResultV2 {
+): RowEditResultV2 & { rowCommands?: RowEditCommandV2[] } {
   if (!request || !candidate || !uuid.test(request.researchProjectId ?? "") ||
       !uuid.test(request.clipId ?? "") || !Number.isSafeInteger(request.clipVersion) || request.clipVersion < 1 ||
       request.researchProjectId.toLowerCase() !== candidate.projectId?.toLowerCase() ||
@@ -56,12 +57,12 @@ export function insertResearchClipBrowserV2(
     return refused(document, "ROW_REVISION_STALE", "The script changed before this clip was chosen.");
   }
   const placement = request.placement;
-  if (!placement || !["gap", "unattached", "selected_words"].includes(placement.kind)) {
+  if (!placement || !["gap", "stash", "unattached", "selected_words"].includes(placement.kind)) {
     return refused(document, "RESEARCH_PLACEMENT_INVALID", "Choose a current script gap or narration row.");
   }
 
   let row: Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> | undefined;
-  if (placement.kind !== "gap") {
+  if (placement.kind === "selected_words" || placement.kind === "unattached") {
     row = document.activeDraft.blocks.find((block) => block.id === placement.rowId && block.type === "narration") as typeof row;
     if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an active narration row, not a saved Stash row.");
     if (row.version !== placement.expectedRowVersion ||
@@ -91,6 +92,28 @@ export function insertResearchClipBrowserV2(
       return applyRowEditV2(document, request.expectedDocumentRevision, {
         kind: "create_row", row: occurrence, destination: placement.destination,
       });
+    }
+
+    if (placement.kind === "stash") {
+      const note = placement.noteRowId === null ? null : (document.stash ?? [])
+        .flatMap((bundle) => bundle.rows).find((item) => item.id === placement.noteRowId);
+      if ((placement.noteRowId !== null && (note?.type !== "narration" ||
+          (note.attachedFootage !== undefined) !== placement.replace)) ||
+          (placement.noteRowId === null && placement.replace)) {
+        return refused(document, "STASH_ATTACHMENT_CHANGED", "The Stash note or its footage changed. Choose the clip again.");
+      }
+      const create: RowEditCommandV2 = {
+        kind: "create_stash_clip", row: occurrence, bundleId: nextId(),
+        sectionId: placement.sectionId, parentRowId: null, afterRowId: null,
+      };
+      const added = applyRowEditV2(document, request.expectedDocumentRevision, create);
+      if (!added.ok) return added;
+      if (!note) return { ...added, rowCommands: [create] };
+      const attach: RowEditCommandV2 = placement.replace
+        ? { kind: "replace_stash_footage", noteRowId: note.id, clipRowId: occurrence.id, releasedBundleId: nextId() }
+        : { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: occurrence.id };
+      const result = applyRowEditV2(added.document, added.document.rowEditRevision!, attach);
+      return result.ok ? { ...result, rowCommands: [create, attach] } : { ...result, document };
     }
 
     const converted = toNarratedPlacementV2(wordlessPlacementsV2(occurrence)[0]!);

@@ -191,7 +191,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
       const success = await insert(clip, placement);
       if (success) {
         if (generation === started) close();
-        onStatus("Footage added to script.");
+        onStatus(placement?.kind === "stash" ? "Footage added to Stash." : "Footage added to script.");
       } else onStatus("Footage was not added. The source or script may have changed.");
     } catch {
       onStatus("Footage was not added. The source or script may have changed.");
@@ -295,7 +295,8 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     visible = true;
     root.hidden = false;
     openButton.setAttribute("aria-expanded", "true");
-    root.querySelector("[data-footage-heading]").textContent = quick ? "Choose footage for words" : "Footage";
+    root.querySelector("[data-footage-heading]").textContent = placement?.kind === "stash"
+      ? "Choose logged footage for Stash" : quick ? "Choose footage for words" : "Footage";
     search.value = "";
     showUsed.checked = false;
     chooser.hidden = true;

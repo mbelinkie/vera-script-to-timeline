@@ -103,12 +103,16 @@ function sortingOperation(value: unknown): SortingOperation | null {
     return command ? { kind: "visual", command, expectedSequenceVersion: value.expectedSequenceVersion as number } : null;
   }
   if (value.kind === "batch") {
-    if (!exact(value, ["kind", "operations"]) || !Array.isArray(value.operations) || value.operations.length === 0 ||
-        value.operations.some((item) => {
-          const operation = sortingOperation(item);
-          return !operation || operation.kind === "batch" || operation.kind === "undo";
-        })) return null;
-    return { kind: "batch", operations: value.operations as Array<Exclude<SortingOperation, { kind: "batch" | "undo" }>> };
+    if (!exact(value, ["kind", "operations"]) || !Array.isArray(value.operations) ||
+        value.operations.length === 0 || value.operations.length > 1000) return null;
+    const operations: Array<Exclude<SortingOperation, { kind: "batch" | "undo" }>> = [];
+    for (const item of value.operations) {
+      if (!record(item) || (item.kind !== "command" && item.kind !== "visual")) return null;
+      const operation = sortingOperation(item);
+      if (!operation || operation.kind === "batch" || operation.kind === "undo") return null;
+      operations.push(operation);
+    }
+    return { kind: "batch", operations };
   }
   return null;
 }
@@ -146,6 +150,11 @@ function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & {
         !exact(destination, ["sectionId", "afterRowId", "beforeRowId"]) ||
         !["sectionId", "afterRowId", "beforeRowId"].every((key) =>
           destination[key] === null || uuid(destination[key]))) return null;
+  } else if (placement.kind === "stash") {
+    if (!exact(placement, ["kind", "sectionId", "noteRowId", "replace"]) ||
+        !(placement.sectionId === null || uuid(placement.sectionId)) ||
+        !(placement.noteRowId === null || uuid(placement.noteRowId)) ||
+        typeof placement.replace !== "boolean") return null;
   } else if (placement.kind === "unattached" || placement.kind === "selected_words") {
     if (!exact(placement, placement.kind === "unattached"
       ? ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"]
@@ -449,17 +458,22 @@ export function createAuthoringHandler(
       const legacy = record(body) && exact(body, ["expectedRevision", "expectedDigest", "moves", "action"]);
       const current = record(body) && (exact(body, ["expectedRevision", "expectedDigest", "operations", "action"]) ||
         exact(body, ["expectedRevision", "expectedDigest", "operations", "action", "outcome"]));
+      const withinBodyLimit = !!body && record(body) && JSON.stringify(body).length <= 5_000_000;
+      const operationList: unknown[] | null = record(body) && Array.isArray(body.operations) ? body.operations : null;
+      const withinOperationLimit = !!operationList && operationList.length <= 1000 &&
+        operationList.reduce<number>((count, item) => count + (record(item) && item.kind === "batch" && Array.isArray(item.operations)
+          ? item.operations.length : 1), 0) <= 1000;
       if (!record(body) || (!legacy && !current) ||
           !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
           typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest) ||
           !["preview", "accept", "discard"].includes(body.action as string) ||
           (legacy ? !Array.isArray(body.moves) || body.moves.length > 1000 || !body.moves.every(sortingMove) :
-            !Array.isArray(body.operations) || body.operations.length > 1000 ||
-            !body.operations.every((item) => sortingOperation(item) !== null) ||
+            !withinBodyLimit || !withinOperationLimit ||
+            !operationList || !operationList.every((item) => sortingOperation(item) !== null) ||
             body.action === "accept" && Object.hasOwn(body, "outcome") &&
               !["all", "edits_only", "sorting_only"].includes(body.outcome as string) ||
             body.action !== "accept" && Object.hasOwn(body, "outcome")) ||
-          JSON.stringify(body).length > 5_000_000) {
+          !withinBodyLimit) {
         return researchResponse(400, { error: "invalid_sorting_trial" });
       }
       try {
@@ -486,10 +500,15 @@ export function createAuthoringHandler(
           }] });
         }
         const baseline = head.document as ScriptDocumentV2;
-        const trial = createSortingTrialV2(baseline);
         const operations: SortingOperation[] = legacy
           ? (body.moves as unknown[]).map((move) => ({ kind: "command", command: move as RowEditCommandV2 }))
           : body.operations as SortingOperation[];
+        const flat = operations.flatMap((item) => item.kind === "batch" ? item.operations : [item]);
+        const needsProjectHold = flat.some((item) => item.kind === "visual"
+          ? item.command.kind === "move_visual_to_row"
+          : item.kind === "command" && ["add_visual_to_wordless_row", "move_wordless_visual"].includes(item.command.kind));
+        const projectHoldMs = needsProjectHold ? await projectVisualHoldMs(projectId) : LEGACY_VISUAL_HOLD_MS;
+        const trial = createSortingTrialV2(baseline, projectHoldMs);
         const maxOperations = (items: SortingOperation[]): number => items.reduce((count, item) =>
           count + (item.kind === "batch" ? item.operations.length : 1), 0);
         if (maxOperations(operations) > 1000) return researchResponse(400, { error: "invalid_sorting_trial" });

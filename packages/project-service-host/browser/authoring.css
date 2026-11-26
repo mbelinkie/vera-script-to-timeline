@@ -1303,9 +1303,9 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .sorting-row--moved { border-left: 3px solid var(--gold); }
 
 .sorting-edit .narration-cell { padding-right: 0.6rem; }
-.sorting-edit .visuals-cell:has(.sorting-connectors) { padding-left: 50px; }
+.sorting-edit .visuals-cell { padding-left: 50px; }
 @media (max-width: 1024px) {
-  .sorting-edit .visuals-cell:has(.sorting-connectors) { padding-left: 42px; }
+  .sorting-edit .visuals-cell { padding-left: 42px; }
 }
 .sorting-connectors { position: absolute; inset: 0; pointer-events: none; }
 .sorting-connector { color: #8b6117; }
@@ -1368,3 +1368,17 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 #sorting-choices button { width: 100%; border: 0; text-align: left; white-space: nowrap; }
 #sorting-choices button:hover,
 #sorting-choices button:focus-visible { background: #fff1cf; }
+
+.stash-section-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; }
+.stash-section-heading h3 { margin-right: auto; }
+.stash-panel [data-stash-drop-section] { min-height: 1.65rem; }
+.stash-note-check { display: flex; align-items: flex-start; gap: 0.35rem; overflow-wrap: anywhere; }
+.stash-note-check input { flex: none; }
+.stash-entry--completed .stash-entry-text { color: #63666d; }
+.stash-outline-controls { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.stash-panel .stash-attached-footage {
+  margin: 0.3rem 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.3rem;
+  background: #f2f2ed;
+}

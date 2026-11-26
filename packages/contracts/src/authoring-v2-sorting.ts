@@ -1,6 +1,5 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import type { VisualSequenceEditCommandV2 } from "./authoring-v2.js";
-import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { createSortingProjectionV2, updateSortingProjectionV2, projectSortingDocumentV2 } from "./authoring-v2-sorting-projection.js";
 import { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
@@ -366,7 +365,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2, projectHoldMs = 
       if (!sameJson(canonical, baseline)) return { ...failure("SORTING_BASELINE_CHANGED", "The saved script or Stash changed. Start a new trial from that document.", canonical), changed: false };
       if (!["all", "edits_only", "sorting_only"].includes(outcome)) return { ...failure("SORTING_OUTCOME_INVALID", "Choose all changes, edits only, or sorting only.", canonical), changed: false };
       if (outcome !== "all" && actions.some((action) => action.kind === "stash_visual" ||
-          (action as { kind?: string }).kind === "insert_stash_visual")) {
+          action.kind === "insert_stash_visual")) {
         const withoutTransfers = createSortingTrialV2(baseline, projectHoldMs);
         const active: boolean[] = [];
         for (const action of actions) {
@@ -379,9 +378,9 @@ export function createSortingTrialV2(initial: ScriptDocumentV2, projectHoldMs = 
             active.push(false);
             replay = withoutTransfers.applyVisual(action.command, action.expectedSequenceVersion);
           } else {
-            const transfer = isStashVisualTransfer(action as RowEditCommandV2);
+            const transfer = isStashVisualTransfer(action);
             active.push(transfer);
-            if (!transfer) replay = withoutTransfers.apply(action as RowEditCommandV2);
+            if (!transfer) replay = withoutTransfers.apply(action);
           }
           if (replay && !replay.ok) return { ...failure("SORTING_PROJECTION_DEPENDENCY_INVALID",
             "A selective result depends on the Stash visual transfer. Accept all changes or undo the dependent operation.", canonical), changed: false };
@@ -459,10 +458,16 @@ export function resumeSortingTrialV2(json: string, projectHoldMs = LEGACY_VISUAL
   if (!loaded.ok) throw new Error("Invalid Sorting baseline.");
   const trial = createSortingTrialV2(loaded.document, projectHoldMs);
   for (const action of saved.actions) {
-    const result = action && action.kind === "undo" && Object.keys(action).length === 1 ? trial.undo() :
-      action && action.kind === "visual" && Object.keys(action).length === 3
-        ? trial.applyVisual(action.command, action.expectedSequenceVersion)
-        : trial.apply(action as RowEditCommandV2);
+    let result: RowEditResultV2;
+    if (action?.kind === "undo") {
+      if (Object.keys(action).length !== 1) throw new Error("Invalid saved Sorting operation.");
+      result = trial.undo();
+    } else if (action?.kind === "visual") {
+      if (Object.keys(action).length !== 3) throw new Error("Invalid saved Sorting operation.");
+      result = trial.applyVisual(action.command, action.expectedSequenceVersion);
+    } else {
+      result = trial.apply(action);
+    }
     if (!result.ok) throw new Error(`Invalid saved Sorting operation: ${result.diagnostics.map((item) => item.code).join(", ")}`);
   }
   if (saved.phase === "preview") trial.preview();

@@ -1794,8 +1794,13 @@ export function mountVisualConnectors(row, block) {
       lane.hidden = false;
       const from = Math.max(previousTop + 18, (word.top + word.height / 2 - box.top) / scale);
       previousTop = from;
-      const end = Math.min(Math.max(from, (target.top - box.top) / scale + 9),
-        (target.bottom - box.top) / scale - 5);
+      const priorMargin = parseFloat(card.style.marginTop) || 0;
+      const port = (target.top - box.top) / scale - priorMargin + 9;
+      // Keep routes downward and in card order, even when narration wraps
+      // onto a line below the card's natural starting point.
+      const margin = Math.max(0, Math.ceil(from - port));
+      if (margin !== priorMargin) card.style.marginTop = `${margin}px`;
+      const end = port + margin;
       lane.style.setProperty("--from", `${from}px`);
       lane.style.setProperty("--to", `${end}px`);
       lane.style.setProperty("--track", `${gutter - 8 - index * step}px`);

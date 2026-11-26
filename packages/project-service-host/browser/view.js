@@ -169,11 +169,14 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     attach.type = "button";
     attach.dataset.attachVisual = "";
     attach.setAttribute("aria-pressed", String(options.attaching === true));
-    attach.addEventListener("click", (event) => {
-      event.stopPropagation();
-      options.attach?.(blockId, slotId);
-    });
-    meta.append(waiting, attach);
+    meta.append(waiting);
+    if (options.attach) {
+      attach.addEventListener("click", (event) => {
+        event.stopPropagation();
+        options.attach(blockId, slotId);
+      });
+      meta.append(attach);
+    }
   }
   if (options.holdSeconds !== undefined) {
     const hold = makeElement(document, "label", "visual-card__hold", "Hold");
@@ -410,7 +413,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
         payloadId: visual.payload.payloadId, draggable: Boolean(visualCommand),
         footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
-        holdSeconds: timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
+        holdSeconds: visualCommand && timing && !timing.matchAudioDuration && !timing.selectedSourceRange &&
           visual.payload.pictureKind !== "clip" ? (timing.durationOverrideMs ?? implicitHoldMs) / 1000 : undefined,
       }));
     }

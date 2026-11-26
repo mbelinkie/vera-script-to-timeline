@@ -1085,9 +1085,12 @@ export async function researchStillThumbnailGet(researchProjectId, itemId, itemV
 /** Resolves placement only after earlier typing has produced actual current token IDs. */
 export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
   const projectId = activeProjectId;
+  const toStash = placement?.kind === "stash";
   return queueCommand((latest) => ({ researchProjectId, clipId, clipVersion,
     placement: typeof placement === "function" ? placement(latest) : placement,
-  }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
+  }), toStash ? "Add footage to Stash" : "Add footage", {
+    structural: true, research: true, stashFootage: toStash, expectedProjectId: projectId,
+  });
 }
 
 /** Resolves selected words only after earlier typing has produced current IDs. */
@@ -1111,6 +1114,18 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
       expectedSequenceVersion: row.primaryVisualSequence.version,
       startTokenId: words.startTokenId, endTokenId: words.endTokenId };
   } });
+}
+
+function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
+  const expected = editorDocument();
+  const note = noteRowId && (expected.stash ?? []).flatMap((bundle) => bundle.rows)
+    .find((row) => row.id === noteRowId);
+  const placement = Object.assign((latest) => {
+    if (latest !== expected) throw new Error("The script or Stash changed. Choose the clip again.");
+    return { kind: "stash", sectionId, noteRowId, replace: Boolean(note?.attachedFootage) };
+  }, { kind: "stash" });
+  stashPanel.close(false);
+  void researchPanel.open({ quick: true, from: from?.isConnected ? from : element("open-stash"), placement });
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
@@ -1400,7 +1415,7 @@ async function updateSortingDocument(trial, operations, result) {
 
 function queueSortingCommand(command, label, options) {
   const trial = sortingTrial;
-  if (trial.preview || trial.busy || trial.acceptance || options.structural && composingRows.size) return Promise.resolve(false);
+  if (editRefused || trial.preview || trial.busy || trial.acceptance || options.structural && composingRows.size) return Promise.resolve(false);
   trial.pending++;
   updateSortingControls();
   trial.queue = trial.queue.then(async () => {
@@ -1427,7 +1442,20 @@ function queueSortingCommand(command, label, options) {
       return sortingRequest(trial, operations, "preview");
     };
     let latest;
-    if (options.paste) {
+    if (options.research && options.stashFootage) {
+      const prepared = await authoringVisualPost("research-insert", {
+        timelineProjectId: trial.projectId, document: before,
+        expectedDocumentRevision: before.rowEditRevision ?? 0, ...resolved,
+      });
+      if (!sortingBaselineCurrent(trial)) return false;
+      if (!Array.isArray(prepared.rowCommands) || prepared.rowCommands.length === 0) {
+        throw new Error("The authorized footage is unavailable.");
+      }
+      const additions = prepared.rowCommands.map((item) => ({ kind: "command", command: item }));
+      latest = await apply(additions.length === 1 ? additions[0] : { kind: "batch", operations: additions });
+    } else if (options.research || options.researchStill) {
+      throw new Error("Choose existing Stash material while Sorting.");
+    } else if (options.paste) {
       const pasted = await applyPlainPaste(before, resolved, async (_model, part) => {
         latest = await apply({ kind: "command", command: part });
         return latest;
@@ -1452,12 +1480,21 @@ function queueSortingCommand(command, label, options) {
     if (!options.renderAfterAction) scheduleRender(options.structural || options.paste || Boolean(options.onSplitApplied));
     return true;
   }).catch((error) => {
-    if (sortingTrial === trial) sortingStatus(error.message);
+    if (sortingTrial === trial) {
+      sortingStatus(error.message);
+      if (options.expectedRow && (!options.structural || options.paste)) {
+        editRefused = true;
+        refusedMessage = `${error.message} Your unsaved text is still here. Copy it or discard the text to continue.`;
+        element("discard-edit").hidden = false;
+        setSaveStatus();
+      }
+    }
     options.onSplitRefused?.(error);
     return false;
   }).finally(() => {
     trial.pending--;
     if (sortingTrial === trial) {
+      if (editRefused) element("discard-edit").disabled = trial.pending > 0;
       updateSortingControls();
       stashPanel?.update();
       if (renderRequested) scheduleRender();
@@ -1486,17 +1523,32 @@ export async function acceptSortingTrial(outcome = "all") {
       const result = await sortingRequest(trial, trial.operations, "accept", outcome);
       if (!sortingBaselineCurrent(trial)) return false;
       if (!result.changed) { sortingTrial = null; return true; }
-      trial.acceptance = { expectedRevision: trial.revision, clientMutationId: crypto.randomUUID(),
-        document: result.document };
+      trial.acceptance = { body: { expectedRevision: trial.revision, clientMutationId: crypto.randomUUID(),
+        document: result.document }, receipt: null };
     }
     // Keep the original CAS basis and mutation ID if the response is lost.
-    const { document: accepted } = trial.acceptance;
-    const receipt = await api(`/${trial.projectId}/document`, "PUT", trial.acceptance);
+    const acceptance = trial.acceptance;
+    const path = `/${trial.projectId}/document`;
+    if (!acceptance.receipt) {
+      const receipt = await api(path, "PUT", acceptance.body);
+      if (receipt.projectId !== trial.projectId || receipt.clientMutationId !== acceptance.body.clientMutationId ||
+          receipt.revision !== trial.revision + 1 || !savedDigestPattern.test(receipt.digest)) {
+        throw new Error("The save receipt could not be verified.");
+      }
+      acceptance.receipt = receipt;
+    }
+    const saved = await api(path);
     if (!sortingBaselineCurrent(trial)) return false;
-    undoStack.push({ document: scriptDocument, label: "Sort rows" });
-    scriptDocument = accepted;
-    documentRevision = receipt.revision;
-    documentDigest = receipt.digest;
+    if (saved.revision !== acceptance.receipt.revision || saved.digest !== acceptance.receipt.digest ||
+        saved.document?.id !== trial.baseline.id || saved.document?.projectId !== trial.projectId) {
+      trial.acceptance = null;
+      throw new Error("The saved script changed after acceptance. Reload to see the latest script.");
+    }
+    undoStack.push({ document: scriptDocument, label: "Sort rows",
+      durable: { revision: saved.revision, digest: saved.digest }, sortingBasis: { revision: trial.revision, digest: trial.digest } });
+    scriptDocument = saved.document;
+    documentRevision = saved.revision;
+    documentDigest = saved.digest;
     sortingTrial = null;
     lastSplit = null;
     const previousProjection = visualProjection;
@@ -1508,7 +1560,7 @@ export async function acceptSortingTrial(outcome = "all") {
     return true;
   } catch (error) {
     if (!trial.acceptance) throw error;
-    if (error.status >= 400 && error.status < 500) {
+    if (!trial.acceptance.receipt && error.status >= 400 && error.status < 500) {
       trial.acceptance = null;
       if (error.status === 409) throw new Error("The saved script changed. Discard this trial and reload before sorting again.");
       throw new Error("Saving was refused. Your Sorting changes are still pending.");
@@ -1524,7 +1576,10 @@ function setSortingMode(active) {
   element("sorting-view").hidden = !active;
   authoring.classList.toggle("sorting-edit", active && !preview);
   projectTitle.readOnly = active;
-  if (!active) stashScriptDrag = null;
+  if (!active) {
+    stashScriptDrag = null;
+    element("script-rows").inert = false;
+  }
   for (const id of ["undo", "open-footage", "open-prompter"]) element(id).hidden = active;
   element("undo").parentElement.querySelector(".undo-menu").hidden = active;
   const toggle = element("open-sorting");
@@ -1538,12 +1593,19 @@ function setSortingMode(active) {
 
 function leaveSorting() {
   if (!sortingTrial || sortingTrial.busy || sortingTrial.pending || sortingTrial.acceptance || composingRows.size) return;
-  if (sortingTrial.operations.length && !window.confirm("Discard this Sorting trial and return to the script?")) return;
+  if ((sortingTrial.operations.length || editRefused) &&
+      !window.confirm("Discard this Sorting trial and return to the script?")) return;
   finishSorting(false);
 }
 
 function finishSorting(accepted) {
   if (!accepted && (sortingTrial?.acceptance || !discardSortingTrial())) return;
+  if (editRefused) {
+    editRefused = false;
+    refusedMessage = "";
+    element("discard-edit").hidden = true;
+    setSaveStatus();
+  }
   setSortingMode(false);
   renderEditor();
   stashPanel?.update();
@@ -1568,19 +1630,38 @@ function updateSortingControls() {
   if (!sortingTrial) return;
   const { busy, pending, preview, operations } = sortingTrial;
   const waiting = busy || pending > 0 || composingRows.size > 0;
-  element("open-sorting").disabled = waiting;
-  element("sorting-accept").disabled = waiting || !operations.length;
+  element("script-rows").inert = Boolean(busy || sortingTrial.acceptance);
+  element("open-sorting").disabled = waiting || editRefused;
+  element("sorting-accept").disabled = waiting || editRefused || !operations.length;
   element("sorting-accept").textContent = sortingTrial.acceptance ? "Retry acceptance" : "Accept";
-  element("sorting-outcomes").disabled = waiting || !operations.length || !!sortingTrial.acceptance;
+  element("sorting-outcomes").disabled = waiting || editRefused || !operations.length || !!sortingTrial.acceptance;
   if (element("sorting-outcomes").disabled) showSortingChoices(false);
   element("sorting-discard").disabled = waiting || !!sortingTrial.acceptance;
-  element("sorting-undo").disabled = waiting || preview || !operations.length || !!sortingTrial.acceptance;
+  element("sorting-undo").disabled = waiting || editRefused || preview || !operations.length || !!sortingTrial.acceptance;
 }
 
 function decorateSortingRows(root, model) {
   const trial = sortingTrial;
   const gaps = rowGaps(model.activeDraft.blocks);
   const rows = new Map(model.activeDraft.blocks.map((row) => [row.id, row]));
+  const headings = [...root.querySelectorAll("[data-section-id].script-section-heading")];
+  headings.forEach((heading, index) => {
+    const sectionId = heading.dataset.sectionId;
+    const menu = heading.querySelector("[data-section-action-menu]");
+    const move = (label, after, before) => {
+      const button = sortingButton(label, label);
+      button.setAttribute("role", "menuitem");
+      button.addEventListener("click", () => {
+        menu.hidden = true;
+        const destination = { afterSectionId: after?.dataset.sectionId ?? null,
+          beforeSectionId: before?.dataset.sectionId ?? null };
+        void queueSortingCommand({ kind: "move_section", sectionId, destination }, label, { structural: true });
+      });
+      menu.append(button);
+    };
+    if (index > 0) move("Move section up", headings[index - 2], headings[index - 1]);
+    if (index + 1 < headings.length) move("Move section down", headings[index + 1], headings[index + 2]);
+  });
   for (const item of root.querySelectorAll(".script-row")) {
     const row = rows.get(item.dataset.rowId);
     item.dataset.sortingRowId = row.id;
@@ -1646,7 +1727,7 @@ function renderSorting(focusRowId, direction) {
 
 async function runSortingAction(action, rowId, direction) {
   const trial = sortingTrial;
-  if (!trial || trial.busy || trial.pending || composingRows.size) return;
+  if (!trial || trial.busy || trial.pending || editRefused || composingRows.size) return;
   const pending = action();
   updateSortingControls();
   sortingStatus("Checking trial…");
@@ -1663,6 +1744,7 @@ async function runSortingAction(action, rowId, direction) {
 
 element("open-sorting").addEventListener("click", () => {
   if (sortingTrial) {
+    if (!element("footage-panel").hidden) researchPanel?.close();
     sortingTrial.preview = !sortingTrial.preview;
     setSortingMode(true);
     if (sortingTrial.preview) renderEditor();
@@ -1738,7 +1820,7 @@ export function queueExtrasOperation(resolve, label) {
   return startExtrasWrite(resolve, label, false);
 }
 
-function startExtrasWrite(resolve, label, isUndo) {
+function startExtrasWrite(resolve, label, isUndo, sortingBasis) {
   if (!prompterReady() || prompterDialog.open) {
     setSaveStatus("Finish saving the script before using Stash.");
     return Promise.resolve(false);
@@ -1755,7 +1837,7 @@ function startExtrasWrite(resolve, label, isUndo) {
   const body = Object.freeze({ expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(),
     ...(isUndo ? { document: operation } : { operation }) });
   pendingExtras = { projectId: activeProjectId, prior, body, digest: documentDigest,
-    label, isUndo, receipt: null, uncertain: false };
+    label, isUndo, sortingBasis, receipt: null, uncertain: false };
   clearPreparedPrompter("Save your script before exporting.");
   lockExtrasEditor(true);
   setSaveStatus();
@@ -1797,10 +1879,20 @@ function retryExtrasWrite() {
     scriptDocument = saved.document;
     documentRevision = saved.revision;
     documentDigest = saved.digest;
-    // Older snapshots cannot cross the durable mutation boundary.
-    undoStack.length = 0;
-    if (!isUndo) undoStack.push({ document: prior, label,
-      durable: { revision: saved.revision, digest: saved.digest } });
+    if (isUndo && pending.sortingBasis) {
+      undoStack.pop();
+      // The exact pre-Sorting document is saved again at a new revision.
+      const earlier = undoStack.at(-1)?.durable;
+      if (earlier?.revision === pending.sortingBasis.revision && earlier.digest === pending.sortingBasis.digest) {
+        earlier.revision = saved.revision;
+        earlier.digest = saved.digest;
+      }
+    } else {
+      // Older snapshots cannot cross a whole-row Extras mutation boundary.
+      undoStack.length = 0;
+      if (!isUndo) undoStack.push({ document: prior, label,
+        durable: { revision: saved.revision, digest: saved.digest } });
+    }
     typingGroup = null;
     lastSplit = null;
     structuralFocus = null;
@@ -2059,7 +2151,7 @@ function undo() {
       setSaveStatus("This Stash Undo no longer matches the saved head.");
       return;
     }
-    void startExtrasWrite(() => entry.document, "Undo " + entry.label, true);
+    void startExtrasWrite(() => entry.document, "Undo " + entry.label, true, entry.sortingBasis);
     return;
   }
   clearPreparedPrompter("Save your script before exporting.");
@@ -2092,8 +2184,8 @@ function undo() {
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
-  // A modal export must not dispatch (or swallow) editor shortcuts behind it.
-  if (prompterDialog.open || pendingExtras) return;
+  // Modal controls own keys while the editor behind them is inactive.
+  if (document.querySelector("dialog[open]") || pendingExtras) return;
   if (sortingTrial) {
     if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey &&
         event.key.toLowerCase() === "z" && !event.defaultPrevented) {
@@ -2228,7 +2320,7 @@ function setSaveStatus(message = "Saved") {
 }
 
 element("discard-edit").addEventListener("click", () => {
-  if (!editRefused || commandsPending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
+  if (!editRefused || commandsPending || sortingTrial?.pending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
   editRefused = false;
   refusedMessage = "";
   element("discard-edit").hidden = true;
@@ -2339,8 +2431,12 @@ const stashActions = createStashActions((command, label, options) => {
 }, editorDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || pendingExtras),
-  applyCommand: applyBrowserCommand, fetchProjection, attachVisual: beginAttach,
+  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused),
+  applyCommand: applyBrowserCommand, fetchProjection, pickClip: openStashClipPicker,
+  loadClip: async ({ researchProjectId, clipId, clipVersion }) => {
+    const { clip } = await researchCatalogGet(researchProjectId, clipId);
+    return clip?.version === clipVersion ? clip : null;
+  },
   getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
   onOpen: () => {
     if (!element("footage-panel").hidden) researchPanel.close();
@@ -2351,9 +2447,16 @@ element("open-footage").addEventListener("click", () => stashPanel.close(false))
 researchPanel = mountResearchPanel({
   root: element("footage-panel"),
   catalog: researchCatalogGet,
-  getDocument: () => scriptDocument,
-  insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
-    clipId: clip.id, clipVersion: clip.version, placement }),
+  getDocument: editorDocument,
+  insert: async (clip, placement) => {
+    const projectId = activeProjectId;
+    const ok = await queueResearchClipInsert({ researchProjectId: clip.projectId,
+      clipId: clip.id, clipVersion: clip.version, placement });
+    if (ok && placement?.kind === "stash") setTimeout(() => {
+      if (projectId === activeProjectId) stashPanel.open();
+    }, 0);
+    return ok;
+  },
   gapChoices: availableGaps, rowChoices: availableNarrationRows,
   onStatus: (message) => setSaveStatus(message),
 });
