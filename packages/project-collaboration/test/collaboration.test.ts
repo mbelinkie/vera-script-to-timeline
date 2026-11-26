@@ -376,6 +376,41 @@ describe("live collaboration", () => {
     expect(history.find((entry) => entry.origin === "document_save")?.actorId).toBe(h.editor.principalId);
   });
 
+  it("saves typing that arrives after an Extras move and preserves its author on return to Draft", async () => {
+    const h = await harness(["hello world"], { materializeDelayMs: 0 });
+    const rowId = h.rowIds[0]!;
+    const sectionId = h.document.activeDraft.blocks[0]!.id;
+    const bundleId = randomUUID();
+    const writer = client();
+    const connection = await link(h.hub, h.projectId, h.owner, writer);
+    await settle(connection);
+
+    const before = await h.documents.getDocument(h.projectId, h.editor);
+    await h.documents.applyExtrasOperation(h.projectId, h.editor, {
+      expectedRevision: before.revision, clientMutationId: randomUUID(),
+      operation: { kind: "stash_rows", rowIds: [rowId], bundleId },
+    });
+    // This writer has yet to receive the move through the collaboration connection.
+    editRow(writer, rowId, () => "hello brave world");
+    await settle(connection);
+
+    const parked = await h.documents.getDocument(h.projectId, h.editor);
+    expect(parked.document.stash?.[0]?.rows[0]).toMatchObject({ id: rowId, text: "hello brave world" });
+    await h.documents.applyExtrasOperation(h.projectId, h.editor, {
+      expectedRevision: parked.revision, clientMutationId: randomUUID(),
+      operation: {
+        kind: "restore_stash", bundleId,
+        destination: { sectionId, afterRowId: null, beforeRowId: null },
+      },
+    });
+    await h.collaboration.flush(h.projectId);
+    await settle(connection);
+
+    expect(rowText(writer, rowId)).toBe("hello brave world");
+    const runs = await h.collaboration.authorship(h.projectId, h.editor, rowId);
+    expect(runs.find((run) => run.text.includes("brave"))?.actorId).toBe(h.owner.principalId);
+  });
+
   it("syncs Ideas as part of the same shared document", async () => {
     const h = await harness(["hello world"]);
     const a = client();
