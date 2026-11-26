@@ -1,7 +1,9 @@
 /** Compact Research occurrences are saved independently of row/footage ownership. */
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
-import { serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
+import { applyRowEditV2, serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
+import { placeResearchQuoteV2, type ResearchQuotePlacementV2 } from "./research-quote-placement.js";
+import { insertResearchStillBrowserV2, type ResearchStillBrowserInsertV2 } from "./research-still-browser-insert.js";
 import { readKeptOriginalAsset, readKeptStillProvenance } from "./research-still-records.js";
 
 export type StashResearchItemV2 = NonNullable<ScriptDocumentV2["stashResearchItems"]>[number];
@@ -154,4 +156,97 @@ export function captureResearchStashItemV2(
   } catch {
     return refuse("The Research occurrence must be losslessly representable as valid saved JSON.");
   }
+}
+
+export type ResearchStashDraftTargetV2 =
+  | { kind: "quote"; request: ResearchQuotePlacementV2 }
+  | { kind: "still"; placement: ResearchStillBrowserInsertV2["placement"]; expectedDocumentRevision: number };
+
+function refuseResearchStash(document: ScriptDocumentV2, message: string): RowEditResultV2 {
+  return { ok: false, document, diagnostics: [problem(message)] };
+}
+
+/** The host has checked the saved source. Keep the occurrence reserved until placement succeeds. */
+export function consumeResearchStashItemV2(
+  document: ScriptDocumentV2, itemId: string, target: ResearchStashDraftTargetV2,
+): RowEditResultV2 {
+  const items = document.stashResearchItems?.filter((item) => item.id === itemId) ?? [];
+  if (items.length !== 1) return refuseResearchStash(document, "Choose one current saved Research occurrence.");
+  const item = items[0]!;
+  const result = item.kind === "quote" && target.kind === "quote"
+    ? placeResearchQuoteV2(document, item.quote, item.background, target.request)
+    : item.kind === "still" && target.kind === "still"
+      ? insertResearchStillBrowserV2(document, item.still, {
+        expectedDocumentRevision: target.expectedDocumentRevision, researchProjectId: item.still.researchProjectId,
+        itemId: item.still.itemId, itemVersion: item.still.itemVersion, placement: target.placement,
+      })
+      : refuseResearchStash(document, "Choose a destination for this saved Research item kind.");
+  if (!result.ok) return { ...result, document };
+  if (result.document.rowEditRevision !== (document.rowEditRevision ?? 0) + 1 ||
+      JSON.stringify(result.document.stashResearchItems) !== JSON.stringify(document.stashResearchItems)) {
+    return refuseResearchStash(document, "The Research placement did not preserve the saved occurrences.");
+  }
+  const working = structuredClone(result.document);
+  working.stashResearchItems = working.stashResearchItems!.filter((candidate) => candidate.id !== itemId);
+  if (!working.stashResearchItems.length) delete working.stashResearchItems;
+  try {
+    return { ...result, document: JSON.parse(serializeAuthoringDocumentV2(working)) as ScriptDocumentV2 };
+  } catch {
+    return refuseResearchStash(document, "The Research placement could not be saved atomically.");
+  }
+}
+
+export interface ResearchQuoteBoxCaptureV2 {
+  expectedDocumentRevision: number;
+  rowId: string;
+  expectedRowVersion: number;
+  overlayId: string;
+  expectedOverlayVersion: number;
+}
+
+/** Read the actual authored box, not an independently edited Library display. */
+export function researchQuoteBoxForStashV2(document: ScriptDocumentV2, request: ResearchQuoteBoxCaptureV2) {
+  const row = document.activeDraft.blocks.find(({ id }) => id === request.rowId);
+  if (row?.type !== "narration" || row.state !== "active" || row.version !== request.expectedRowVersion) return null;
+  const event = row.overlayEvents.find(({ id }) => id === request.overlayId);
+  const box = event?.quoteBox;
+  if (!event || !box?.researchProjectId || !box.researchSourceId || !box.researchQuoteVersion ||
+      event.version !== request.expectedOverlayVersion) return null;
+  const payloads = [
+    ...(row.primaryVisualSequence?.slots ?? []).flatMap((slot) => slot.kind === "content" ? [slot.payload] : []),
+    ...(row.unattachedVisuals ?? []).map(({ payload }) => payload),
+  ];
+  const payload = payloads.find((candidate) => "payloadId" in candidate && candidate.payloadId === box.backgroundPayloadId);
+  const background = payload?.kind === "visual" && payload.researchQuotePicture
+    ? { kind: "still_image" as const, picture: payload.researchQuotePicture,
+      ...(payload.displayName ? { displayName: payload.displayName } : {}) } : null;
+  return { row, event, box, background };
+}
+
+/** Capture and remove just the overlay in a single returned document revision. */
+export function captureResearchQuoteBoxV2(
+  document: ScriptDocumentV2, request: ResearchQuoteBoxCaptureV2, location: ResearchStashLocationV2,
+  itemId: string, spokenText: string, afterItemId: string | null,
+): RowEditResultV2 {
+  const source = researchQuoteBoxForStashV2(document, request);
+  if (!source) return refuseResearchStash(document, "The quote box changed before Stash capture.");
+  const { row, event, box, background } = source;
+  const fields = {
+    researchQuoteId: box.researchQuoteId, displayText: box.displayText,
+    speakerName: box.speakerName, speakerTitle: box.speakerTitle,
+    citationText: box.citationText, italicSpan: box.italicSpan, templateRevision: box.templateRevision,
+    ...(box.citationOverridden ? { citationOverridden: true as const } : {}),
+  };
+  const captured = captureResearchStashItemV2(document, request.expectedDocumentRevision, {
+    ...location, id: itemId, kind: "quote", background,
+    quote: { ...fields, researchProjectId: box.researchProjectId!, researchSourceId: box.researchSourceId!,
+      researchQuoteVersion: box.researchQuoteVersion!, spokenText },
+  }, afterItemId);
+  if (!captured.ok) return captured;
+  // The private intermediate is never published. The ordinary row edit owns the sole revision advance.
+  captured.document.rowEditRevision = request.expectedDocumentRevision;
+  const edited = applyRowEditV2(captured.document, request.expectedDocumentRevision, {
+    kind: "edit_row", rowId: row.id, row: { ...row, overlayEvents: row.overlayEvents.filter(({ id }) => id !== event.id) },
+  });
+  return edited.ok ? edited : { ...edited, document };
 }

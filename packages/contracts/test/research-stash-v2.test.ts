@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ScriptDocumentV2, StashResearchQuoteV2, StashResearchStillV2 } from "../src/generated/contracts-v2.js";
 import { applyRowEditV2, createRowEditSessionV2, deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2, type RowEditCommandV2 } from "../src/authoring-v2-rows.js";
-import { captureResearchStashItemV2, type StashResearchItemV2 } from "../src/research-stash-v2.js";
+import { captureResearchStashItemV2, consumeResearchStashItemV2, captureResearchQuoteBoxV2, type StashResearchItemV2 } from "../src/research-stash-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { createSortingTrialV2 } from "../src/authoring-v2-sorting.js";
 import { researchId, researchStashFixture } from "./issue-367-fixture.js";
@@ -76,6 +76,51 @@ describe("saved compact Research Stash", () => {
     expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(next))).toEqual({ ok: true, document: next });
     const saved = apply(next, { kind: "create_stash_section", sectionId: section, title: "Unrelated edit" });
     expect(saved.stashResearchItems).toEqual(next.stashResearchItems);
+  });
+
+  it("consumes one exact quote only after normal placement; stale gaps and wrong kinds preserve every occurrence", () => {
+    const { doc, note } = researchStashFixture(false);
+    const q = { ...quote(), noteRowId: note.id };
+    const saved = capture(capture(doc, q), still());
+    const snapshot = structuredClone(saved);
+    const request = { expectedDocumentRevision: saved.rowEditRevision!,
+      destination: { kind: "gap" as const, sectionId: null, afterRowId: null, beforeRowId: null } };
+    for (const refused of [
+      consumeResearchStashItemV2(saved, q.id, { kind: "quote", request: { ...request, expectedDocumentRevision: 0 } }),
+      consumeResearchStashItemV2(saved, q.id, { kind: "quote", request: { ...request,
+        destination: { ...request.destination, afterRowId: id(999999) } } }),
+      consumeResearchStashItemV2(saved, still().id, { kind: "quote", request }),
+    ]) {
+      expect(refused.ok).toBe(false);
+      expect(refused.document).toBe(saved);
+    }
+    const placed = consumeResearchStashItemV2(saved, q.id, { kind: "quote", request });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.rowEditRevision).toBe(saved.rowEditRevision! + 1);
+    expect(placed.document.stashResearchItems).toEqual([still()]);
+    expect(saved).toEqual(snapshot);
+    const row = placed.document.activeDraft.blocks[0]!;
+    if (row.type !== "narration") throw new Error("Missing quote row");
+    const event = row.overlayEvents[0]!;
+    expect(row.text).toBe("“The original words”");
+    expect(event.quoteBox).toMatchObject({ displayText: q.quote.displayText, speakerName: q.quote.speakerName,
+      citationText: q.quote.citationText, citationOverridden: true });
+    const recapture = { expectedDocumentRevision: placed.document.rowEditRevision!, rowId: row.id,
+      expectedRowVersion: row.version, overlayId: event.id, expectedOverlayVersion: event.version };
+    const refused = captureResearchQuoteBoxV2(placed.document, recapture, { sectionId: null, noteRowId: null },
+      still().id, q.quote.spokenText, null);
+    expect(refused.ok).toBe(false);
+    expect(refused.document).toBe(placed.document);
+    const captured = captureResearchQuoteBoxV2(placed.document, recapture, { sectionId: null, noteRowId: note.id },
+      id(910013), q.quote.spokenText, null);
+    expect(captured.ok, JSON.stringify(captured.diagnostics)).toBe(true);
+    expect(captured.document.rowEditRevision).toBe(placed.document.rowEditRevision! + 1);
+    expect(captured.document.stashResearchItems).toEqual([still(), { ...q, id: id(910013) }]);
+    const after = captured.document.activeDraft.blocks[0]!;
+    if (after.type !== "narration") throw new Error("Missing quote row");
+    expect(after.tokens).toEqual(row.tokens);
+    expect(after.primaryVisualSequence).toEqual(row.primaryVisualSequence);
+    expect(after.overlayEvents).toEqual([]);
   });
 
   it("permits multiple independent occurrences of the same Library quote, but refuses repeated or occupied occurrence IDs", () => {

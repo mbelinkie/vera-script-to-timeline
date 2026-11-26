@@ -961,6 +961,36 @@ describe("protected kept Research stills", () => {
         startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[0]!.id } };
   }
 
+  it("captures and consumes a kept still with the exact saved pin, refusing stale source or destination", async () => {
+    const h = await researchBrowserRequests();
+    const base = requestFixture();
+    const { placement, ...common } = base;
+    const send = (body: unknown) => h.read("research-stash", { method: "POST", body });
+    const captured = await (await send({ ...common, action: "capture_still",
+      location: { sectionId: null, noteRowId: null, afterItemId: null } })).json() as CommandResult;
+    expect(captured.ok, JSON.stringify(captured.diagnostics)).toBe(true);
+    const item = captured.document.stashResearchItems![0]!;
+    expect(item).toMatchObject({ kind: "still", still: { original: keptStillAsset, provenance: stillProvenance } });
+    const place = { action: "place", timelineProjectId: TIMELINE_PROJECT, document: captured.document,
+      expectedDocumentRevision: captured.document.rowEditRevision, itemId: item.id, placement };
+    h.fake.state.stillVersion = 4;
+    expect((await send(place)).status).toBe(409);
+    h.fake.state.stillVersion = 3;
+    const refused = await (await send({ ...place, placement: { ...placement,
+      expectedRowVersion: placement.expectedRowVersion + 1 } })).json() as CommandResult;
+    expect(refused.ok).toBe(false);
+    expect(refused.document).toEqual(captured.document);
+    const result = await (await send(place)).json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.stashResearchItems).toBeUndefined();
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const stillSlot = row.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.researchStill);
+    expect(stillSlot?.kind === "content" && stillSlot.payload.kind === "visual"
+      ? stillSlot.payload.researchStill : null).toEqual(item.kind === "still" ? item.still : null);
+    expect(row.tokens).toEqual((base.document.activeDraft.blocks[0] as NarrationBlockV2).tokens);
+  });
+
   it("lists kept stills only, verifies the thumbnail and inserts a normal image with server-owned metadata", async () => {
     const h = await researchBrowserRequests();
     const list = await h.read(`${base}?offset=0`);
@@ -1042,6 +1072,93 @@ describe("protected Research quote placement", () => {
       quoteId: RESEARCH_QUOTE, quoteVersion: 7, expectedDocumentRevision: document.rowEditRevision ?? 0,
       placement: { kind: "gap", destination: { sectionId: null, afterRowId: null, beforeRowId: null } } };
   }
+
+  it("captures authorized quotes, attaches to a note, and consumes only after exact placement", async () => {
+    const h = await researchBrowserRequests();
+    const base = quoteRequest();
+    const note = base.document.stashOutline!.find(({ kind }) => kind === "note")!;
+    const capture = { action: "capture_quote", timelineProjectId: TIMELINE_PROJECT,
+      document: base.document, expectedDocumentRevision: base.expectedDocumentRevision,
+      researchProjectId: RESEARCH_PROJECT, itemId: RESEARCH_QUOTE, itemVersion: 7,
+      location: { sectionId: note.sectionId, noteRowId: note.rowId, afterItemId: null } };
+    const send = (body: unknown) => h.read("research-stash", { method: "POST", body });
+    expect((await send({ ...capture, quote: { displayText: "forged" } })).status).toBe(400);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await send(capture)).status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    h.fake.state.quoteVersion = 8;
+    expect((await send(capture)).status).toBe(409);
+    h.fake.state.quoteVersion = 7;
+    const response = await send(capture);
+    expect(response.status).toBe(200);
+    const saved = await response.json() as CommandResult;
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.activeDraft).toEqual(base.document.activeDraft);
+    const item = saved.document.stashResearchItems![0]!;
+    expect(item).toMatchObject({ kind: "quote", noteRowId: note.rowId, background: null,
+      quote: { displayText: "This is the spoken quotation.", researchQuoteVersion: 7 } });
+    const place = { action: "place", timelineProjectId: TIMELINE_PROJECT, document: saved.document,
+      expectedDocumentRevision: saved.document.rowEditRevision, itemId: item.id, placement: base.placement };
+    h.fake.state.visible = false;
+    expect((await send(place)).status).toBe(403);
+    h.fake.state.visible = true;
+    const stale = await send({ ...place, placement: { kind: "gap", destination: { sectionId: null,
+      afterRowId: researchId(991234), beforeRowId: null } } });
+    const refused = await stale.json() as CommandResult;
+    expect(refused.ok).toBe(false);
+    expect(refused.document).toEqual(saved.document);
+    h.fake.state.quoteVersion = 8;
+    h.fake.state.quoteDisplayText = "A changed Library display";
+    const placed = await (await send(place)).json() as CommandResult;
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.stashResearchItems).toBeUndefined();
+    expect(placed.document.rowEditRevision).toBe(saved.document.rowEditRevision! + 1);
+    const row = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.overlayEvents[0]!.quoteBox).toMatchObject({ displayText: "This is the spoken quotation.", researchQuoteVersion: 7 });
+    expect(h.fake.calls.every(({ method }) => method === "GET")).toBe(true);
+  });
+
+  it("stashes the actual edited box without touching its words or background and preserves its fields on re-placement", async () => {
+    const h = await researchBrowserRequests();
+    const base = quoteRequest();
+    h.fake.state.quoteImage = "valid";
+    const placed = await (await h.read("research-quote-insert", { method: "POST", body: base })).json() as CommandResult;
+    expect(placed.ok).toBe(true);
+    const row = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const event = row.overlayEvents[0]!;
+    Object.assign(event.quoteBox!, { displayText: "Edited display", speakerName: "Edited speaker",
+      speakerTitle: "Edited title", citationText: "Edited citation", italicSpan: null, citationOverridden: true });
+    const before = structuredClone(row);
+    const capture = { action: "capture_quote_box", timelineProjectId: TIMELINE_PROJECT, document: placed.document,
+      expectedDocumentRevision: placed.document.rowEditRevision, rowId: row.id, expectedRowVersion: row.version,
+      overlayId: event.id, expectedOverlayVersion: event.version,
+      location: { sectionId: null, noteRowId: null, afterItemId: null } };
+    const send = (body: unknown) => h.read("research-stash", { method: "POST", body });
+    expect((await send({ ...capture, expectedOverlayVersion: event.version + 1 })).status).toBe(409);
+    const captured = await (await send(capture)).json() as CommandResult;
+    expect(captured.ok, JSON.stringify(captured.diagnostics)).toBe(true);
+    const after = captured.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(after.tokens).toEqual(before.tokens);
+    expect(after.primaryVisualSequence).toEqual(before.primaryVisualSequence);
+    expect(after.overlayEvents).toEqual([]);
+    expect(captured.document.rowEditRevision).toBe(placed.document.rowEditRevision! + 1);
+    const item = captured.document.stashResearchItems![0]!;
+    expect(item).toMatchObject({ kind: "quote", quote: { displayText: "Edited display", speakerName: "Edited speaker",
+      speakerTitle: "Edited title", citationText: "Edited citation", italicSpan: null, citationOverridden: true },
+      background: { picture: { revisionId: RESEARCH_QUOTE_PICTURE } } });
+    const place = { action: "place", timelineProjectId: TIMELINE_PROJECT, document: captured.document,
+      expectedDocumentRevision: captured.document.rowEditRevision, itemId: item.id,
+      placement: { kind: "gap", destination: { sectionId: null, afterRowId: row.id, beforeRowId: null } } };
+    h.fake.catalog.retainedQuotePicture.mockResolvedValueOnce(null as never);
+    expect((await send(place)).status).toBe(404);
+    const replaced = await (await send(place)).json() as CommandResult;
+    expect(replaced.ok, JSON.stringify(replaced.diagnostics)).toBe(true);
+    const newRow = replaced.document.activeDraft.blocks.find(({ id }) => id !== row.id) as NarrationBlockV2;
+    expect(newRow.overlayEvents[0]!.quoteBox).toMatchObject({ displayText: "Edited display",
+      speakerName: "Edited speaker", speakerTitle: "Edited title", citationText: "Edited citation" });
+    expect(replaced.document.stashResearchItems).toBeUndefined();
+    expect(h.fake.calls.every(({ method }) => method === "GET")).toBe(true);
+  });
 
   it("lists a slim quote DTO and assembles one edit from the exact current quote", async () => {
     const h = await researchBrowserRequests();

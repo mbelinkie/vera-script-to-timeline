@@ -535,4 +535,4 @@ export {
   resolveTimedPlacementV2,
 } from "./authoring-v2-placement.js";
 
-export { captureResearchStashItemV2, type ResearchStashCommandV2, type ResearchStashLocationV2, type StashResearchItemV2 } from "./research-stash-v2.js";
+export { captureResearchStashItemV2, consumeResearchStashItemV2, captureResearchQuoteBoxV2, researchQuoteBoxForStashV2, type ResearchQuoteBoxCaptureV2, type ResearchStashDraftTargetV2, type ResearchStashCommandV2, type ResearchStashLocationV2, type StashResearchItemV2 } from "./research-stash-v2.js";

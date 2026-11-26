@@ -1,9 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { readFile } from "node:fs/promises";
 import {
-  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
+  applyRowEditV2, captureResearchStashItemV2, captureResearchQuoteBoxV2, consumeResearchStashItemV2, researchQuoteBoxForStashV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
   LEGACY_VISUAL_HOLD_MS, placeResearchQuoteV2, projectPrimarySequenceV2, spokenTokensV2, validateScriptDocumentV2,
-  type ResearchQuotePlacementV2, type RowEditCommandV2, type RowEditResultV2, type VisualSequenceEditCommandV2,
+  type ResearchQuoteBoxCaptureV2, type ResearchStashLocationV2, type ResearchQuotePlacementV2, type RowEditCommandV2, type RowEditResultV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ResearchQuotePictureV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "@vera/contracts/v2";
 import { EV24_QUOTE_BOX_TEMPLATE_REVISION } from "@vera/contracts/compiler-core-v2";
@@ -265,6 +266,45 @@ function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
   return value as unknown as NonNullable<ReturnType<typeof stillInsertRequest>>;
 }
 
+function researchStashRequest(value: unknown) {
+  if (!record(value) || !uuid(value.timelineProjectId) || !revision(value.expectedDocumentRevision) ||
+      !validateScriptDocumentV2(value.document).valid ||
+      (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase()) return null;
+  const common = { timelineProjectId: value.timelineProjectId.toLowerCase(), document: value.document as ScriptDocumentV2,
+    expectedDocumentRevision: value.expectedDocumentRevision };
+  const keys = ["action", "timelineProjectId", "document", "expectedDocumentRevision"];
+  if (value.action === "place") {
+    if (!exact(value, [...keys, "itemId", "placement"]) || !uuid(value.itemId)) return null;
+    const item = common.document.stashResearchItems?.find(({ id }) => id === value.itemId);
+    if (!item) return null;
+    if (item.kind === "quote") {
+      const parsed = quotePlacementRequest({ ...common, researchProjectId: item.quote.researchProjectId,
+        quoteId: item.quote.researchQuoteId, quoteVersion: item.quote.researchQuoteVersion, placement: value.placement });
+      return parsed ? { ...common, action: "place" as const, item, target: { kind: "quote" as const, request: parsed.request } } : null;
+    }
+    const parsed = stillInsertRequest({ ...common, researchProjectId: item.still.researchProjectId,
+      itemId: item.still.itemId, itemVersion: item.still.itemVersion, placement: value.placement });
+    return parsed ? { ...common, action: "place" as const, item, target: { kind: "still" as const,
+      placement: parsed.placement, expectedDocumentRevision: common.expectedDocumentRevision } } : null;
+  }
+  if (!record(value.location) || !exact(value.location, ["sectionId", "noteRowId", "afterItemId"]) ||
+      ![value.location.sectionId, value.location.noteRowId, value.location.afterItemId].every((v) => v === null || uuid(v))) return null;
+  const { sectionId, noteRowId, afterItemId } = value.location as ResearchStashLocationV2 & { afterItemId: string | null };
+  const location = { sectionId, noteRowId };
+  if (value.action === "capture_quote_box") {
+    if (!exact(value, [...keys, "location", "rowId", "expectedRowVersion", "overlayId", "expectedOverlayVersion"]) ||
+        !uuid(value.rowId) || !uuid(value.overlayId) || !revision(value.expectedRowVersion) || !revision(value.expectedOverlayVersion)) return null;
+    const boxRequest: ResearchQuoteBoxCaptureV2 = { expectedDocumentRevision: common.expectedDocumentRevision,
+      rowId: value.rowId, overlayId: value.overlayId, expectedRowVersion: value.expectedRowVersion, expectedOverlayVersion: value.expectedOverlayVersion };
+    return { ...common, action: "capture_quote_box" as const, location, afterItemId, boxRequest };
+  }
+  if ((value.action !== "capture_quote" && value.action !== "capture_still") ||
+      !exact(value, [...keys, "location", "researchProjectId", "itemId", "itemVersion"]) ||
+      !uuid(value.researchProjectId) || !uuid(value.itemId) || !revision(value.itemVersion) || value.itemVersion < 1) return null;
+  return { ...common, action: value.action === "capture_quote" ? "capture_quote" as const : "capture_still" as const, location, afterItemId, researchProjectId: value.researchProjectId.toLowerCase(),
+    itemId: value.itemId.toLowerCase(), itemVersion: value.itemVersion };
+}
+
 const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
   "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
@@ -405,6 +445,40 @@ export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips"
     } | null>;
   }>;
 
+/** Shared catalog conversion for Library insert and Stash capture. */
+async function resolveResearchQuote(
+  catalog: AuthoringResearchCatalog, researchProjectId: string, quoteId: string, quoteVersion: number,
+) {
+  if (!catalog.quote) throw new ResearchReadError(503, "Research quote unavailable.");
+  const quote = await catalog.quote(researchProjectId, quoteId);
+  if (quote.researchProjectId !== researchProjectId || quote.itemId !== quoteId || !uuid(quote.sourceId)) {
+    throw new ResearchReadError(503, "Research quote identity mismatch.");
+  }
+  if (quote.itemVersion !== quoteVersion) throw new ResearchReadError(409, "Research quote changed.");
+  let picture: ResearchQuotePictureV2 | null = null;
+  try {
+    picture = await catalog.quotePicture?.(researchProjectId, quote) ?? null;
+  } catch (error) {
+    if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+    // An unverifiable or unavailable asset cannot become a saved pin.
+  }
+  if (picture && (picture.researchProjectId !== researchProjectId ||
+      picture.ownerKind === "source" && picture.ownerId !== quote.sourceId ||
+      picture.ownerKind === "quote" && picture.ownerId !== quoteId)) picture = null;
+  return {
+    quote: {
+      researchQuoteId: quoteId, researchProjectId, researchSourceId: quote.sourceId,
+      researchQuoteVersion: quoteVersion,
+      spokenText: /[[\]]/u.test(quote.displayText) ? quote.text : quote.displayText,
+      displayText: quote.displayText, speakerName: quote.speakerName ?? "", speakerTitle: quote.speakerTitle ?? "",
+      citationText: quote.citationText, italicSpan: quote.italicSpan, templateRevision: EV24_QUOTE_BOX_TEMPLATE_REVISION,
+      ...(quote.citationOverridden ? { citationOverridden: true as const } : {}),
+    },
+    background: picture ? { kind: "still_image" as const, picture,
+      ...(quote.sourceTitle ? { displayName: quote.sourceTitle } : {}) } : null,
+  };
+}
+
 export interface AuthoringResearchAccess {
   catalog: AuthoringResearchCatalog;
   /** A Research read needs view permission; a script insertion needs edit permission. */
@@ -537,6 +611,7 @@ export function createAuthoringHandler(
     const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
     const isStillInsert = path === "/research-still-insert" && request.method === "POST";
     const isQuoteInsert = path === "/research-quote-insert" && request.method === "POST";
+    const isResearchStash = path === "/research-stash" && request.method === "POST";
     const isQuoteBoxEdit = path === "/research-quote-box-edit" && request.method === "POST";
     const isQuoteDisplayDefault = path === "/research-quote-display-default" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
@@ -545,7 +620,7 @@ export function createAuthoringHandler(
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
         !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isQuoteInsert &&
-        !isQuoteBoxEdit && !isQuoteDisplayDefault && !isSortingTrial && !isExtrasOperation) ||
+        !isResearchStash && !isQuoteBoxEdit && !isQuoteDisplayDefault && !isSortingTrial && !isExtrasOperation) ||
         (stillRoute || quoteRoute ? researchNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -822,6 +897,80 @@ export function createAuthoringHandler(
         return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
       }
     }
+    if (isResearchStash) {
+      let body: ReturnType<typeof researchStashRequest>;
+      try { body = researchStashRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_stash" });
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      const { document, expectedDocumentRevision } = body;
+      if (expectedDocumentRevision !== (document.rowEditRevision ?? 0) ||
+          expectedDocumentRevision === Number.MAX_SAFE_INTEGER) return researchResponse(409, { error: "research_stash_changed" });
+      const source = body.action === "capture_quote_box" ? researchQuoteBoxForStashV2(document, body.boxRequest) : null;
+      if (body.action === "capture_quote_box" && !source) return researchResponse(409, { error: "quote_box_changed" });
+      const researchProjectId = body.action === "capture_quote_box" ? source!.box.researchProjectId! :
+        body.action === "place" ? (body.item.kind === "quote" ? body.item.quote.researchProjectId : body.item.still.researchProjectId) :
+          body.researchProjectId;
+      const stillAction = body.action === "capture_still" || body.action === "place" && body.item.kind === "still";
+      try {
+        const catalog = research.catalog;
+        if (!(await catalog.projects()).some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        let result: RowEditResultV2;
+        if (body.action === "capture_quote") {
+          const snapshot = await resolveResearchQuote(catalog, researchProjectId, body.itemId, body.itemVersion);
+          result = captureResearchStashItemV2(document, expectedDocumentRevision,
+            { ...body.location, id: randomUUID(), kind: "quote", ...snapshot }, body.afterItemId);
+        } else if (body.action === "capture_still") {
+          if (!catalog.still) return researchResponse(503, { error: "research_unavailable" });
+          const still = await catalog.still(researchProjectId, body.itemId, body.itemVersion);
+          if (still.researchProjectId !== researchProjectId || still.itemId !== body.itemId || still.itemVersion !== body.itemVersion) {
+            return researchResponse(409, { error: "research_still_changed" });
+          }
+          result = captureResearchStashItemV2(document, expectedDocumentRevision,
+            { ...body.location, id: randomUUID(), kind: "still", still }, body.afterItemId);
+        } else if (body.action === "capture_quote_box") {
+          if (!catalog.quote) return researchResponse(503, { error: "research_unavailable" });
+          const box = source!.box;
+          const quote = await catalog.quote(researchProjectId, box.researchQuoteId);
+          if (quote.researchProjectId !== researchProjectId || quote.itemId !== box.researchQuoteId ||
+              quote.sourceId !== box.researchSourceId || quote.itemVersion < box.researchQuoteVersion!) {
+            return researchResponse(409, { error: "research_quote_changed" });
+          }
+          result = captureResearchQuoteBoxV2(document, body.boxRequest, body.location, randomUUID(), quote.text, body.afterItemId);
+        } else if (body.action === "place") {
+          const item = body.item;
+          if (item.kind === "quote") {
+            if (!catalog.quote) return researchResponse(503, { error: "research_unavailable" });
+            const quote = await catalog.quote(researchProjectId, item.quote.researchQuoteId);
+            // A later Library display edit must not replace the frozen box fields.
+            if (quote.researchProjectId !== researchProjectId || quote.itemId !== item.quote.researchQuoteId ||
+                quote.sourceId !== item.quote.researchSourceId || quote.itemVersion < item.quote.researchQuoteVersion) {
+              return researchResponse(409, { error: "research_quote_changed" });
+            }
+            if (item.background && (!catalog.retainedQuotePicture ||
+                !await catalog.retainedQuotePicture(item.background.picture))) {
+              return researchResponse(404, { error: "research_quote_picture_unavailable" });
+            }
+          } else {
+            if (!catalog.still) return researchResponse(503, { error: "research_unavailable" });
+            const current = await catalog.still(researchProjectId, item.still.itemId, item.still.itemVersion);
+            if (!isDeepStrictEqual(current, item.still)) return researchResponse(409, { error: "research_still_changed" });
+          }
+          result = consumeResearchStashItemV2(document, item.id, body.target);
+        } else return researchResponse(400, { error: "invalid_research_stash" });
+        if (result.ok) lastSplit = null;
+        return researchResponse(200, result);
+      } catch (error) {
+        return stillAction ? researchStillError(error) : researchQuoteError(error);
+      }
+    }
     if (isQuoteInsert) {
       let body: ReturnType<typeof quotePlacementRequest>;
       try { body = quotePlacementRequest(await request.json()); } catch { body = null; }
@@ -839,34 +988,8 @@ export function createAuthoringHandler(
         if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId)) {
           return researchResponse(403, { error: "research_project_forbidden" });
         }
-        const quote = await research.catalog.quote(researchProjectId, quoteId);
-        if (quote.researchProjectId !== researchProjectId || quote.itemId !== quoteId || !uuid(quote.sourceId)) {
-          return researchResponse(503, { error: "research_unavailable" });
-        }
-        if (quote.itemVersion !== quoteVersion) {
-          return researchResponse(409, { error: "research_quote_changed" });
-        }
-        let picture: ResearchQuotePictureV2 | null = null;
-        try {
-          picture = await research.catalog.quotePicture?.(researchProjectId, quote) ?? null;
-        } catch (error) {
-          if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
-          // An unverifiable or unavailable asset cannot become a saved pin.
-        }
-        if (picture && (picture.researchProjectId !== researchProjectId ||
-            picture.ownerKind === "source" && picture.ownerId !== quote.sourceId ||
-            picture.ownerKind === "quote" && picture.ownerId !== quoteId)) picture = null;
-        const result = placeResearchQuoteV2(document, {
-          researchQuoteId: quoteId, researchProjectId, researchSourceId: quote.sourceId,
-          researchQuoteVersion: quoteVersion,
-          spokenText: /[[\]]/u.test(quote.displayText) ? quote.text : quote.displayText,
-          displayText: quote.displayText,
-          speakerName: quote.speakerName ?? "", speakerTitle: quote.speakerTitle ?? "",
-          citationText: quote.citationText, italicSpan: quote.italicSpan,
-          templateRevision: EV24_QUOTE_BOX_TEMPLATE_REVISION,
-          ...(quote.citationOverridden ? { citationOverridden: true } : {}),
-        }, picture ? { kind: "still_image", picture, ...(quote.sourceTitle ? { displayName: quote.sourceTitle } : {}) } : null,
-        body.request);
+        const { quote, background } = await resolveResearchQuote(research.catalog, researchProjectId, quoteId, quoteVersion);
+        const result = placeResearchQuoteV2(document, quote, background, body.request);
         if (result.ok) lastSplit = null;
         return researchResponse(200, result);
       } catch (error) {
