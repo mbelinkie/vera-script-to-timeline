@@ -285,7 +285,8 @@ function makeRowActions(state, rowElement) {
   menu.hidden = true;
 
   if (typeof state.stashRow === "function") {
-    const stash = button(state.root.ownerDocument, "", "Stash row");
+    const stash = button(state.root.ownerDocument, "",
+      row?.stashReturn || row?.stashNoteCopy ? "Return to stash" : "Stash row");
     stash.dataset.rowStash = rowId;
     stash.dataset.rowAction = "stash";
     stash.setAttribute("role", "menuitem");
@@ -726,12 +727,18 @@ function handleDragstart(state, event) {
   state.drag = { rowIds };
   event.dataTransfer.effectAllowed = "move";
   event.dataTransfer.setData("text/plain", JSON.stringify({ rowIds }));
+  if (state.onRowDrag) {
+    state.onRowDrag(rowIds);
+    event.dataTransfer.setData("application/x-vera-script-rows", "rows");
+    event.dataTransfer.setDragImage(trigger, -12, -12);
+  }
   rowIds.forEach((id) => rowNode(state.root, id)?.classList.add("script-row--dragging"));
 }
 
 function clearDrag(state) {
   rowsInRoot(state.root).forEach((row) => row.classList.remove("script-row--dragging", "script-row--drop-target"));
   state.root.querySelectorAll(".row-divider--drop-target").forEach((divider) => divider.classList.remove("row-divider--drop-target"));
+  if (state.drag) state.onRowDrag?.(null);
   state.drag = null;
   state.dropDestination = null;
 }
@@ -811,6 +818,7 @@ export function mountRowsEditor(root, scriptDocument, options = {}) {
       scriptDocument,
       command: options.command,
       stashRow: options.stashRow,
+      onRowDrag: options.onRowDrag,
       createBlankRow: options.createBlankRow,
       confirmDelete: options.confirmDelete,
       idFactory: options.idFactory,

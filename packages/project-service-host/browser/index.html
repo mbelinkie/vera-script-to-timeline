@@ -117,6 +117,14 @@
           <h2 id="stash-heading">Stash <span data-stash-count></span></h2>
           <button type="button" data-stash-close aria-label="Close Stash">Close</button>
         </div>
+        <div class="stash-panel__view">
+          <label><input type="checkbox" data-stash-hide-completed> Hide completed</label>
+          <label class="range-control">
+            <span aria-hidden="true">Aa</span>
+            <input type="range" min="80" max="200" step="5" value="100" aria-label="Stash text size" data-stash-text-size>
+          </label>
+          <button type="button" data-stash-add-section>Add section</button>
+        </div>
         <form data-stash-form>
           <label for="stash-note">Add note</label>
           <textarea id="stash-note" rows="2" required></textarea>
@@ -130,6 +138,7 @@
           <p data-stash-saved-description></p>
           <label for="stash-saved-destination">Draft destination</label>
           <select id="stash-saved-destination" required></select>
+          <label data-stash-include-label><input type="checkbox" data-stash-include-descendants checked> Include items below</label>
           <button type="submit" data-stash-saved-confirm>Restore</button>
           <button type="button" data-stash-saved-cancel>Cancel</button>
         </form>
@@ -139,6 +148,7 @@
           <button type="submit">Insert note</button>
           <button type="button" data-stash-cancel>Cancel</button>
         </form>
+        <div data-stash-editor-host></div>
       </aside>
 
       <aside id="research-still-panel" class="research-still-panel" role="dialog" aria-modal="false"
@@ -184,13 +194,17 @@
 
         <section id="sorting-view" class="sorting-view" aria-labelledby="sorting-heading" hidden>
           <h2 id="sorting-heading" tabindex="-1">Sorting</h2>
-          <p>Try a different row order without changing the saved Draft.</p>
           <div class="sorting-actions">
+            <button id="sorting-undo" type="button" disabled>Undo trial action</button>
+            <select id="sorting-outcome" aria-label="Changes to accept">
+              <option value="all">All changes</option>
+              <option value="edits_only">Edits only</option>
+              <option value="sorting_only">Sorting only</option>
+            </select>
             <button id="sorting-accept" type="button">Accept</button>
             <button id="sorting-discard" type="button">Discard all</button>
           </div>
           <p id="sorting-status" role="status" aria-live="polite"></p>
-          <div id="sorting-rows"></div>
         </section>
         <section class="script-paper" aria-label="Script">
           <div id="script-rows" class="script-rows"></div>

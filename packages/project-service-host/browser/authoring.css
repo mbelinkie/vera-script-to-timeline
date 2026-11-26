@@ -1242,6 +1242,15 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
   border-radius: 0.75rem;
   box-shadow: 0 0.5rem 1.75rem rgb(24 30 38 / 16%);
 }
+.stash-panel__view {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+.stash-panel__view input[type="range"] { width: 3.3rem; }
 .stash-panel__heading { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; }
 .stash-panel h2, .stash-panel h3 { font-size: 1rem; margin: 0 0 0.5rem; }
 .stash-panel [data-stash-count] { font-size: 0.72rem; font-weight: normal; }
@@ -1259,6 +1268,7 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .stash-panel [data-stash-saved-description] { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }
 .stash-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
 #open-stash[aria-expanded="true"] { outline: 2px solid #c89b45; }
+.sorting-actions #sorting-accept { background: var(--gold); color: var(--ink); border-color: var(--gold); }
 .stash-drop-cursor { position: fixed; width: 3px; background: #c89b45; z-index: 40; pointer-events: none; }
 @media (min-width: 1000px) {
   .authoring-view:has(.stash-panel:not([hidden])) .script-stage { margin-right: 20rem; }
@@ -1267,18 +1277,27 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
   .stash-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
 }
 
-/* #675: reorder-only Sorting outline, independent from the Draft renderer. */
+
 .sorting-mode #open-sorting, #sorting-accept {
   background: var(--gold);
   color: var(--ink);
   border-color: var(--gold);
 }
-.sorting-view { padding: 1.5rem; }
+.sorting-view { padding: 0.8rem 1rem; margin-bottom: 0.6rem; }
 .sorting-view h2 { margin-top: 0; }
-.sorting-actions { display: flex; gap: .6rem; }
-.sorting-view button { min-height: 2.25rem; padding: .35rem .7rem; border: 1px solid var(--line); border-radius: .3rem; background: white; color: var(--ink); }
+.sorting-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.sorting-view button, .sorting-row-controls button { min-height: 2.25rem; padding: .35rem .7rem; border: 1px solid var(--line); border-radius: .3rem; background: white; color: var(--ink); }
 .sorting-view button:disabled { opacity: .5; }
-.sorting-view ol { list-style: none; padding: 0; }
-.sorting-view li { display: flex; align-items: center; gap: .45rem; padding: .65rem; border-bottom: 1px solid var(--line); }
-.sorting-view li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sorting-row-controls {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.45rem 2.3rem 0.45rem 0.7rem;
+  background: #faf9f6;
+}
+.sorting-row-controls span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sorting-edit .script-row { min-height: 0; }
+.sorting-row--collapsed :is(.narration-cell, .visuals-cell) { display: none; }
 .sorting-row--moved { border-left: 3px solid var(--gold); }
