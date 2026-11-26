@@ -379,6 +379,23 @@ describe("#677 ordinary row transitions", () => {
     expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).ok).toBe(true);
   });
 
+  it("refuses removing a reviewed transition through a different current neighbor", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000);
+    const add = commandFor(a, b);
+    const session = createRowEditSessionV2(documentWith([a, b, c]));
+    expect(session.apply(add).ok).toBe(true);
+    const moved = session.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, c.id, null) });
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    const blocks = moved.document.activeDraft.blocks;
+    expect(blocks.map((block) => block.id)).toEqual([a.id, c.id, b.id]);
+    expect(moved.document.rowTransitions).toEqual([{ ...intentFor(add), state: "needs_review" }]);
+    const version = (target: { id: string }) => blocks.find((block) => block.id === target.id)!.version;
+    const refused = session.apply({ kind: "remove_row_transition", transitionId: add.transitionId,
+      fromRowId: a.id, toRowId: c.id, expectedFromVersion: version(a), expectedToVersion: version(c) });
+    expect(refused).toMatchObject({ ok: false, document: moved.document, diagnostics: [{ code: "ROW_TRANSITION_NOT_FOUND" }] });
+    expect(session.undoDepth).toBe(2);
+  });
+
 });
 
 describe("#588 visual placement names", () => {
