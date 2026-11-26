@@ -23,7 +23,7 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
     await visible(owner, "#authoring-view");
     await owner.getByRole("button", { name: "Manage access", exact: true }).click();
     await visible(owner, "#account-member-code");
-    expect(await owner.locator(".account-panel__dialog li").count()).toBe(3);
+    await expect.poll(() => owner.locator(".account-panel__dialog li").count()).toBe(3);
     await owner.getByLabel("Member code", { exact: true }).fill(h.actors.outsider!.principalId);
     await owner.getByLabel("New member role").selectOption("viewer");
     await owner.getByRole("button", { name: "Add member", exact: true }).click();
@@ -39,7 +39,7 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
     await outsiderRow.getByRole("button", { name: "Remove", exact: true }).click();
     await expect.poll(() => owner.locator(".account-panel__dialog li").count()).toBe(3);
     await owner.keyboard.press("Escape");
-    expect(await owner.getByRole("button", { name: "Manage access", exact: true }).evaluate((e) => e === document.activeElement)).toBe(true);
+    await expect.poll(() => owner.getByRole("button", { name: "Manage access", exact: true }).evaluate((e) => e === document.activeElement)).toBe(true);
     const viewer = await pageFor("viewer");
     await visible(viewer, "#authoring-view");
     expect(await viewer.locator("#account-panel").innerText()).toContain("Viewer · read only");
