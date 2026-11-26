@@ -46,5 +46,13 @@ it("exposes only current access and Producer roster; validates membership mutati
     await expect(h.auth.authorizeRequest(id, h.editor, "edit_document", session)).rejects.toMatchObject({ status: 403 });
     await req(`/members/${h.editor.principalId}`, "PATCH", "owner", { role: null });
     expect((await req("/access", "GET", "editor")).status).toBe(403);
+    await req(`/members/${h.editor.principalId}`, "PATCH", "owner", { role: "producer" });
+    const ownerLease = await h.auth.openWriteSession(id, h.owner);
+    await req(`/members/${h.owner.principalId}`, "PATCH", "owner", { role: "editor" });
+    await h.auth.changeMembership(id, h.editor, h.owner.principalId, "producer");
+    expect((await req("", "PATCH", "owner", { expectedProjectVersion: 1,
+      clientMutationId: randomUUID(), title: "Old refused title", writeSessionId: ownerLease })).status).toBe(403);
+    expect((await h.service.getProject(id, h.owner)).title).toBe(project.title);
+
   } finally { await h.db.close(); }
 }, 90_000);

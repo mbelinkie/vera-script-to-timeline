@@ -180,7 +180,8 @@ async function api(path, method = "GET", data) {
   if (data) headers["Content-Type"] = "application/json";
   const response = await accountFetch(`/authoring/projects${path}`, {
     method, headers, body: data && JSON.stringify(accountPanel.accountMode() &&
-      (method === "PUT" && path.endsWith("/document") || method === "POST" && path.endsWith("/extras-operations"))
+      (method === "PUT" && path.endsWith("/document") || method === "POST" && path.endsWith("/extras-operations") ||
+       method === "PATCH" && /^\/[a-f0-9-]{36}$/iu.test(path))
       ? { ...data, writeSessionId: accountWriteSession } : data),
     signal: AbortSignal.timeout(12_000),
   });

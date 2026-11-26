@@ -2593,7 +2593,7 @@ describe("browser authoring over the local project service", () => {
     expect(await row.locator('.visual-card[data-kind="on-camera"] [data-visual-action-trigger]').count()).toBe(0);
     expect(await row.locator('.visual-return [data-visual-action-trigger]').count()).toBe(0);
     await page.reload();
-    expect(await row.locator(".visual-card__type").allTextContents())
+    await expect.poll(() => row.locator(".visual-card__type").allTextContents())
       .toEqual(["Still image", "On Camera", "Footage"]);
     await page.close();
   }, 90_000);
@@ -2757,7 +2757,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Undo Delete visual" }).click();
     await expect.poll(() => row.locator(".visual-card__type").allTextContents()).toEqual(["Footage"]);
     await page.reload();
-    expect(await row.locator(".visual-card__type").allTextContents()).toEqual(["Footage"]);
+    await expect.poll(() => row.locator(".visual-card__type").allTextContents()).toEqual(["Footage"]);
     await page.close();
   }, 90_000);
 

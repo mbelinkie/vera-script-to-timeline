@@ -4,7 +4,7 @@ import { CollaborationClient, connectCollaborationSocket } from "@vera/project-c
 import { accountFixture } from "./account-fixture.js";
 
 it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and promptly revokes live sockets", async () => {
-  const h = await accountFixture(); 
+  const h = await accountFixture();
   const client = new CollaborationClient();
   let socket: Awaited<ReturnType<typeof connectCollaborationSocket>> | undefined;
   try {
@@ -19,6 +19,7 @@ it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and p
       "x-vera-session": h.qaToken } })).status).toBe(401);
     expect((await h.request(route, "owner", { headers: { "x-vera-csrf": "forged" } })).status).toBe(403);
     expect((await h.request(route, "owner", { headers: { origin: "https://evil.test" } })).status).toBe(403);
+    expect((await h.request("/authoring/account", "owner", { headers: { origin: "https://evil.test" } })).status).toBe(403);
     expect((await h.request(route, "owner", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
     expect((await h.request("/authoring/session", "owner", { method: "POST" })).status).toBe(404);
     expect((await fetch(h.origin + `/v1/projects/${h.projectId}`, { headers: { cookie: h.cookies.owner! } })).status).toBe(401);
@@ -36,14 +37,14 @@ it("isolates identities over real HTTP, rejects forgery/CSRF/cross-origin, and p
       "content-type": "application/json", "x-vera-write-session": writeSessionId },
       body: JSON.stringify({ expectedRevision: before.revision, clientMutationId: randomUUID(),
         document: before.document, writeSessionId }) })).status).toBe(403);
-    
+
     // An account cookie cannot authenticate a raw WebSocket upgrade.
     await expect(connectCollaborationSocket(client, h.origin.replace("http:", "ws:") +
       `/v1/projects/${h.projectId}/collaboration`, { cookie: h.cookies.owner!, origin: "https://evil.test" }))
       .rejects.toThrow();
     socket = await connectCollaborationSocket(client, h.origin.replace("http:", "ws:") +
       `/v1/projects/${h.projectId}/collaboration`, { authorization: h.bearers.editor! });
-    await expect.poll(() => client.canEdit).toBe(true); 
+    await expect.poll(() => client.canEdit).toBe(true);
     const member = route + `/members/${h.actors.editor!.principalId}`;
     expect((await h.request(member, "owner", { method: "PATCH", headers: { "content-type": "application/json" },
       body: JSON.stringify({ role: "viewer" }) })).status).toBe(200);

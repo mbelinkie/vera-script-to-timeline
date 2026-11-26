@@ -457,12 +457,13 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       }
       if (request.method === "PATCH" && !resource) {
         const body = fields(await jsonBody(request),
-          ["expectedProjectVersion", "clientMutationId", "title"],
+          ["expectedProjectVersion", "clientMutationId", "title", "writeSessionId"],
           ["expectedProjectVersion", "clientMutationId", "title"]);
         return response(200, await deps.documents.patchProject(id, principal, {
           expectedProjectVersion: body.expectedProjectVersion as number,
           clientMutationId: body.clientMutationId as string,
           title: body.title as string,
+          ...(Object.hasOwn(body, "writeSessionId") ? { writeSessionId: body.writeSessionId as string } : {}),
         }));
       }
       if (request.method === "PUT" && resource === "document") {

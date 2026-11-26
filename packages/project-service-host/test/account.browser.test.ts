@@ -8,7 +8,7 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
   const contexts: BrowserContext[] = [];
   const errors: string[] = [];
   const pageFor = async (who?: string) => {
-    const context = await browser.newContext(); contexts.push(context);
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } }); contexts.push(context);
     if (who) await context.addCookies([{ name: "qa_account", value: h.cookies[who]!.slice(11),
       url: h.origin, httpOnly: true, sameSite: "Strict" }]);
     const page = await context.newPage(); page.on("pageerror", (e) => errors.push(e.message));
@@ -24,11 +24,29 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
     await owner.getByRole("button", { name: "Manage access", exact: true }).click();
     await visible(owner, "#account-member-code");
     expect(await owner.locator(".account-panel__dialog li").count()).toBe(3);
-    await owner.getByRole("button", { name: "Close", exact: true }).click();
+    await owner.getByLabel("Member code", { exact: true }).fill(h.actors.outsider!.principalId);
+    await owner.getByLabel("New member role").selectOption("viewer");
+    await owner.getByRole("button", { name: "Add member", exact: true }).click();
+    await expect.poll(() => owner.locator(".account-panel__dialog li").count()).toBe(4);
+    const outsiderRow = owner.locator(".account-panel__dialog li").filter({ hasText: h.actors.outsider!.principalId });
+    await outsiderRow.locator("select").selectOption("editor");
+    await outsiderRow.getByRole("button", { name: "Change role", exact: true }).click();
+    await expect.poll(async () => {
+      const response = await h.request(`/authoring/projects/${h.projectId}/access`, "outsider");
+      return (await response.json() as { role: string }).role;
+    }).toBe("editor");
+    owner.once("dialog", (dialog) => { void dialog.accept(); });
+    await outsiderRow.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect.poll(() => owner.locator(".account-panel__dialog li").count()).toBe(3);
+    await owner.keyboard.press("Escape");
+    expect(await owner.getByRole("button", { name: "Manage access", exact: true }).evaluate((e) => e === document.activeElement)).toBe(true);
     const viewer = await pageFor("viewer");
     await visible(viewer, "#authoring-view");
     expect(await viewer.locator("#account-panel").innerText()).toContain("Viewer · read only");
     expect(await viewer.locator('[contenteditable="true"]').count()).toBe(0);
+    await viewer.setViewportSize({ width: 1024, height: 768 });
+    expect(await viewer.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(await viewer.locator("#account-panel").innerText()).toContain("Viewer · read only");
     expect(await viewer.getByRole("button", { name: "Manage access", exact: true }).count()).toBe(0);
     expect(await viewer.getByRole("button", { name: "Sort rows", exact: true }).count()).toBe(0);
     const editor = await pageFor("editor"); await visible(editor, '[data-narration-editor]');
@@ -104,3 +122,16 @@ it("Chromium: account roles, Producer management, demotion/discard/promotion wit
     await browser.close(); await h.stop();
   }
 }, 120_000);
+
+
+it("Chromium: unconfigured account provider shows an honest unavailable state", async () => {
+  const h = await accountFixture(true);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(h.origin);
+    await page.waitForFunction(() => document.querySelector("#account-panel")?.textContent?.includes("Account sign-in unavailable"));
+    expect(await page.getByRole("button", { name: "Sign in", exact: true }).count()).toBe(0);
+    expect(await page.locator("#authoring-view").isVisible()).toBe(false);
+  } finally { await browser.close(); await h.stop(); }
+}, 90_000);
