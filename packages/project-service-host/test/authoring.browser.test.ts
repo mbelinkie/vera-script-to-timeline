@@ -10,9 +10,10 @@ import { promisify } from "node:util";
 import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
+import { compileTimelineV2 } from "@vera/contracts/compiler-core-v2";
 import { exportPrompter } from "@vera/contracts/prompter-export";
 import { researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
 import {
@@ -2578,6 +2579,63 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#725 shows implicit Hold, preserves it on append and saves, builds and undoes an edited Hold", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const { document, dependencies } = JSON.parse(readFileSync(VISUAL_ONLY_FIXTURE, "utf8")) as {
+      document: ScriptDocumentV2; dependencies: CompilerDependenciesV2;
+    };
+    document.projectId = randomUUID();
+    const rowModel = document.activeDraft.blocks[0];
+    if (rowModel?.type !== "visual_only") throw new Error("legacy still fixture is incomplete");
+    // A nonstandard project setting proves that rendering and commands consult the saved value.
+    dependencies.authoringDefaults.visualOnlyStillDurationMs = 3200;
+    await page.goto(origin);
+    const created = await appRequest(page, "/authoring/projects", "POST", {
+      projectId: document.projectId, title: document.title, clientRequestId: randomUUID(), document,
+      settings: {
+        schemaVersion: "authoring-project-settings/v1", id: randomUUID(), projectId: document.projectId,
+        version: 1, settingsHash: dependencies.authoringDefaults.settingsHash, visualOnlyStillDurationMs: 3200,
+      },
+    });
+    expect(created.status).toBe(201);
+    await page.goto(`${origin}/?project=${document.projectId}`);
+    const row = page.locator(`[data-row-id="${rowModel.id}"]`);
+    const holds = row.locator(".visual-card__hold-input");
+    const holdValues = () => holds.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+    const saved = async () => {
+      const response = await appRequest(page, `/authoring/projects/${document.projectId}/document`);
+      expect(response.status).toBe(200);
+      return (response.body as SavedDocument).document;
+    };
+    const savedHolds = async () => {
+      const current = (await saved()).activeDraft.blocks[0];
+      return current?.type === "visual_only"
+        ? [current, ...(current.additionalVisuals ?? [])].map((item) => item.visualOnlyTiming.durationOverrideMs)
+        : [];
+    };
+
+    await expect.poll(holdValues).toEqual(["3.2"]);
+    await row.getByRole("button", { name: "+ Visual" }).click();
+    await row.getByRole("menuitem", { name: "Onscreen Placeholder" }).click();
+    await expect.poll(holdValues).toEqual(["3.2", "4.0"]);
+    await expect.poll(savedHolds).toEqual([3200, 4000]);
+    await holds.nth(1).fill("6");
+    await holds.nth(1).press("Enter");
+    await expect.poll(savedHolds).toEqual([3200, 6000]);
+    const savedDocument = await saved();
+    dependencies.document.projectId = savedDocument.projectId;
+    const built = compileTimelineV2(savedDocument, dependencies);
+    expect(built.ok, JSON.stringify(built)).toBe(true);
+    if (built.ok) expect(built.manifest.events.find((event) => event.kind === "placeholder")?.recordRange)
+      .toEqual({ startFrame: 80, endFrame: 230 });
+    await page.getByRole("button", { name: "Undo Set visual hold" }).click();
+    await expect.poll(savedHolds).toEqual([3200, 4000]);
+    await page.reload();
+    await expect.poll(holdValues).toEqual(["3.2", "4.0"]);
+    await page.close();
+  }, 90_000);
+
   it("#621 promotes a blank row, adds two pictures, reorders, edits Hold and moves a wordless picture", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -4420,7 +4478,7 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
-  it("keeps a cleared multi-visual row editable after reload and retyping without changing visual identity or order", async () => {
+  it.each(["two clips", "two stills"])("keeps a cleared multi-visual row with %s editable after reload and retyping", async (pictures) => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
     const projectId = await createProject(page, origin, "Clear multi-visual narration project");
@@ -4438,9 +4496,16 @@ describe("browser authoring over the local project service", () => {
     }
     visualSlots.forEach((slot, index) => {
       if (slot.kind !== "content" || slot.payload.kind !== "visual") return;
-      const startFrame = index * 25;
-      slot.payload.selectedSourceRange = { startFrame, durationFrames: 25 };
-      slot.payload.sourceUsage = { ...slot.payload.sourceUsage, sourceInFrame: startFrame };
+      if (pictures === "two stills") {
+        slot.payload.pictureKind = "image";
+        slot.payload.audioPolicy = "mute";
+        slot.payload.sourceUsage = null;
+        delete slot.payload.selectedSourceRange;
+      } else {
+        const startFrame = index * 25;
+        slot.payload.selectedSourceRange = { startFrame, durationFrames: 25 };
+        slot.payload.sourceUsage = { ...slot.payload.sourceUsage, sourceInFrame: startFrame };
+      }
     });
     await saveDocumentFixture(page, projectId, seeded.document);
     await page.goto(`${origin}/?project=${projectId}`);
@@ -4472,6 +4537,29 @@ describe("browser authoring over the local project service", () => {
     expect(cleared.clearedNarration).toBeTruthy();
     expect(visualOnlyIds(cleared)).toEqual(initialVisualIds);
     expect(await row.locator(".visual-card").count()).toBe(2);
+    const holds = row.locator(".visual-card__hold-input");
+    if (pictures === "two stills") {
+      expect([cleared, ...(cleared.additionalVisuals ?? [])].map((item) => item.visualOnlyTiming.durationOverrideMs))
+        .toEqual([4000, 4000]);
+      expect(await holds.first().inputValue()).toBe("4.0");
+      await holds.nth(1).fill("6");
+      await holds.nth(1).press("Enter");
+      await expect.poll(async () => {
+        const current = await rowFromDocument();
+        return current?.type === "visual_only" ? current.additionalVisuals?.[0]?.visualOnlyTiming.durationOverrideMs : null;
+      }).toBe(6000);
+      await page.reload();
+      expect(await holds.nth(1).inputValue()).toBe("6.0");
+      // Restore the default before checking that the row can take narration again.
+      await holds.nth(1).fill("4");
+      await holds.nth(1).press("Enter");
+      await expect.poll(async () => {
+        const current = await rowFromDocument();
+        return current?.type === "visual_only" ? current.additionalVisuals?.[0]?.visualOnlyTiming.durationOverrideMs : null;
+      }).toBe(4000);
+    } else {
+      expect(await holds.count()).toBe(0);
+    }
 
     await page.reload();
     await page.locator("#script-rows").waitFor({ state: "visible" });
