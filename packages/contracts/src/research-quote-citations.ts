@@ -77,9 +77,13 @@ function updateQuoteUses(
 export function refreshResearchQuoteCitations(
   document: ScriptDocumentV2,
   citations: ReadonlyMap<string, Citation>,
+  legacyProjectId?: string,
 ): ScriptDocumentV2 {
   return updateQuoteUses(document, (box) => {
-    const citation = citations.get(box.researchQuoteId.toLowerCase());
+    const id = box.researchQuoteId.toLowerCase();
+    const projectId = box.researchProjectId ?? legacyProjectId;
+    const key = projectId ? `${projectId.toLowerCase()}\u0000${id}` : id;
+    const citation = citations.get(key) ?? citations.get(id);
     if (!citation || box.citationOverridden || (
       box.citationText === citation.citationText &&
       box.italicSpan?.start === citation.italicSpan?.start && box.italicSpan?.end === citation.italicSpan?.end

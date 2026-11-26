@@ -48,6 +48,9 @@ export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Convert
   if (payload.researchStill) {
     return problem("WORDLESS_RESEARCH_STILL_UNSUPPORTED", "Keep this saved Research still on narration words; wordless rows cannot represent it without losing its kept-copy provenance.");
   }
+  if (payload.researchQuotePicture) {
+    return problem("WORDLESS_RESEARCH_STILL_UNSUPPORTED", "Keep this saved Research picture on narration words; wordless rows cannot represent its kept revision.");
+  }
   const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...standalone } = payload;
   if (payload.pictureKind === "clip") {
     if (!selectedSourceRange || !sourceUsage ||

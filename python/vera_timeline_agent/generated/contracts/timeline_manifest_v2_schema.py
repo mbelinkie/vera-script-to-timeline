@@ -143,6 +143,14 @@ class MusicEventV2(TypedDict):
     requestedEndFrame: compiler_dependencies_v2_schema.PositiveSafeInteger
 
 
+class QuoteBackgroundPart(TypedDict):
+    blockId: compiler_dependencies_v2_schema.EntityId
+    sequenceId: compiler_dependencies_v2_schema.EntityId
+    slotId: compiler_dependencies_v2_schema.EntityId
+    payloadId: compiler_dependencies_v2_schema.EntityId
+    recordRange: FrameRangeV2
+
+
 class ScriptMarkerTreatmentV2(TypedDict):
     supportingItemId: compiler_dependencies_v2_schema.EntityId
     text: str
@@ -266,6 +274,7 @@ class TimelineEventV2(TypedDict):
     music: NotRequired[MusicEventV2]
     pictureTreatment: NotRequired[PictureTreatmentV2 | None]
     quoteBox: NotRequired[script_document_v2_schema.QuoteBoxV2]
+    quoteBackgroundParts: NotRequired[list[QuoteBackgroundPart]]
     marker: NotRequired[ScriptMarkerTreatmentV2]
 
 

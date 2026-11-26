@@ -42,12 +42,11 @@ class SectionBlock(TypedDict):
     version: EntityVersion
 
 
-class NarrationToken(TypedDict):
-    id: EntityId
-    value: str
-    spoken: NotRequired[bool]
-    startOffset: NonNegativeSafeInteger
-    endOffset: PositiveSafeInteger
+class ResearchQuoteProvenanceV2(TypedDict):
+    researchProjectId: EntityId
+    researchQuoteId: EntityId
+    researchSourceId: EntityId
+    useId: EntityId
 
 
 type AnchorAffinity = Literal["before", "after"]
@@ -189,6 +188,10 @@ class ItalicSpan(TypedDict):
 
 class QuoteBoxV2(TypedDict):
     researchQuoteId: EntityId
+    researchProjectId: NotRequired[EntityId]
+    researchSourceId: NotRequired[EntityId]
+    researchQuoteUseId: NotRequired[EntityId]
+    researchQuoteVersion: NotRequired[PositiveSafeInteger]
     displayText: str
     speakerName: str
     speakerTitle: str
@@ -408,6 +411,15 @@ class PresenterStillReference(TypedDict):
     provenance: LocalImportProvenance | CapturedFrameProvenance
 
 
+class NarrationToken(TypedDict):
+    id: EntityId
+    value: str
+    spoken: NotRequired[bool]
+    startOffset: NonNegativeSafeInteger
+    endOffset: PositiveSafeInteger
+    researchQuoteProvenance: NotRequired[ResearchQuoteProvenanceV2]
+
+
 class TextAnchorRange(TypedDict):
     blockId: EntityId
     startTokenId: EntityId
@@ -607,6 +619,14 @@ class ResearchStillSnapshotV2(TypedDict):
     original: ResearchStillAssetV2
 
 
+class ResearchQuotePictureV2(TypedDict):
+    researchProjectId: EntityId
+    ownerKind: Literal["web_capture", "source", "quote"]
+    ownerId: EntityId
+    revisionId: EntityId
+    original: ResearchStillAssetV2
+
+
 class ScriptSettings(TypedDict):
     presenterStillOverride: NotRequired[PresenterStillReference]
 
@@ -630,6 +650,7 @@ class NarratedVisualPayloadV2(TypedDict):
     imageMotion: NotRequired[ImageMotionV1]
     researchClip: NotRequired[ResearchClipSnapshotV2]
     researchStill: NotRequired[ResearchStillSnapshotV2]
+    researchQuotePicture: NotRequired[ResearchQuotePictureV2]
     frameBinding: NotRequired[ResearchFrameBindingV2]
     selectedSourceRange: NotRequired[SelectedSourceRange]
 

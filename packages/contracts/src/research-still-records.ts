@@ -97,13 +97,18 @@ function readProvenance(value: unknown): Provenance {
   return provenance;
 }
 
-export function readKeptStillManifest(value: unknown) {
-  if (!record(value) || !record(value.assets)) throw new Error("Research returned an invalid kept still manifest.");
-  const original = readAsset(value.assets.original, 20 * 1024 * 1024, 25_000_000);
+export function readKeptOriginalAsset(value: unknown): Asset {
+  const original = readAsset(value, 20 * 1024 * 1024, 25_000_000);
   // Match Timeline's ordinary still-preparation raster limits.
   if (original.width > 8192 || original.height > 8192 || original.width * original.height > 16_777_216) {
     throw new UnsupportedKeptStillError("The kept image exceeds Timeline's still size limits.");
   }
+  return original;
+}
+
+export function readKeptStillManifest(value: unknown) {
+  if (!record(value) || !record(value.assets)) throw new Error("Research returned an invalid kept still manifest.");
+  const original = readKeptOriginalAsset(value.assets.original);
   return { original,
     thumbnail: readAsset(value.assets.thumbnail, 1024 * 1024, 320),
     provenance: readProvenance(value.provenance) };

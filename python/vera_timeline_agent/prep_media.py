@@ -35,6 +35,7 @@ from .prep_media_research_still import (
     KeptStillReader,
     ResearchStillError,
     bind_research_still_descriptor,
+    materialize_research_quote_picture,
     materialize_research_still,
 )
 from .quote_box_inputs import freeze_quote_box_inputs
@@ -176,7 +177,10 @@ def _research_still_occurrences(document: Json) -> list[tuple[Json, Json]]:
     occurrences: list[tuple[Json, Json]] = []
 
     def add(value: Any, owner: Json) -> None:
-        if isinstance(value, dict) and value.get("researchStill") is not None:
+        if isinstance(value, dict) and (
+            value.get("researchStill") is not None
+            or value.get("researchQuotePicture") is not None
+        ):
             occurrences.append((value, owner))
 
     draft = document.get("activeDraft")
@@ -228,9 +232,14 @@ def _prepare_research_stills(
     """Resolve kept stills before compiler needs and ordinary still preparation."""
     for payload, owner in occurrences:
         snapshot = payload.get("researchStill")
+        quote_picture = payload.get("researchQuotePicture")
         source = payload.get("source")
         if (
-            not isinstance(snapshot, Mapping)
+            (
+                not isinstance(snapshot, Mapping)
+                and not isinstance(quote_picture, Mapping)
+            )
+            or (snapshot is not None and quote_picture is not None)
             or not isinstance(source, Mapping)
             or source.get("kind") != "media_reference"
             or not isinstance(source.get("mediaReferenceId"), str)
@@ -278,12 +287,17 @@ def _prepare_research_stills(
             raise ResearchStillError(
                 "Research still source identity differs from its occurrence descriptor"
             )
-        materialized = materialize_research_still(
-            snapshot,
-            media_root,
-            reader=reader,
-            research_origin=research_origin,
-        )
+        if isinstance(quote_picture, Mapping):
+            materialized = materialize_research_quote_picture(quote_picture, media_root)
+        elif isinstance(snapshot, Mapping):
+            materialized = materialize_research_still(
+                snapshot,
+                media_root,
+                reader=reader,
+                research_origin=research_origin,
+            )
+        else:
+            raise ResearchStillError("Research picture pin is invalid")
         dependencies["occurrenceResolutions"][index] = bind_research_still_descriptor(
             descriptor,
             materialized,
