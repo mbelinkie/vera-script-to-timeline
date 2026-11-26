@@ -425,6 +425,18 @@ describe("Research choices: explicit keep/update CAS", () => {
       kind: "row" as const, parentRowId: null, sectionId: null })),
     { rowId: parked.id, kind: "note", parentRowId: null, sectionId: null });
     next.stashGroups = [{ id: groupId, rowIds: [grouped[0]!.id, grouped[1]!.id] }];
+    // Compact items are independent saved occurrences, not active clip uses.
+    next.stashResearchItems = [{
+      id: researchId(760800), sectionId: null, noteRowId: parked.id, kind: "quote",
+      quote: {
+        researchQuoteId: researchId(760801), researchProjectId: researchId(760802), researchSourceId: researchId(760803),
+        researchQuoteVersion: 2, spokenText: "Original quote words", displayText: "Edited quote words",
+        speakerName: "Synthetic speaker", speakerTitle: "", citationText: "Synthetic citation",
+        italicSpan: null, templateRevision: "template-v1",
+      },
+      background: null,
+    }];
+
     await h.service.putDocument(h.projectId, h.owner, {
       expectedRevision: 0, clientMutationId: randomUUID(), document: next,
     });
@@ -502,6 +514,8 @@ describe("Research choices: explicit keep/update CAS", () => {
     expect(slot.payload.sourceUsage).toBeNull();
     expect(slot.payload.selectedSourceRange).toBeUndefined();
     expect(after.document.stashGroups).toEqual(next.stashGroups);
+    expect(frozen.document.stashResearchItems).toEqual(next.stashResearchItems);
+    expect(after.document.stashResearchItems).toEqual(next.stashResearchItems);
     expect((await h.service.getDocumentRevision(h.projectId, h.owner, 1)).document).toEqual(frozen.document);
     expect(await h.service.getCheckpoint(h.projectId, h.owner, checkpointId)).toEqual(checkpoint);
     // Different saved uses of the same Research clip remain pinned independently.

@@ -18,7 +18,7 @@ export type ExtrasDuplicateCommand = {
 const UUID = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/iu;
 const fatal = new Set([
   "SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID",
-  "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID",
+  "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "RESEARCH_STASH_INVALID",
 ]);
 
 function refusal(document: ScriptDocumentV2, code: string, message: string): RowEditResultV2 {

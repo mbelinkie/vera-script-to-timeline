@@ -1,6 +1,7 @@
 import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2, VisualSequenceEditResultV2 } from "./authoring-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+import { editResearchStashItemsV2, isResearchStashCommandV2, reconcileResearchStashLocationsV2, type ResearchStashCommandV2 } from "./research-stash-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
@@ -139,6 +140,7 @@ function restoreClearedNarration(
 export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null };
 
 export type RowEditCommandV2 =
+  | ResearchStashCommandV2
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
   | { kind: "create_section"; sectionId: string; title: string; destination: RowGapV2 }
@@ -1478,6 +1480,8 @@ export function applyRowEditV2(
 ): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
+    if ((command.kind === "move_stash_research_item" || command.kind === "delete_stash_research_item") &&
+        (!isJsonValue(command) || !isResearchStashCommandV2(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact saved Research occurrence and location.");
     if ((command.kind === "add_row_transition" || command.kind === "remove_row_transition") && !validTransitionCommand(command)) {
       return refused(document, "ROW_COMMAND_INVALID", "Provide the exact transition ID, ordered row IDs and current row versions.");
     }
@@ -1525,7 +1529,7 @@ export function applyRowEditV2(
   // A concurrently removed cue leaves an explicit stale match. Keep the
   // document editable so the author can clear it; the compiler remains
   // fail-closed while the link is present.
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "RESEARCH_STASH_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   if (command.kind === "save_stash_group" && command.expectedRevision !== expectedRevision) {
     return refused(document, "ROW_REVISION_STALE", "A staged group Save must use the exact revision at which its member editor opened.");
@@ -1574,7 +1578,10 @@ export function applyRowEditV2(
   let moved: Row[] = [];
   let placementCounts: RowEditResultV2["placementCounts"];
   let operationDiagnostics: AuthoringDiagnosticV2[] = [];
-  if (command.kind === "add_row_transition" || command.kind === "remove_row_transition") {
+  if (command.kind === "move_stash_research_item" || command.kind === "delete_stash_research_item") {
+    const error = editResearchStashItemsV2(working, command);
+    if (error) return refused(document, "RESEARCH_STASH_INVALID", error);
+  } else if (command.kind === "add_row_transition" || command.kind === "remove_row_transition") {
     const transitions = working.rowTransitions ?? [];
     const reviewed = command.kind === "remove_row_transition" && transitions.some((intent) =>
       intent.state === "needs_review" && intent.id === command.transitionId &&
@@ -2709,6 +2716,8 @@ export function applyRowEditV2(
     if (working.stashOutline?.length === 0 && !working.stashSections?.length) delete working.stashOutline;
     if (working.stash?.length === 0 && document.stash === undefined) delete working.stash;
   }
+  const researchLocationProblem = reconcileResearchStashLocationsV2(working);
+  if (researchLocationProblem) return refused(document, "RESEARCH_STASH_INVALID", researchLocationProblem);
   if (JSON.stringify(working) === JSON.stringify(document)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave Stash and Draft unchanged.");
   // A split or join has already moved each transition and music cue to the row that holds its words.
   const relationshipProblem = transitionOnly || command.kind === "split_row" || command.kind === "join_rows"
@@ -2781,7 +2790,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
   const validation = validateScriptDocumentV2(document);
   // A stale match is recoverable authoring state after concurrent cue removal;
   // retain it for an explicit clear and let the compiler refuse to guess.
-  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID", "QUOTE_BOX_TEXT_INVALID", "QUOTE_BOX_ITALIC_SPAN_INVALID"].includes(item.code));
+  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "RESEARCH_STASH_INVALID", "CLEARED_NARRATION_INVALID", "QUOTE_BOX_TEXT_INVALID", "QUOTE_BOX_ITALIC_SPAN_INVALID"].includes(item.code));
   return fatal.length ? { ok: false, diagnostics: fatal } : { ok: true, document: document as ScriptDocumentV2 };
 }
 

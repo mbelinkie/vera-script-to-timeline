@@ -31,6 +31,7 @@ import type {
 } from "./authoring-v2.js";
 import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { researchStashLocationProblemV2, researchStashSnapshotProblemV2 } from "./research-stash-v2.js";
 import { stashGroupLocationProblemV2 } from "./authoring-v2-stash-groups.js";
 
 type DraftBlock = ScriptDocumentV2["activeDraft"]["blocks"][number];
@@ -284,7 +285,7 @@ export function validateScriptDocumentV2(
         blockId: row.id,
       });
     });
-    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, stashResearchItems: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "MUSIC_MATCH_INVALID"].includes(item.code)).map((item) => ({
       ...item,
       // Parked narration may have unfinished authoring work, but corrupt plain
@@ -531,6 +532,18 @@ export function validateScriptDocumentV2(
   for (const [index, reference] of (document.rowReferences ?? []).entries()) {
     addId(reference.id, `/rowReferences/${index}/id`);
     if (!allRows.has(reference.rowId)) referenceProblem(reference.id, `/rowReferences/${index}`);
+  }
+
+  const occurrenceIds = new Set([...ids.keys(), document.id, document.projectId].map((id) => id.toLowerCase()));
+  for (const [index, item] of (document.stashResearchItems ?? []).entries()) {
+    const path = `/stashResearchItems/${index}`;
+    const id = item.id.toLowerCase();
+    if (occurrenceIds.has(id)) diagnostics.push({
+      code: "ENTITY_ID_DUPLICATE", message: "A saved Research occurrence needs its own distinct identity.", jsonPath: `${path}/id`, entityId: item.id,
+    });
+    occurrenceIds.add(id);
+    const error = researchStashLocationProblemV2(document, item) ?? researchStashSnapshotProblemV2(item);
+    if (error) diagnostics.push({ code: "RESEARCH_STASH_INVALID", message: error, jsonPath: path, entityId: item.id });
   }
 
   return {

@@ -48,6 +48,25 @@ describe("shared document mapping", () => {
     expect(sameJson(draft(copy(doc)), document)).toBe(true);
   });
 
+  it("retains compact Research Stash snapshots through materialization and unrelated narration edits", () => {
+    const document = scriptFor(randomUUID(), ["hello world"]);
+    document.stashResearchItems = [{
+      id: randomUUID(), sectionId: null, noteRowId: null, kind: "quote",
+      quote: {
+        researchQuoteId: randomUUID(), researchProjectId: randomUUID(), researchSourceId: randomUUID(),
+        researchQuoteVersion: 2, spokenText: "Original words", displayText: "Edited words",
+        speakerName: "Synthetic speaker", speakerTitle: "", citationText: "Synthetic citation",
+        italicSpan: null, templateRevision: "template-v1",
+      },
+      background: null,
+    }];
+    const doc = shared(document);
+    expect(sameJson(draft(copy(doc)), document)).toBe(true);
+    edit(doc, (next) => { (next.activeDraft.blocks[1] as NarrationBlockV2).text = "hello brave world"; });
+    expect(draft(doc).stashResearchItems).toEqual(document.stashResearchItems);
+    expect(validateScriptDocumentV2(draft(doc)).diagnostics).toEqual([]);
+  });
+
   it("keeps tokens it would not have produced itself until the text changes", () => {
     const document = scriptFor(randomUUID(), ["hello, world"]);
     const row = document.activeDraft.blocks[1] as NarrationBlockV2;

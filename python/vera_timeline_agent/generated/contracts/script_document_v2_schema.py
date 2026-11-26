@@ -400,6 +400,21 @@ class ResearchFrameBindingV2(TypedDict):
     loggedEndFrame: PositiveSafeInteger
 
 
+class StashResearchQuoteSnapshotV2(TypedDict):
+    researchQuoteId: EntityId
+    researchProjectId: EntityId
+    researchSourceId: EntityId
+    researchQuoteVersion: PositiveSafeInteger
+    displayText: str
+    speakerName: str
+    speakerTitle: str
+    citationText: str
+    citationOverridden: NotRequired[Literal[True]]
+    italicSpan: ItalicSpan | None
+    templateRevision: str
+    spokenText: str
+
+
 class PresenterStillReference(TypedDict):
     mediaReferenceId: EntityId
     artifactId: EntityId
@@ -627,6 +642,35 @@ class ResearchQuotePictureV2(TypedDict):
     original: ResearchStillAssetV2
 
 
+class StashResearchQuoteBackgroundV21(TypedDict):
+    kind: Literal["still_image"]
+    picture: ResearchQuotePictureV2
+    displayName: NotRequired[str]
+
+
+type StashResearchQuoteBackgroundV2 = StashResearchQuoteBackgroundV21 | None
+
+
+class StashResearchQuoteV2(TypedDict):
+    id: EntityId
+    sectionId: EntityId | None
+    noteRowId: EntityId | None
+    kind: Literal["quote"]
+    quote: StashResearchQuoteSnapshotV2
+    background: StashResearchQuoteBackgroundV2
+
+
+class StashResearchStillV2(TypedDict):
+    id: EntityId
+    sectionId: EntityId | None
+    noteRowId: EntityId | None
+    kind: Literal["still"]
+    still: ResearchStillSnapshotV2
+
+
+type StashResearchItemV2 = StashResearchQuoteV2 | StashResearchStillV2
+
+
 class ScriptSettings(TypedDict):
     presenterStillOverride: NotRequired[PresenterStillReference]
 
@@ -803,6 +847,7 @@ class ScriptDocumentV2(TypedDict):
     stashSections: NotRequired[list[StashSectionV2]]
     stashOutline: NotRequired[list[StashOutlineEntryV2]]
     stashGroups: NotRequired[list[StashRowGroupV2]]
+    stashResearchItems: NotRequired[list[StashResearchItemV2]]
     rowTransitions: NotRequired[list[RowTransitionIntentV2]]
     rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
     rowReferences: NotRequired[list[OpaqueRowReferenceV2]]
