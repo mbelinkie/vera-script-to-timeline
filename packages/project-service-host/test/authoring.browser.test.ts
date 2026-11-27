@@ -1153,7 +1153,7 @@ describe("browser authoring over the local project service", () => {
       if (cleared) {
         const formerSlot = (visualId: string) => ({ id: randomUUID(), version: 1, visualId });
         source.clearedNarration = { id: randomUUID(), version: 1,
-          slots: [formerSlot(source.payload.payloadId), formerSlot(source.additionalVisuals[0]!.payload.payloadId),
+          slots: [formerSlot(source.payload.payloadId), formerSlot(source.additionalVisuals[0].payload.payloadId),
             ...source.additionalVisuals.slice(1).map(({ payload }) => formerSlot(payload.payloadId))] };
       }
       const model = prompterBrowserFixture(document);
