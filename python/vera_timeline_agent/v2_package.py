@@ -3353,7 +3353,7 @@ def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
     tracks = cast(list[JsonObject], view["tracks"])
     kinds = {event["kind"] for event in view["events"]}
     ids = {track["id"] for track in tracks}
-    padding = []
+    padding: list[JsonObject] = []
     for event_kind, kind, prefix, target in (
         ("music", "audio", "A", 5),
         ("quote_box", "video", "V", 4),

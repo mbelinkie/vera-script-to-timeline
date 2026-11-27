@@ -291,7 +291,7 @@ def test_still_credit_compiles_packages_and_verifies_real_graphic(
     asset_hash = deps["occurrenceResolutions"][0]["sourceSnapshot"][
         "contentHash"
     ].removeprefix("sha256:")
-    pin = {
+    pin: dict[str, Any] = {
         "researchProjectId": str(uuid4()),
         "itemId": str(uuid4()),
         "itemVersion": 1,
