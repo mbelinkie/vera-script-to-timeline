@@ -164,6 +164,24 @@ describe("#585 visuals-only ordered cards", () => {
         } },
       ],
     });
+    for (const refusal of ["custom", "match"] as const) {
+      const blocked = structuredClone(moved.document);
+      const wordless = blocked.activeDraft.blocks.find(b => b.id === target.id) as VisualOnlyBlockV2;
+      const inherited = wordless.additionalVisuals![1]!.visualOnlyTiming;
+      if (refusal === "custom") delete inherited.systemPreservedDefaultHold;
+      else {
+        const cue = musicCue(74616, target.id);
+        blocked.rowAudioSpans = [cue];
+        inherited.matchAudioDuration = { cueId: cue.id };
+      }
+      expect(validateScriptDocumentV2(blocked).valid).toBe(true);
+      const blockedSession = createRowEditSessionV2(blocked, 3000);
+      const result = blockedSession.apply({ kind: "edit_narration_text", rowId: target.id,
+        startOffset: 0, endOffset: 0, insertedText: "new words", editId: id(74615) });
+      expect(result.diagnostics.map(d => d.code)).toContain("RANGE_SEQUENCE_UNRESOLVED");
+      expect(result.document).toEqual(blocked);
+      expect(blockedSession.undoDepth).toBe(0);
+    }
     const restored = session.apply({ kind: "edit_narration_text", rowId: target.id,
       startOffset: 0, endOffset: 0, insertedText: "new words", editId: id(74615) });
     expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
@@ -176,6 +194,114 @@ describe("#585 visuals-only ordered cards", () => {
       ],
     });
     expect(session.undo().document.activeDraft.blocks).toEqual(moved.document.activeDraft.blocks);
+  });
+
+  it("#746 retains the marker through reload, reorder, shrink and Undo/redo, not explicit edits", () => {
+    const { document } = fixture();
+    const legacy = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const target = narratedDestination(legacy);
+    document.activeDraft.blocks.push(target);
+    const seed = createRowEditSessionV2(document, 3200);
+    const added = seed.apply({ kind: "add_visual_to_wordless_row", rowId: legacy.id,
+      payloadId: id(74621), slotId: id(74622), visualType: "onscreen_placeholder" });
+    expect(added.ok).toBe(true);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(added.document));
+    expect(loaded).toEqual({ ok: true, document: added.document });
+    if (!loaded.ok) throw new Error("reload failed");
+    const session = createRowEditSessionV2(loaded.document, 3200);
+    const marked = { kind: "visual_only", durationOverrideMs: 3200, systemPreservedDefaultHold: true };
+    const reorder = session.apply({ kind: "reorder_visual_only", rowId: legacy.id,
+      payloadIds: [id(74621), legacy.payload.payloadId] });
+    expect(reorder.ok).toBe(true);
+    expect(reorder.document.activeDraft.blocks[0]).toMatchObject({
+      additionalVisuals: [{ payload: legacy.payload, visualOnlyTiming: marked }],
+    });
+    const shrink = session.apply({ kind: "move_wordless_visual", sourceRowId: legacy.id,
+      destinationRowId: target.id, payloadId: id(74621),
+      destinationSlotId: id(74623), expectedDestinationSequenceVersion: 1 });
+    expect(shrink.ok, JSON.stringify(shrink.diagnostics)).toBe(true);
+    expect(shrink.document.activeDraft.blocks[0]).toMatchObject({ payload: legacy.payload, visualOnlyTiming: marked });
+    const setHold = (holdSeconds: number) => session.apply({ kind: "set_visual_only_hold",
+      rowId: legacy.id, payloadId: legacy.payload.payloadId, holdSeconds });
+    expect(setHold(3.2).ok).toBe(false);
+    expect(session.undoDepth).toBe(2);
+    expect(setHold(6).ok).toBe(true);
+    expect(setHold(3.2).ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming)
+      .toEqual({ kind: "visual_only", durationOverrideMs: 3200 });
+    const move = () => session.apply({ kind: "move_wordless_visual", sourceRowId: legacy.id,
+      destinationRowId: target.id, payloadId: legacy.payload.payloadId, replacementPayloadId: id(74624),
+      destinationSlotId: id(74625), expectedDestinationSequenceVersion: 2 });
+    expect(move().diagnostics.map(d => d.code)).toContain("WORDLESS_TIMING_UNSUPPORTED");
+    expect(session.undo().ok).toBe(true);
+    expect(session.undo().document.activeDraft.blocks[0]).toMatchObject({ visualOnlyTiming: marked });
+    expect(session.redo().ok).toBe(true);
+    expect(session.redo().ok).toBe(true);
+    expect(move().diagnostics.map(d => d.code)).toContain("WORDLESS_TIMING_UNSUPPORTED");
+    expect(session.undo().ok).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    const moved = move();
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    expect(moved.document.activeDraft.blocks[1]).toMatchObject({ unattachedVisuals: expect.arrayContaining([
+      expect.objectContaining({ payload: { ...legacy.payload, sourceUsage: null } }),
+    ]) });
+  });
+
+  it.each(["clear", "delete"] as const)("#746 %s music match keeps only existing system provenance", (action) => {
+    for (const marked of [true, false]) {
+      const { document } = fixture();
+      const legacy = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+      const target = narratedDestination(legacy);
+      document.activeDraft.blocks.push(target);
+      const cue = musicCue(74630, legacy.id);
+      document.rowAudioSpans = [cue];
+      const timing = { kind: "visual_only" as const, durationOverrideMs: 3000,
+        ...(marked ? { systemPreservedDefaultHold: true as const } : {}) };
+      legacy.visualOnlyTiming = timing;
+      const session = createRowEditSessionV2(document, 3000);
+      const matched = session.apply({ kind: "set_visual_only_audio_match", rowId: legacy.id,
+        payloadId: legacy.payload.payloadId, cueId: cue.id });
+      expect(matched.ok, JSON.stringify(matched.diagnostics)).toBe(true);
+      const move = () => session.apply({ kind: "move_wordless_visual", sourceRowId: legacy.id,
+        destinationRowId: target.id, payloadId: legacy.payload.payloadId,
+        destinationSlotId: id(74634), replacementPayloadId: id(74635), expectedDestinationSequenceVersion: 1 });
+      const refused = move();
+      expect(refused.diagnostics.map(d => d.code)).toContain("WORDLESS_TIMING_UNSUPPORTED");
+      expect(refused.document).toEqual(matched.document);
+      const cleared = action === "clear"
+        ? session.apply({ kind: "set_visual_only_audio_match", rowId: legacy.id, payloadId: legacy.payload.payloadId, cueId: null })
+        : session.apply({ kind: "delete_row_audio_span", cueId: cue.id });
+      expect(cleared.ok, JSON.stringify(cleared.diagnostics)).toBe(true);
+      expect((cleared.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming).toEqual(timing);
+      expect(session.undo().document.activeDraft.blocks[0]).toEqual(matched.document.activeDraft.blocks[0]);
+      expect(session.redo().ok).toBe(true);
+      expect(move().ok).toBe(marked);
+    }
+  });
+
+  it("#746 refuses full-audio clips while retaining the exact trim of muted clips", () => {
+    for (const audioPolicy of ["full", "mute"] as const) {
+      const { document } = sequence();
+      const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+      const clip = row.additionalVisuals![0]!;
+      clip.payload.audioPolicy = audioPolicy;
+      const target = narratedDestination(row);
+      document.activeDraft.blocks.push(target);
+      const session = createRowEditSessionV2(document);
+      const result = session.apply({ kind: "move_wordless_visual", sourceRowId: row.id,
+        destinationRowId: target.id, payloadId: clip.payload.payloadId, destinationSlotId: id(74640),
+        expectedDestinationSequenceVersion: 1 });
+      expect(result.ok, JSON.stringify(result.diagnostics)).toBe(audioPolicy === "mute");
+      if (audioPolicy === "full") {
+        expect(result.diagnostics.map(d => d.code)).toContain("WORDLESS_TIMING_UNSUPPORTED");
+        expect(result.document).toEqual(document);
+        expect(session.undoDepth).toBe(0);
+      } else {
+        expect(result.document.activeDraft.blocks[1]).toMatchObject({ unattachedVisuals: [{
+          payload: { ...clip.payload, sourceUsage: { sourceInFrame: 10 }, selectedSourceRange: { startFrame: 10, durationFrames: 50 } },
+        }] });
+      }
+    }
   });
 
   it("#725 keeps a legacy three-second still when appending a new four-second card", () => {

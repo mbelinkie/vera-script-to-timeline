@@ -2032,7 +2032,10 @@ export function applyRowEditV2(
       for (const visual of visuals) {
         if (visual.visualOnlyTiming.matchAudioDuration?.cueId !== command.cueId) continue;
         const restoredMilliseconds = visual.visualOnlyTiming.durationOverrideMs ?? 4000;
-        visual.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: restoredMilliseconds };
+        visual.visualOnlyTiming = {
+          kind: "visual_only", durationOverrideMs: restoredMilliseconds,
+          ...(visual.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
+        };
         operationDiagnostics.push({
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Removed the music cue; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
           severity: "warning",
@@ -2188,6 +2191,7 @@ export function applyRowEditV2(
         target.visualOnlyTiming = {
           kind: "visual_only",
           durationOverrideMs: restoredMilliseconds,
+          ...(target.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
         };
         operationDiagnostics = [{
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Match audio duration was cleared; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
