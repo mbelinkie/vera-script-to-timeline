@@ -138,7 +138,7 @@ export function projectStash(documentModel) {
   return sections;
 }
 
-const documentStashSnapshot = (documentModel) => JSON.stringify([
+export const documentStashSnapshot = (documentModel) => JSON.stringify([
   documentModel?.stash, documentModel?.stashOutline, documentModel?.stashSections, documentModel?.stashGroups, documentModel?.stashResearchItems,
 ]);
 

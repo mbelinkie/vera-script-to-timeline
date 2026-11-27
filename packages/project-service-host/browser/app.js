@@ -5,7 +5,7 @@ import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
-import { captureWholeRowStash, createStashActions } from "./stash-actions.js";
+import { captureWholeRowStash, createStashActions, documentStashSnapshot } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
 import { cueExcerpt } from "./footage-trim-timing.js";
 import { selectedSpokenWords } from "./visual-selection.js";
@@ -1519,10 +1519,14 @@ function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
   stashPickerLocation = null;
   const projectId = activeProjectId;
   const expected = editorDocument();
+  const snapshot = documentStashSnapshot(expected);
   const note = noteRowId && (expected.stash ?? []).flatMap((bundle) => bundle.rows)
     .find((row) => row.id === noteRowId);
   const placement = Object.assign((latest) => {
-    if (latest !== expected) throw new Error("The script or Stash changed. Choose the clip again.");
+    if (activeProjectId !== projectId || latest.projectId !== expected.projectId ||
+        latest.id !== expected.id || documentStashSnapshot(latest) !== snapshot) {
+      throw new Error("The script or Stash changed. Choose the clip again.");
+    }
     return { kind: "stash", sectionId, noteRowId, replace: Boolean(note?.attachedFootage) };
   }, { kind: "stash" });
   stashPanel.close(false);

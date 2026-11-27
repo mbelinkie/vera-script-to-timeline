@@ -495,7 +495,9 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
           if (placement?.kind === "selected_words" || placement?.kind === "stash") void commit(clip, selection.placement);
           else pickClip(clip);
         } catch {
-          onStatus("The selected script target changed. Choose the words again.");
+          onStatus(selection.placement?.kind === "stash"
+            ? "The script or Stash changed. Choose the clip again."
+            : "The selected script target changed. Choose the words again.");
         }
       } else pickClip(clip);
     });
