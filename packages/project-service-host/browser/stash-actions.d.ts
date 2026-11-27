@@ -1,6 +1,8 @@
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import type { RowEditCommandV2 } from "@vera/contracts/authoring-v2";
 
+export function documentStashSnapshot(documentModel: ScriptDocumentV2): string;
+
 export interface StashLocation {
   sectionId?: string | null;
   parentRowId?: string | null;
