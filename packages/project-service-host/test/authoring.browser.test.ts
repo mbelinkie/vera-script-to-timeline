@@ -6602,6 +6602,38 @@ describe("browser authoring over the local project service", () => {
     } finally { await page.close(); }
   }, 50_000);
 
+  it("#749 refuses an open clip picker after Undo changes its Stash attachment", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stale Stash attachment picker");
+      const fixture = editableDocumentFixture(projectId, "Spoken scene");
+      const note = researchNote(863000);
+      const oldClip = researchOccurrence(864000, false);
+      note.attachedFootage = { clip: oldClip };
+      fixture.document.stash = [{ id: randomUUID(), rows: [note], supportingItems: [] }];
+      fixture.document.stashOutline = [{ rowId: note.id, kind: "note", parentRowId: null, sectionId: null }];
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const saved = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+      const initial = await saved();
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const entry = page.locator(`[data-stash-row-id="${note.id}"]`);
+      await entry.getByRole("button", { name: "Detach footage" }).click();
+      await expect.poll(async () => (await saved()).revision).toBe(initial.revision + 1);
+      await entry.getByRole("button", { name: "Choose logged clip…" }).click();
+      const choice = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+      await choice.waitFor();
+      await page.getByRole("button", { name: "Undo Detach Stash footage" }).click();
+      await expect.poll(async () => (await saved()).document.stash).toEqual(initial.document.stash);
+      const before = await saved();
+      await choice.click();
+      await expect.poll(() => page.locator("#save-status").textContent()).toContain("Stash changed. Choose the clip again.");
+      expect(await saved()).toEqual(before);
+      expect(await choice.isVisible()).toBe(true);
+    } finally { await page.close(); }
+  }, 50_000);
+
   it("#616 adds logged footage to Stash during Sorting and checks the saved result", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
