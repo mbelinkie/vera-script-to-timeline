@@ -330,11 +330,30 @@ describe("kept still catalog metadata", () => {
       original: asset, provenance: manifest.provenance });
   });
 
-  it("rejects malformed catalog metadata rather than fabricating filter values", async () => {
-    for (const change of [{ createdBy: "invalid" }, { createdAt: "invalid" }, { topics: [123] }]) {
-      const fake = fakeService((url) => url.pathname.endsWith("/items")
-        ? Response.json([{ ...still, ...change }]) : Response.json(manifest));
-      await expect(client(fake.request).stills(PROJECT, 0)).rejects.toThrow("invalid still catalog metadata");
+  it("keeps valid stills on a page with malformed records and refuses authorization failures", async () => {
+    const badAssets = { ...still, id: researchId(752000) };
+    const entries = [
+      { ...still, id: researchId(752001), createdBy: "invalid" },
+      { ...still, id: researchId(752002), createdAt: "invalid" },
+      { ...still, id: researchId(752003), topics: [123] },
+      badAssets,
+      still,
+    ];
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) return Response.json(entries);
+      if (url.pathname.includes("/sources/")) return serviceError(503);
+      if (url.pathname.includes(badAssets.id)) return Response.json({ assets: {} });
+      return Response.json(manifest);
+    });
+    const page = await client(fake.request).stills(PROJECT, 0);
+    expect(page.stills.map(({ itemId }) => itemId)).toEqual([still.id]);
+    expect(page.stills[0]).not.toHaveProperty("sourceTitle");
+    for (const status of [403, 429, 503]) {
+      const unavailable = fakeService((url) => url.pathname.endsWith("/items")
+        ? Response.json([still]) : serviceError(status));
+      const page = client(unavailable.request).stills(PROJECT, 0);
+      if (status === 403) await expect(page).rejects.toMatchObject({ status });
+      else await expect(page).rejects.toThrow("Research could not complete this read-only request.");
     }
   });
 });

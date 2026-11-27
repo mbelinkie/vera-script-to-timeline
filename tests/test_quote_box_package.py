@@ -14,6 +14,7 @@ from issue177_package_fixture import _refresh_document_closure, make_package_cas
 from PIL import Image
 from vera_timeline_agent import quote_box_inputs
 from vera_timeline_agent.build_compiler_bridge import invoke_bridge
+from vera_timeline_agent.build_jobs import BuildJobError
 from vera_timeline_agent.native_image_motion import native_still_stem
 from vera_timeline_agent.placeholder_slate import transparent_graphic_carrier
 from vera_timeline_agent.still_credit import freeze_still_credit_inputs, render_credit
@@ -321,6 +322,12 @@ def test_still_credit_compiles_packages_and_verifies_real_graphic(
     assert not freeze_still_credit_inputs(document, deps)
     assert deps == before
     payload["showResearchStillCredit"] = True
+    for unusable_credit in ("写真", "\x85"):
+        pin["credit"] = unusable_credit
+        with pytest.raises(BuildJobError, match="Still credit cannot be displayed"):
+            freeze_still_credit_inputs(document, deps)
+        assert deps == before
+    pin["credit"] = "Example Credit"
     assert freeze_still_credit_inputs(document, deps)
     once = copy.deepcopy(deps)
     assert freeze_still_credit_inputs(document, deps)

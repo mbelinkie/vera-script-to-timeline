@@ -402,24 +402,36 @@ export function createResearchClient(options: {
         let pending = sourceTitles.get(sourceId);
         if (!pending) {
           pending = source(projectId, sourceId).then((record) => record.bibliography.title?.value).catch((error: unknown) => {
-            if (error instanceof ResearchReadError && error.status === 404) return undefined;
-            throw error;
+            if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+            return undefined;
           });
           sourceTitles.set(sourceId, pending);
         }
         return pending;
       }
       const choices = await Promise.all(items.slice(0, STILL_PAGE_SIZE).map(async (entry: unknown) => {
-        const item = readStillItem(entry, projectId);
+        let item: ReturnType<typeof readStillItem>;
+        let choice: ResearchStillChoice;
         try {
-          await manifest(projectId, item.itemId);
-          const choice = readStillChoice(entry, projectId);
-          const title = await sourceTitle(item.sourceId);
-          return { ...choice, ...(title === undefined ? {} : { sourceTitle: title }) };
+          item = readStillItem(entry, projectId);
+          choice = readStillChoice(entry, projectId);
+        } catch {
+          return null;
+        }
+        let rawManifest: unknown;
+        try {
+          rawManifest = await get(`${libraryPath(projectId, "stills", item.itemId)}/assets`);
         } catch (error) {
-          if (error instanceof UnsupportedKeptStillError || error instanceof ResearchReadError && error.status === 404) return null;
+          if (error instanceof ResearchReadError && error.status === 404) return null;
           throw error;
         }
+        try {
+          readKeptStillManifest(rawManifest);
+        } catch {
+          return null;
+        }
+        const title = await sourceTitle(item.sourceId);
+        return { ...choice, ...(title === undefined ? {} : { sourceTitle: title }) };
       }));
       const more = offset + STILL_PAGE_SIZE;
       return { stills: choices.filter((choice) => choice !== null),

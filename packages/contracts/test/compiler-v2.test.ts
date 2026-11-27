@@ -10,6 +10,7 @@ import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
 import { compareSecondaryTimingV2 } from "../src/secondary-timing-v2.js";
+import { previewSecondaryTimingReconcileV2 } from "../src/secondary-timing-reconcile-v2.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -2306,6 +2307,18 @@ describe("pure v2 compiler", () => {
     overlay.timing.durationMs = 500;
     expect(credits()).toMatchObject([{ recordRange: { startFrame: 12, endFrame: 96 }, stillCredit: { text: "Example Credit" } }]);
 
+    const before = compileTimelineV2(doc, deps);
+    if (!before.ok) throw new Error(JSON.stringify(before.diagnostics));
+    const coveringPicture = before.manifest.events.find((event) => event.kind === "overlay_visual")!;
+    const preview = previewSecondaryTimingReconcileV2(doc, deps, before.manifest, {
+      kind: "overlay_duration", blockId: row.id, overlayEventId: overlay.id,
+      expectedEventVersion: overlay.version, expectedRange: coveringPicture.recordRange, durationMs: 1000,
+    });
+    expect(preview).toMatchObject({ ok: true, disposition: "proposed_not_applied" });
+    if (!preview.ok) return;
+    const after = compileTimelineV2(preview.candidateDocument, deps);
+    expect(after.ok && after.manifest.events.filter((event) => event.kind === "still_credit"))
+      .toMatchObject([{ recordRange: { startFrame: 24, endFrame: 96 } }]);
   });
 
   it("freezes presenter-still fallback, project default, and a distinct script override", () => {

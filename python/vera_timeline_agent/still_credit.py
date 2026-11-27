@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from typing import Any
+from unicodedata import category
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -28,6 +29,7 @@ def credit_text(payload: dict[str, Any]) -> str:
 def freeze_still_credit_inputs(
     document: dict[str, Any], dependencies: dict[str, Any]
 ) -> bool:
+    texts = set()
     for block in document.get("activeDraft", {}).get("blocks", []):
         if block.get("type") != "narration" or block.get("state") != "active":
             continue
@@ -35,10 +37,18 @@ def freeze_still_credit_inputs(
             *(block.get("primaryVisualSequence") or {}).get("slots", []),
             *block.get("overlayEvents", []),
         ]
-        if any(credit_text(placement.get("payload", {})) for placement in placements):
-            break
-    else:
+        for placement in placements:
+            if text := credit_text(placement.get("payload", {})):
+                texts.add(text)
+    if not texts:
         return False
+    timeline = dependencies["timeline"]
+    # Validate before obtaining kept media or generating narration.
+    for text in sorted(texts):
+        try:
+            _credit_layout(text, timeline["width"], timeline["height"])
+        except ValueError as error:
+            raise BuildJobError(f"Still credit cannot be displayed: {error}") from error
     tracks = dependencies["tracks"]
     overlays = dependencies["roles"]["overlayTrackIds"]
     videos = [track for track in tracks if track["kind"] == "video"]
@@ -61,18 +71,21 @@ def freeze_still_credit_inputs(
     return True
 
 
-def render_credit(text: str, width: int, height: int) -> bytes:
-    """Use Pillow's bundled font, avoiding workstation-dependent font selection."""
+def _credit_layout(
+    text: str, width: int, height: int
+) -> tuple[ImageFont.ImageFont | ImageFont.FreeTypeFont, list[str], int, int]:
     if (
         not MIN_DIMENSION <= width <= MAX_DIMENSION
         or not MIN_DIMENSION <= height <= MAX_DIMENSION
         or width * height > MAX_PIXELS
     ):
         raise ValueError("still credit canvas dimensions are unsupported")
-    if not text or len(text) > 2000 or not text.strip():
+    if not text or len(text) > 2000 or not text.strip(_TRIM):
         raise ValueError("still credit text is missing or too long")
-    image = Image.new("RGBA", (width, height))
-    draw = ImageDraw.Draw(image)
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
+    if any(char != "\n" and category(char) == "Cc" for char in text):
+        raise ValueError("still credit includes unsupported control characters")
+    measure = ImageDraw.Draw(Image.new("L", (1, 1)))
     margin = max(1, round(min(width, height) * 0.04))
     available = width - 2 * margin
     # Wrap without dropping any non-whitespace characters; shrink only as needed.
@@ -89,7 +102,7 @@ def render_credit(text: str, width: int, height: int) -> bytes:
         line = ""
         for char in text:
             if char == "\n" or (
-                line and draw.textlength(line + char, font=font) > available
+                line and measure.textlength(line + char, font=font) > available
             ):
                 lines.append(line)
                 line = ""
@@ -101,6 +114,14 @@ def render_credit(text: str, width: int, height: int) -> bytes:
             break
     else:
         raise ValueError("still credit is too long for the output frame")
+    return font, lines, leading, margin
+
+
+def render_credit(text: str, width: int, height: int) -> bytes:
+    """Use Pillow's bundled font, avoiding workstation-dependent font selection."""
+    font, lines, leading, margin = _credit_layout(text, width, height)
+    image = Image.new("RGBA", (width, height))
+    draw = ImageDraw.Draw(image)
     y = height - margin - len(lines) * leading
     for line in lines:
         right = width - margin
