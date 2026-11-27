@@ -2851,6 +2851,147 @@ describe("browser authoring over the local project service", () => {
     }
   }, 90_000);
 
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#691 places exact multiword Library footage and quote with one Undo at $width x $height",
+    async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, `Exact Library drop ${viewport.width}`);
+        const seeded = editableDocumentFixture(projectId, "alpha beta beacon before dawn");
+        const initial = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+        if (initial?.type !== "narration") throw new Error("missing fixture row");
+        await saveDocumentFixture(page, projectId, seeded.document);
+        await page.goto(`${origin}/?project=${projectId}`);
+        await page.getByRole("button", { name: "Library", exact: true }).click();
+        const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+        const quote = page.locator(`[data-quote-place-id="${typedQuoteWithPicture.itemId}"]`);
+        await clip.waitFor();
+        await quote.waitFor();
+        const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+        const editor = row.locator("[data-narration-editor]");
+        const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+        const before = await load();
+        // Observe the real browser drag events, including the transient range
+        // styling before the drop handler clears the overlay.
+        await page.evaluate(() => {
+          const observations: string[] = [];
+          document.documentElement.dataset.libraryDragObservations = "[]";
+          for (const name of ["dragstart", "dragover"]) document.addEventListener(name, () => {
+            const overlay = document.querySelector("[data-selected-drop-state]");
+            const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+            if (!overlay || !fragment) return;
+            const observation = [overlay.getAttribute("data-selected-drop-state"),
+              getComputedStyle(fragment).borderTopStyle, overlay.textContent].join("|");
+            if (!observations.includes(observation)) observations.push(observation);
+            document.documentElement.dataset.libraryDragObservations = JSON.stringify(observations);
+          }, name === "dragover");
+        });
+        const select = async () => {
+          await selectText(editor, 6, 24);
+          await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta beacon before");
+          return textCharacterPosition(editor, 13);
+        };
+        for (const [source, label] of [[clip, "Add footage"], [quote, "Add quote"]] as const) {
+          const position = await select();
+          const path = label === "Add footage" ? "research-insert" : "research-quote-insert";
+          const response = page.waitForResponse((r) => r.url().endsWith("/authoring/" + path) && r.request().method() === "POST");
+          await source.dragTo(editor, { targetPosition: position });
+          const result = await response;
+          expect(result.ok(), await result.text()).toBe(true);
+          expect(result.request().postDataJSON()).toMatchObject({ placement: {
+            kind: "selected_words", rowId: initial.id,
+            startTokenId: initial.tokens[1]!.id, endTokenId: initial.tokens[3]!.id,
+          } });
+          await expect.poll(() => page.locator("#undo-history li").allTextContents()).toEqual([label]);
+          await expect.poll(async () => {
+            const saved = await load();
+            return saved.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+          }).not.toEqual(initial);
+          const saved = await load();
+          const placed = saved.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+          if (placed?.type !== "narration") throw new Error("missing placed narration");
+          expect(placed.text).toBe(initial.text);
+          expect(placed.tokens).toEqual(initial.tokens);
+          expect(placed.unattachedVisuals ?? []).toHaveLength(0);
+          const slot = placed.primaryVisualSequence?.slots.find((item) => item.kind === "content" &&
+            item.payload.kind === "visual" && (label === "Add footage"
+              ? item.payload.researchClip?.clipId === loggedClip.id
+              : item.payload.researchQuotePicture?.ownerKind === "quote"));
+          if (slot?.kind !== "content") throw new Error("missing attached visual");
+          expect(slot.boundaryBefore).toMatchObject({ kind: "spoken_word", anchor: { tokenId: initial.tokens[1]!.id } });
+          expect(projectPrimarySequenceV2(saved.document).rows.find((item) => item.blockId === placed.id)
+            ?.brackets.find((item) => item.slotId === slot.id)).toMatchObject({ startTokenIndex: 1, endTokenIndexExclusive: 4 });
+          if (label === "Add quote") {
+            expect(placed.overlayEvents).toHaveLength(initial.overlayEvents.length + 1);
+            expect(placed.overlayEvents.find((event) => event.quoteBox?.researchQuoteId === typedQuoteWithPicture.itemId))
+              .toMatchObject({ timing: { kind: "timed",
+                start: { kind: "word", anchor: { tokenId: initial.tokens[1]!.id } },
+                end: { kind: "audible_word_end", anchor: { tokenId: initial.tokens[3]!.id } },
+              } });
+          }
+          await expect.poll(() => page.locator("[data-selected-drop-state]").count()).toBe(0);
+          await page.getByRole("button", { name: "Undo " + label, exact: true }).click();
+          await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        }
+        const observations = JSON.parse(await page.locator("html").getAttribute("data-library-drag-observations") ?? "[]");
+        expect(observations).toContain("available|dashed|");
+        expect(observations).toContain("active|solid|Attach to “beta beacon before” · exactly these words");
+
+        // A highlighted range must not change the existing right-column route.
+        await select();
+        await clip.dragTo(row.locator(".visuals-cell"));
+        await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+        await page.getByRole("button", { name: "Undo Add footage" }).click();
+        await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+
+        // A detached/changed editor must not silently fall back to a waiting
+        // clip or a single-word quote. Simulate a DOM change between dragstart
+        // and drop without modifying the saved document.
+        const stable = await load();
+        for (const source of [clip, quote]) {
+          const position = await select();
+          await source.evaluate((node, { rowId, position }) => {
+            const editor = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+            const box = editor.getBoundingClientRect();
+            const transfer = new DataTransfer();
+            const drag = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, {
+              bubbles: true, cancelable: true, dataTransfer: transfer,
+              clientX: box.left + position.x, clientY: box.top + position.y,
+            }));
+            node.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+            drag(node, "dragstart");
+            const extra = document.createTextNode("changed");
+            editor.append(extra);
+            drag(editor, "dragover");
+            drag(editor, "drop");
+            extra.remove();
+            drag(node, "dragend");
+          }, { rowId: seeded.rowId, position });
+          await expect.poll(() => page.locator("#save-status").textContent()).toContain("changed");
+          expect(await load()).toEqual(stable);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        }
+
+        // The catalog remains visible but the host must freshly authorize the
+        // selected drop. Denial must not publish a document or create Undo.
+        const position = await select();
+        researchVisible = false;
+        try {
+          const denied = page.waitForResponse((r) => r.url().endsWith("/authoring/research-insert") && r.request().method() === "POST");
+          await clip.dragTo(editor, { targetPosition: position });
+          expect((await denied).status()).toBe(403);
+          await expect.poll(() => page.locator("#save-status").textContent()).toBe("research_project_forbidden");
+          expect(await load()).toEqual(stable);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        } finally { researchVisible = true; }
+      } finally {
+        await page.close();
+      }
+    }, 90_000);
+
   it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

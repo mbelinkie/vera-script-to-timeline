@@ -1616,12 +1616,12 @@ function mountSelectedDropDragging(root) {
       // Keep refusal identity until dragend/drop; a changed editor must not
       // silently fall back to a single word or insertion on the old row.
       active.invalidated = true;
-      return { snapshot, placement: null, hit: Boolean(event && editor?.contains(event.target)), rects: [] };
+      return { snapshot, source, placement: null, hit: Boolean(event && editor?.contains(event.target)), rects: [] };
     }
     const rects = narrationTokenRects(editor, snapshot);
     const hit = Boolean(event && editor.contains(event.target) &&
       pointInQuoteRects(rects, event.clientX, event.clientY));
-    return { snapshot, placement, hit, rects, surface };
+    return { snapshot, source, placement, hit, rects, surface };
   };
   function refresh() {
     const next = target(pointer);
@@ -1684,7 +1684,13 @@ function mountSelectedDropDragging(root) {
   doc.addEventListener("dragover", over, true);
   doc.addEventListener("dragleave", leave, true);
   doc.addEventListener("dragend", reset, true);
-  doc.addEventListener("drop", () => { queueMicrotask(reset); }, true);
+  // Native drag events can run a microtask checkpoint between listeners.
+  // Keep the captured range through the source owner's drop handler, even
+  // when that handler stops propagation; dragend may clear it earlier.
+  doc.addEventListener("drop", () => {
+    const dropped = active;
+    win.setTimeout(() => { if (active === dropped) reset(); }, 0);
+  }, true);
   doc.addEventListener("keydown", (event) => { if (event.key === "Escape") reset(); }, true);
   win.addEventListener("scroll", refresh, true);
   win.addEventListener("resize", refresh);
@@ -1853,6 +1859,19 @@ function mountResearchDragging(root) {
   const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
   const draggingStill = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-still");
   const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote");
+  const exactDestination = (event) => {
+    const next = selectedDropDrag.target(event);
+    if (!next?.hit || next.source.panel !== "footage-panel") return null;
+    return next;
+  };
+  const exactPlacement = (snapshot) => (latest) => {
+    const placement = selectedDropPlacement(latest, snapshot);
+    if (!placement || activeProjectId !== snapshot.projectId || !canEditAccount() ||
+        sortingTrial || pendingExtras || editRefused || conflicted) {
+      throw new Error("The selected narration changed. Select the words again.");
+    }
+    return placement;
+  };
   const quoteDestination = (event) => {
     const gap = event.target.closest?.("[data-row-gap]");
     if (gap) return { target: gap, mode: "insert", placement: quoteGapPlacement({
@@ -1862,10 +1881,6 @@ function mountResearchDragging(root) {
     }) };
     const rowNode = event.target.closest?.(".script-row[data-row-kind='narration']");
     if (!rowNode) return null;
-    if (quoteSelection?.rowId === rowNode.dataset.rowId && quoteSelection.selected &&
-        pointInQuoteRects(quoteSelection.rects, event.clientX, event.clientY)) {
-      return { target: rowNode, mode: "attach", placement: quotePlacementFromSelection(quoteSelection) };
-    }
     const editor = rowNode.querySelector("[data-narration-editor]");
     const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowNode.dataset.rowId);
     if (!editor || !row || row.type !== "narration") return null;
@@ -1916,7 +1931,7 @@ function mountResearchDragging(root) {
     (target.matches("[data-row-gap]") ? target : target.querySelector(".narration-cell"))?.append(cue);
   };
   const captureQuoteSelection = (event) => {
-    quoteSelection = draggingQuote(event) || draggingStill(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+    quoteSelection = draggingStill(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
   };
   const rememberQuoteTarget = (event) => {
     const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
@@ -1931,6 +1946,14 @@ function mountResearchDragging(root) {
   };
   const endDrag = () => { clear(); quoteSelection = null; };
   const over = (event) => {
+    const exact = (draggingQuote(event) || draggingFootage(event)) && exactDestination(event);
+    if (exact) {
+      clear();
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = exact.placement ? "copy" : "none";
+      return;
+    }
     if (draggingStill(event)) {
       const next = stillDestination(event);
       if (!next) { clear(); return; }
@@ -1960,6 +1983,30 @@ function mountResearchDragging(root) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
   };
   const drop = (event) => {
+    const exact = (draggingQuote(event) || draggingFootage(event)) && exactDestination(event);
+    if (exact) {
+      clear();
+      quoteSelection = null;
+      event.preventDefault();
+      event.stopPropagation();
+      const { snapshot, source } = exact;
+      const id = event.dataTransfer?.getData(source.mime);
+      const quote = draggingQuote(event) && source.mime === "application/x-vera-research-quote" &&
+        id === source.node.dataset.quotePlaceId ? researchPanel.dropQuote(id) : null;
+      const clip = draggingFootage(event) && source.mime === "application/x-vera-research-clip" &&
+        id === source.node.dataset.footageDrag ? researchPanel.dropClip(id) : null;
+      if (!exact.placement || (!quote && !clip)) {
+        setSaveStatus("The selected words or Library item changed. Choose them again.");
+        return;
+      }
+      lastQuoteTarget = null;
+      const placement = exactPlacement(snapshot);
+      const attempt = quote ? queueResearchQuoteInsert({ quote, placement }) :
+        queueResearchClipInsert({ researchProjectId: clip.projectId, clipId: clip.id,
+          clipVersion: clip.version, placement });
+      void attempt.then((success) => { if (success) researchPanel.update(); });
+      return;
+    }
     if (draggingStill(event)) {
       const next = stillDestination(event);
       const still = researchPanel.dropStill(event.dataTransfer?.getData("application/x-vera-research-still"));

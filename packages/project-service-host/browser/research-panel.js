@@ -1012,11 +1012,12 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     }
   };
   const refresh = () => visible && projects.value ? loadProject() : Promise.resolve();
-  const dropClip = (clipId) => clips.find((clip) => clip.id === clipId &&
-    clip.projectId.toLowerCase() === projects.value.toLowerCase()) ?? null;
-  const dropQuote = (quoteId) => quotes.find((quote) =>
+  const dropClip = (clipId) => visible && !accessDenied && !committing ? clips.find((clip) => clip.id === clipId &&
+    clip.projectId.toLowerCase() === projects.value.toLowerCase()) ?? null : null;
+  const dropQuote = (quoteId) => visible && !accessDenied && !committing &&
+    selection?.placement?.kind !== "stash" ? quotes.find((quote) =>
     quote.itemId.toLowerCase() === String(quoteId ?? "").toLowerCase() &&
-    quote.researchProjectId.toLowerCase() === projects.value.toLowerCase()) ?? null;
+    quote.researchProjectId.toLowerCase() === projects.value.toLowerCase()) ?? null : null;
   openButton.addEventListener("click", () => visible ? close() : void open());
   closeButton.addEventListener("click", close);
   cancel.addEventListener("click", () => { chosen = null; chooser.hidden = true; player.hide(); search.focus(); });
