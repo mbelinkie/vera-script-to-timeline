@@ -2794,6 +2794,63 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#691 keeps a multiword drag target visible after Library focus and clears it on cancel", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const projectId = await createProject(page, origin, "Selected words drag");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+      await clip.waitFor({ state: "visible" });
+      const before = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect(before.status).toBe(200);
+      const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+      await selectText(editor, 6, 16);
+      await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta gamma");
+      const position = await textCharacterPosition(editor, 13);
+      const result = await clip.evaluate((source, { rowId, position }) => {
+        const target = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+        const box = target.getBoundingClientRect();
+        const transfer = new DataTransfer();
+        const drag = (node: Element, type: string, x = 0, y = 0) => node.dispatchEvent(new DragEvent(type, {
+          bubbles: true, cancelable: true, dataTransfer: transfer, clientX: x, clientY: y,
+        }));
+        const read = () => {
+          const overlay = document.querySelector("[data-selected-drop-state]");
+          const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+          return { state: overlay?.getAttribute("data-selected-drop-state") ?? null,
+            border: fragment ? getComputedStyle(fragment).borderTopStyle : null,
+            text: overlay?.textContent ?? "" };
+        };
+        source.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        (source as HTMLElement).focus();
+        document.getSelection()?.removeAllRanges();
+        drag(source, "dragstart");
+        const dashed = read();
+        drag(target, "dragover", box.left + position.x, box.top + position.y);
+        const solid = read();
+        drag(source, "dragover");
+        const outside = read();
+        drag(source, "dragend");
+        return { dashed, solid, outside, after: read(), narration: target.textContent };
+      }, { rowId: seeded.rowId, position });
+      expect(result.dashed).toMatchObject({ state: "available", border: "dashed" });
+      expect(result.solid).toMatchObject({ state: "active", border: "solid",
+        text: "Attach to “beta gamma” · exactly these words" });
+      expect(result.outside).toMatchObject({ state: "available", border: "dashed" });
+      expect(result.after.state).toBeNull();
+      expect(result.narration).toBe(seeded.firstRowText);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+      expect(await appRequest(page, `/authoring/projects/${projectId}/document`)).toEqual(before);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
   it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

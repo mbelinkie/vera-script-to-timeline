@@ -8,7 +8,7 @@ import { mountResearchStillPanel } from "./research-still-panel.js";
 import { captureWholeRowStash, createStashActions, documentStashSnapshot } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
 import { cueExcerpt } from "./footage-trim-timing.js";
-import { selectedSpokenWords } from "./visual-selection.js";
+import { captureSelectedDrop, selectedDropPlacement, selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -79,6 +79,7 @@ let saving = false;
 let opening = false;
 let conflicted = false;
 let lastQuoteTarget = null;
+let selectedDropDrag;
 const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
 const sessionKey = "vera.authoring.sessionProof";
 let sessionProof = "";
@@ -125,6 +126,7 @@ function updateAccountAccess(access) {
     if (notice.hidden) { notice.hidden = false; notice.focus(); }
   }
   if (accountHold) {
+    selectedDropDrag?.reset();
     narrationCleanup.forEach((cleanup) => cleanup()); narrationCleanup = [];
     rowsCleanup?.(); rowsCleanup = undefined;
     for (const editable of element("script-rows").querySelectorAll('[contenteditable="true"]')) editable.contentEditable = "false";
@@ -377,6 +379,7 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  selectedDropDrag?.reset();
   await connecting;
   activeProjectId = projectId;
   await accountPanel.setProject(projectId);
@@ -489,6 +492,8 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderEditor() {
+  // A structural redraw replaces the range DOM. Never carry an in-flight drag across it.
+  if (selectedDropDrag?.dragging()) selectedDropDrag.invalidate();
   stashPanel?.update();
   const root = element("script-rows");
   const model = editorDocument();
@@ -1036,7 +1041,7 @@ function scheduleRender(force = false) {
     // Programmatic word selections do not necessarily focus the textbox, and
     // pointer-driven row controls need to survive a pending projection refresh.
     // Defer only decorative redraws; a committed structural edit still renders.
-    if (!forceRender && (root.contains(document.activeElement) || root.matches(":hover") ||
+    if (!forceRender && (selectedDropDrag?.dragging() || root.contains(document.activeElement) || root.matches(":hover") ||
         selection && !selection.isCollapsed && root.contains(selection.anchorNode) &&
         root.contains(selection.focusNode))) return;
     renderRequested = false;
@@ -1521,6 +1526,169 @@ function narrationTokenRects(editor, token) {
 
 function pointInQuoteRects(rects, x, y) {
   return rects?.some((rect) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) ?? false;
+}
+
+/**
+ * One transient selection target for Library and standalone Stash drags.
+ * Capture committed identity before focus changes; calculate geometry from the
+ * current narration editor, never from the native Selection after dragstart.
+ * Source owners still own all mutations.
+ */
+function mountSelectedDropDragging(root) {
+  const doc = root.ownerDocument;
+  const win = doc.defaultView;
+  let candidate = null;
+  let active = null;
+  let overlay = null;
+  let cue = null;
+  let geometryKey = "";
+  let pointer = null;
+
+  const allowed = () => Boolean(scriptDocument && activeProjectId === scriptDocument.projectId &&
+    canEditAccount() && !sortingTrial && !pendingExtras && !editRefused && !conflicted);
+  const panelVisible = (panel) => !element(panel).hidden && !element(panel).inert;
+  const sourceFor = (node) => {
+    const library = node?.closest?.("#footage-panel [data-footage-drag], #footage-panel [data-quote-place-id]");
+    if (library) return { node: library, panel: "footage-panel",
+      mime: library.hasAttribute("data-footage-drag") ? "application/x-vera-research-clip" : "application/x-vera-research-quote" };
+    const item = node?.closest?.("#stash-panel [data-stash-row-id]");
+    if (!item || node.closest(".stash-attached-footage, button, input, textarea, select")) return null;
+    const entry = stashActions.view().flatMap((section) => section.entries)
+      .find((saved) => saved.rowId === item.dataset.stashRowId);
+    if (!entry || entry.group || entry.row.type !== "visual_only" ||
+        entry.row.clearedNarration || entry.row.additionalVisuals?.length) return null;
+    return { node: item, panel: "stash-panel", mime: "application/x-vera-stash-item" };
+  };
+  // Once focus has moved away, only a candidate explicitly captured at the
+  // matching opener/source may be promoted. An arbitrary native range can
+  // survive an unrelated click; do not resurrect it at a later dragstart.
+  const capture = () => allowed() && doc.activeElement?.matches("[data-narration-editor]")
+    ? captureSelectedDrop(scriptDocument, selectedNarrationTarget()) : null;
+  const removeOverlay = () => {
+    overlay?.remove();
+    overlay = cue = null;
+    geometryKey = "";
+  };
+  const reset = () => {
+    const wasDragging = Boolean(active);
+    candidate = active = pointer = null;
+    removeOverlay();
+    if (wasDragging && renderRequested) scheduleRender();
+  };
+  const invalidate = () => {
+    if (active) active.invalidated = true;
+    removeOverlay();
+  };
+  const remember = (event) => {
+    if (active) reset();
+    const node = event.target;
+    const opener = node.closest?.("#open-footage, #open-stash");
+    const source = sourceFor(node);
+    const panel = opener ? (opener.id === "open-footage" ? "footage-panel" : "stash-panel") : source?.panel;
+    if (!panel || event.button !== 0) { candidate = null; return; }
+    const snapshot = capture() ?? (source && candidate?.panel === panel && !candidate.source
+      ? candidate.snapshot : null);
+    candidate = snapshot ? { snapshot, panel, source: source?.node ?? null } : null;
+  };
+  const begin = (event) => {
+    const source = sourceFor(event.target);
+    const remembered = candidate;
+    reset();
+    if (!source || !allowed() || !panelVisible(source.panel) ||
+        !event.dataTransfer?.types.includes(source.mime)) return;
+    const snapshot = capture() ?? (remembered?.panel === source.panel &&
+      (!remembered.source || remembered.source === source.node) ? remembered.snapshot : null);
+    if (!snapshot) return;
+    active = { snapshot, source, invalidated: !selectedDropPlacement(scriptDocument, snapshot) };
+    refresh();
+  };
+  const target = (event) => {
+    if (!active) return null;
+    const { snapshot, source } = active;
+    const placement = !active.invalidated && allowed() && panelVisible(source.panel) && source.node.isConnected &&
+      !composingRows.has(snapshot.rowId) ? selectedDropPlacement(scriptDocument, snapshot) : null;
+    const rowNode = [...root.querySelectorAll("[data-row-kind='narration']")]
+      .find((node) => node.dataset.rowId === snapshot.rowId);
+    const editor = rowNode?.querySelector("[data-narration-editor]");
+    const surface = editor?.closest(".narration-editor__surface");
+    if (!placement || !editor || !surface || editor.textContent !== snapshot.text ||
+        editor.contentEditable !== "true") {
+      // Keep refusal identity until dragend/drop; a changed editor must not
+      // silently fall back to a single word or insertion on the old row.
+      active.invalidated = true;
+      return { snapshot, placement: null, hit: Boolean(event && editor?.contains(event.target)), rects: [] };
+    }
+    const rects = narrationTokenRects(editor, snapshot);
+    const hit = Boolean(event && editor.contains(event.target) &&
+      pointInQuoteRects(rects, event.clientX, event.clientY));
+    return { snapshot, placement, hit, rects, surface };
+  };
+  function refresh() {
+    const next = target(pointer);
+    if (!next?.placement || !next.rects.length) { removeOverlay(); return; }
+    const { surface, snapshot, hit, rects } = next;
+    if (overlay?.parentElement !== surface) {
+      removeOverlay();
+      overlay = doc.createElement("div");
+      overlay.className = "narration-selected-drop";
+      cue = doc.createElement("span");
+      cue.className = "narration-selected-drop-cue";
+      cue.setAttribute("role", "status");
+      cue.setAttribute("aria-live", "polite");
+      surface.append(overlay);
+      overlay.append(cue);
+    }
+    const bounds = surface.getBoundingClientRect();
+    const scale = surface.offsetWidth ? bounds.width / surface.offsetWidth : 1;
+    const local = rects.map((rect) => ({
+      left: (rect.left - bounds.left) / scale, top: (rect.top - bounds.top) / scale,
+      width: (rect.right - rect.left) / scale, height: (rect.bottom - rect.top) / scale,
+    }));
+    const key = JSON.stringify(local);
+    if (key !== geometryKey) {
+      geometryKey = key;
+      overlay.querySelectorAll(".narration-selected-drop-fragment").forEach((node) => node.remove());
+      for (const rect of local) {
+        const fragment = doc.createElement("span");
+        fragment.className = "narration-selected-drop-fragment";
+        fragment.setAttribute("aria-hidden", "true");
+        for (const [name, value] of Object.entries(rect)) fragment.style[name] = value + "px";
+        overlay.insertBefore(fragment, cue);
+      }
+      cue.style.top = Math.max(...local.map((rect) => rect.top + rect.height)) + "px";
+    }
+    overlay.dataset.selectedDropState = hit ? "active" : "available";
+    cue.hidden = !hit;
+    const text = hit ? "Attach to “" + snapshot.text.slice(snapshot.startOffset, snapshot.endOffset) + "” · exactly these words" : "";
+    if (cue.textContent !== text) cue.textContent = text;
+  }
+  const over = (event) => {
+    if (!active) return;
+    pointer = { target: event.target, clientX: event.clientX, clientY: event.clientY };
+    refresh();
+  };
+  const leave = (event) => {
+    if (!active || event.relatedTarget) return;
+    pointer = null;
+    refresh();
+  };
+  doc.addEventListener("pointerdown", remember, true);
+  doc.addEventListener("click", (event) => {
+    if (!event.target.closest?.("#open-footage, #open-stash") ||
+        candidate && !panelVisible(candidate.panel)) candidate = null;
+  });
+  doc.addEventListener("selectionchange", () => {
+    if (!active && doc.activeElement?.matches("[data-narration-editor]") && !capture()) candidate = null;
+  });
+  doc.addEventListener("dragstart", begin);
+  doc.addEventListener("dragover", over, true);
+  doc.addEventListener("dragleave", leave, true);
+  doc.addEventListener("dragend", reset, true);
+  doc.addEventListener("drop", () => { queueMicrotask(reset); }, true);
+  doc.addEventListener("keydown", (event) => { if (event.key === "Escape") reset(); }, true);
+  win.addEventListener("scroll", refresh, true);
+  win.addEventListener("resize", refresh);
+  return { target, reset, invalidate, dragging: () => Boolean(active) };
 }
 
 function narrationTokenAtPoint(row, editor, x, y) {
@@ -2227,6 +2395,7 @@ export async function acceptSortingTrial(outcome = "all") {
 
 // Sorting and preview share the script renderer with the saved Draft.
 function setSortingMode(active) {
+  if (active) selectedDropDrag?.reset();
   const preview = active && sortingTrial.preview;
   authoring.classList.toggle("sorting-mode", active);
   element("sorting-view").hidden = !active;
@@ -3296,6 +3465,7 @@ researchStillPanel = mountResearchStillPanel({
   }),
   onStatus: (message) => setSaveStatus(message),
 });
+selectedDropDrag = mountSelectedDropDragging(element("script-rows"));
 const initialProject = new URLSearchParams(location.search).get("project");
 if (initialProject !== null) {
   openLink.value = initialProject;

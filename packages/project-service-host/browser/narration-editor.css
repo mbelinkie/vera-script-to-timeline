@@ -212,3 +212,39 @@
   color: #6f737b;
   font-style: italic;
 }
+
+/* #691: transient selection drop cues are siblings of the narration editor,
+   never part of contenteditable or its saved text. */
+.narration-selected-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.narration-selected-drop-fragment {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed #287da9;
+  border-radius: 0.15rem;
+  background: rgb(67 138 207 / 22%);
+  pointer-events: none;
+}
+.narration-selected-drop[data-selected-drop-state="active"] .narration-selected-drop-fragment {
+  border: 2px solid #287da9;
+  background: rgb(67 138 207 / 28%);
+}
+.narration-selected-drop-cue {
+  position: absolute;
+  left: 0;
+  max-width: 100%;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #287da9;
+  border-radius: 0.25rem;
+  color: #204358;
+  background: #eef6fb;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.narration-selected-drop-cue[hidden] { display: none; }
