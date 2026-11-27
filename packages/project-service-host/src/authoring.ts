@@ -902,7 +902,9 @@ export function createAuthoringHandler(
           const doc = head.document as ScriptDocumentV2;
           if (doc.projectId !== timelineProjectId.toLowerCase()) return researchResponse(404, { error: "not_found" });
           const payloadId = quotePictureRoute[2]!.toLowerCase();
-          const picture = doc.activeDraft.blocks.flatMap((row) => {
+          // Pending Sorting restores still own their original payload in saved Stash.
+          const savedRows = [...doc.activeDraft.blocks, ...(doc.stash ?? []).flatMap((bundle) => bundle.rows)];
+          const picture = savedRows.flatMap((row) => {
             if (row.type !== "narration" || row.state !== "active") return [];
             return (row.primaryVisualSequence?.slots ?? []).flatMap((slot) =>
               slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.payloadId === payloadId &&
