@@ -3,16 +3,20 @@ import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
 
-/** Match the exact ordered active Draft divider, without skipping section headings. */
-export function ordinaryTransitionPairV2(
-  document: ScriptDocumentV2, fromRowId: string, toRowId: string,
-): { from: Row; to: Row } | null {
-  const blocks = document.activeDraft.blocks;
-  const index = blocks.findIndex((block) => block.id === fromRowId);
-  const from = blocks[index];
-  const to = blocks[index + 1];
-  if (!from || !to || from.type === "section" || to.type === "section" || to.id !== toRowId) return null;
-  return { from, to };
+/** Section headings mark a divider without adding picture to it. */
+export function rowTransitionDividerV2(
+  blocks: readonly Block[], fromRowId: string | undefined, toRowId: string,
+): { from?: Row; to: Row } | null {
+  if (fromRowId === undefined) {
+    const first = blocks.find((block): block is Row => block.type === "visual_only" ||
+      block.type === "narration" && block.state === "active");
+    return first?.id === toRowId ? { to: first } : null;
+  }
+  const rows = blocks.filter((block) => block.type !== "section");
+  const index = rows.findIndex((row) => row.id === fromRowId);
+  const from = rows[index];
+  const to = rows[index + 1];
+  return from && to?.id === toRowId ? { from, to } : null;
 }
 
 /** Structural eligibility only. The compiler still verifies media and handles. */

@@ -611,6 +611,42 @@ def test_issue88_signed_package_binds_exact_authored_pair_and_delivered_handles(
             validate_signed_transitions(doc, dependencies, signed, ready_report)
 
 
+@pytest.mark.parametrize("wordless", [False, True])
+def test_issue590_signed_pair_crosses_sections_but_not_another_row(
+    wordless: bool,
+) -> None:
+    doc, deps, manifest, report = _issue88_signed_case()
+    blocks = doc["activeDraft"]["blocks"]
+    if wordless:
+        # Visual-only rows are inherently active and have no state field.
+        blocks[0] = {"id": blocks[0]["id"], "type": "visual_only"}
+    blocks.insert(1, {"id": "section", "type": "section"})
+    assert validate_signed_transitions(doc, deps, manifest, report) == tuple(
+        manifest["transitions"]
+    )
+    blocks.insert(2, {"id": "direction", "type": "direction"})
+    with pytest.raises(TransitionRefusal, match="no longer adjacent"):
+        validate_signed_transitions(doc, deps, manifest, report)
+
+
+def test_issue590_signed_consumer_refuses_even_an_omitted_opening_fade() -> None:
+    doc, deps, manifest, report = _issue88_signed_case()
+    opening = {
+        "id": "opening-fade",
+        "toRowId": doc["activeDraft"]["blocks"][0]["id"],
+        "state": "needs_review",
+        "effect": "Cross Dissolve",
+        "settings": {"durationFrames": 24, "alignment": "right"},
+    }
+    doc["rowTransitions"].append(opening)
+    assert validate_signed_transitions(doc, deps, manifest, report) == tuple(
+        manifest["transitions"]
+    )
+    opening["state"] = "active"
+    with pytest.raises(TransitionRefusal, match="Opening fade delivery at frame zero"):
+        validate_signed_transitions(doc, deps, manifest, report)
+
+
 def test_issue88_named_cut_has_real_known_short_extent_and_matching_warning() -> None:
     doc, dependencies, signed, report = _issue88_signed_case()
     plan = signed["transitions"][0]

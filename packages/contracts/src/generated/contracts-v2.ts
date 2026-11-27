@@ -795,7 +795,7 @@ export interface ScriptDocumentV2 {
    */
   stashGroups?: StashRowGroupV2[];
   /**
-   * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
+   * Explicit picture-transition intent at an opening or between rows. Intent does not transfer automatically to new neighbors.
    */
   rowTransitions?: RowTransitionIntentV2[];
   /**
@@ -1336,7 +1336,10 @@ export interface StashRowGroupV2 {
 }
 export interface RowTransitionIntentV2 {
   id: string;
-  fromRowId: string;
+  /**
+   * Omit only for an opening fade from black into the first active timeline row.
+   */
+  fromRowId?: string;
   toRowId: string;
   effect: string;
   /**

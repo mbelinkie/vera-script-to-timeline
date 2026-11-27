@@ -574,11 +574,30 @@ describe("browser transition commands (#677)", () => {
     sectioned.activeDraft.blocks.splice(1, 0, {
       type: "section", id: randomUUID(), title: "Second act", orderKey: "a5", version: 1,
     });
+    const across = await commandResult(await authorized("command", { ...envelope, document: sectioned }));
+    expect(across.ok, JSON.stringify(across.diagnostics)).toBe(true);
+    expect(across.document.rowTransitions).toEqual(added.document.rowTransitions);
+
+    const opening = { kind: "add_row_transition", transitionId: randomUUID(), toRowId: source.id,
+      expectedToVersion: source.version };
+    const withOpening = await commandResult(await authorized("command", {
+      document: across.document, command: opening, expectedRowEditRevision: across.document.rowEditRevision,
+    }));
+    expect(withOpening.ok, JSON.stringify(withOpening.diagnostics)).toBe(true);
+    expect(withOpening.document.rowTransitions).toEqual([...across.document.rowTransitions!, {
+      id: opening.transitionId, toRowId: source.id, effect: "Cross Dissolve",
+      settings: { durationFrames: 24, alignment: "right" }, state: "active",
+    }]);
+    const withoutOpening = await commandResult(await authorized("command", {
+      document: withOpening.document, command: { ...opening, kind: "remove_row_transition" },
+      expectedRowEditRevision: withOpening.document.rowEditRevision,
+    }));
+    expect(withoutOpening.ok, JSON.stringify(withoutOpening.diagnostics)).toBe(true);
+    expect(withoutOpening.document.rowTransitions).toEqual(across.document.rowTransitions);
     for (const [input, edit, code] of [
       [document, { ...command, expectedToVersion: narrated.version + 1 }, "ROW_TRANSITION_STALE"],
       [document, { ...command, fromRowId: narrated.id, toRowId: blank.id,
         expectedFromVersion: narrated.version, expectedToVersion: blank.version }, "ROW_TRANSITION_INELIGIBLE"],
-      [sectioned, command, "ROW_TRANSITION_PAIR_INVALID"],
     ] as const) {
       const refused = await commandResult(await authorized("command", {
         document: input, command: edit, expectedRowEditRevision: input.rowEditRevision ?? 0,

@@ -37,6 +37,9 @@ try {
     schemaVersion: "vera-build-media-needs/v1", runtime: process.version,
     inputs: raw.map((bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`), needs,
   }));
+  if (!needs.ok && needs.diagnostics[0]?.code === "ROW_OPENING_FADE_UNQUALIFIED") {
+    process.stderr.write(needs.diagnostics[0].message);
+  }
   process.exitCode = needs.ok ? 0 : 1;
 } catch (error: unknown) {
   process.stderr.write(error instanceof Error ? error.message : String(error));

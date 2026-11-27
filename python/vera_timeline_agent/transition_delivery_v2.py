@@ -104,9 +104,7 @@ def validate_signed_transitions(
     rows = [
         row
         for row in all_rows
-        if isinstance(row, Mapping)
-        and row.get("state") == "active"
-        and row.get("type") in {"visual_only", "narration"}
+        if isinstance(row, Mapping) and row.get("type") != "section"
     ]
     written = document.get("rowTransitions", [])
     _need(isinstance(written, list), "authored transitions are unavailable")
@@ -117,6 +115,10 @@ def validate_signed_transitions(
         and pair.get("state") == "active"
         and pair.get("effect") != "cut"
     ]
+    _need(
+        all(pair.get("fromRowId") is not None for pair in authored),
+        "Opening fade delivery at frame zero has not been verified in Resolve.",
+    )
     _need(
         len(authored) == len(raw),
         "signed transition plan differs from authored active row pairs",
@@ -173,7 +175,13 @@ def validate_signed_transitions(
         candidates = [
             index
             for index, row in enumerate(rows[:-1])
-            if row.get("id") == from_row and rows[index + 1].get("id") == to_row
+            if row.get("id") == from_row
+            and rows[index + 1].get("id") == to_row
+            and all(
+                side.get("type") == "visual_only"
+                or (side.get("type") == "narration" and side.get("state") == "active")
+                for side in (row, rows[index + 1])
+            )
         ]
         _need(len(candidates) == 1, "transition authored rows are no longer adjacent")
         outgoing = by_event.get(plan.get("outgoingEventId"))

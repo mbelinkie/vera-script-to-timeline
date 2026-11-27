@@ -1178,6 +1178,68 @@ describe("#88 frozen row-to-row transition compilation", () => {
   });
 });
 
+describe("#590 transition dividers", () => {
+  it("emits the ordinary exact picture transition and a marker at the section cut", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    const ordinary = compileTimelineV2(doc, deps);
+    expect(ordinary.ok, JSON.stringify(ordinary)).toBe(true);
+    if (!ordinary.ok) return;
+
+    const heading = { type: "section" as const, id: id(201), title: "Act two", orderKey: "section-2", version: 1 };
+    doc.activeDraft.blocks.splice(1, 0, heading);
+    const needs = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    const section = compileTimelineV2(doc, deps);
+    expect(resolveMediaRequirementsV2(doc, needs).ok).toBe(true);
+    expect(section.ok, JSON.stringify(section)).toBe(true);
+    if (!section.ok) return;
+
+    expect(section.report.status).toBe("ready");
+    expect(section.manifest.transitions).toEqual(ordinary.manifest.transitions);
+    expect(section.manifest.events.filter((event) => event.kind !== "script_marker")).toEqual(ordinary.manifest.events);
+    expect(section.manifest.events.filter((event) => event.kind === "script_marker")).toMatchObject([
+      { recordRange: { startFrame: 96, endFrame: 97 }, marker: { supportingItemId: heading.id, text: heading.title } },
+    ]);
+    readTransitionGolden("two-row-24-frame", section);
+  });
+
+  it("refuses an active opening fade explicitly and compiles dormant or Cut intent normally", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    const fade = { id: id(201), toRowId: doc.activeDraft.blocks[0]!.id, effect: "Cross Dissolve",
+      settings: { durationFrames: 24, alignment: "right" }, state: "active" as const };
+    const ordinary = compileTimelineV2(doc, deps);
+    expect(ordinary.ok).toBe(true);
+    if (!ordinary.ok) return;
+
+    doc.rowTransitions!.push(fade);
+    const needs = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    const refused = [resolveMediaRequirementsV2(doc, needs), compileTimelineV2(doc, deps)];
+    for (const result of refused) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.diagnostics.map((diagnostic) => diagnostic.message))
+        .toEqual(["Opening fade delivery at frame zero has not been verified in Resolve."]);
+    }
+
+    for (const [settings, message] of [
+      [{ durationFrames: 23 }, /supported even frame count/],
+      [{ durationFrames: 24, alignment: "center" }, /must extend right from frame zero/],
+      [{ durationFrames: 98 }, /cover the full opening fade/],
+    ] as const) {
+      doc.rowTransitions![1] = { ...fade, settings };
+      const result = compileTimelineV2(doc, deps);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.diagnostics[0]?.message).toMatch(message);
+    }
+
+    for (const intent of [{ ...fade, state: "needs_review" as const }, { ...fade, effect: "cut" }]) {
+      doc.rowTransitions![1] = intent;
+      const result = compileTimelineV2(doc, deps);
+      expect(result.ok && result.manifest.transitions).toEqual(ordinary.manifest.transitions);
+    }
+  });
+});
+
 describe("pure v2 compiler", () => {
   it("reports one preparation per shared binding and keeps both occurrences", () => {
     const { doc, deps } = sharedPreparationFixture();

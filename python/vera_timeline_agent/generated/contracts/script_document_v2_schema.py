@@ -275,7 +275,7 @@ class StashParentOriginContextV2(TypedDict):
 
 class RowTransitionIntentV2(TypedDict):
     id: EntityId
-    fromRowId: EntityId
+    fromRowId: NotRequired[EntityId]
     toRowId: EntityId
     effect: str
     settings: dict[str, Any]

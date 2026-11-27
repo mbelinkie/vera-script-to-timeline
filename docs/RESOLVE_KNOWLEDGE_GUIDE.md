@@ -957,6 +957,15 @@ be preserved through a proved route or the affected write refused; #327 owns
 that remaining preservation proof. This does not blanket-block independently
 bounded safe changes.
 
+**#590 opening and section dividers.** The #88 production route applies a
+signed native/simple Cross Dissolve at an existing two-clip cut on Studio
+21.1.1 build 10. Section headings are markers, so a transition at that divider
+uses the same adjacent clips and geometry. The section-marker case still needs
+a disposable build and reopen check. #292 measured two-clip cuts only. The
+first-item fade from black is saved as intent, and Build stops with an explicit
+refusal until frame-zero placement and persistence are verified. Native
+acceptance for #590 was deferred.
+
 ### RK-42 — Saved row intent, music delivery and bounded native probes
 
 **Proved domain mechanisms and six bounded native music probes.** The #100

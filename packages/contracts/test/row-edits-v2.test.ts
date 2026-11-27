@@ -235,7 +235,7 @@ describe("#677 ordinary row transitions", () => {
     expectedFromVersion: from.version, expectedToVersion: to.version,
   });
   const intentFor = (command: TransitionCommand) => ({
-    id: command.transitionId, fromRowId: command.fromRowId, toRowId: command.toRowId,
+    id: command.transitionId, ...(command.fromRowId === undefined ? {} : { fromRowId: command.fromRowId }), toRowId: command.toRowId,
     effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" as const,
   });
   const refuse = (document: ScriptDocumentV2, command: unknown, code: string, revision = document.rowEditRevision ?? 0) => {
@@ -289,7 +289,7 @@ describe("#677 ordinary row transitions", () => {
     expect(Object.hasOwn(removed.document, "rowTransitions")).toBe(false);
   });
 
-  it("refuses invalid shape, stale document and row versions, missing and reordered neighbors, and section boundaries", () => {
+  it("refuses invalid shape, stale document and row versions, and missing or reordered neighbors", () => {
     const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000);
     const initial = documentWith([a, b, c]);
     const add = commandFor(a, b);
@@ -305,7 +305,7 @@ describe("#677 ordinary row transitions", () => {
     refuse(initial, add, "ROW_REVISION_STALE", 1);
     refuse(initial, { ...add, expectedFromVersion: 2 }, "ROW_TRANSITION_STALE");
     refuse(initial, { ...add, expectedToVersion: 2 }, "ROW_TRANSITION_STALE");
-    for (const blocks of [[b, a, c], [a, c], [b, c], [a, c, b], [a, section(99010, "Next"), b, c]]) {
+    for (const blocks of [[b, a, c], [a, c], [b, c], [a, c, b]]) {
       refuse(documentWith(blocks), add, "ROW_TRANSITION_PAIR_INVALID");
     }
     refuse(initial, { ...add, toRowId: a.id }, "ROW_TRANSITION_PAIR_INVALID");
@@ -313,6 +313,47 @@ describe("#677 ordinary row transitions", () => {
     expect(session.apply({ ...add, expectedToVersion: 2 }).ok).toBe(false);
     expect(session.revision).toBe(0);
     expect(session.undoDepth).toBe(0);
+  });
+
+  it("authors a section-crossing transition and preserves it across an unrelated edit", () => {
+    const a = clipRow(10000), b = clipRow(20000);
+    const heading = section(99010, "Next");
+    const session = createRowEditSessionV2(documentWith([a, heading, b]));
+    const add = commandFor(a, b);
+    const added = session.apply(add);
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document.rowTransitions).toEqual([intentFor(add)]);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(added.document))).toEqual({ ok: true, document: added.document });
+    const renamed = session.apply({ kind: "rename_section", sectionId: heading.id, title: "New title" });
+    expect(renamed.ok, JSON.stringify(renamed.diagnostics)).toBe(true);
+    expect(renamed.document.rowTransitions).toEqual([intentFor(add)]);
+    expect(session.apply({ ...add, kind: "remove_row_transition" }).document.rowTransitions).toBeUndefined();
+  });
+
+  it("saves a one-sided opening fade, protects its target, and removes it after review", () => {
+    const a = clipRow(10000), b = clipRow(20000);
+    const heading = section(99010, "Opening");
+    const initial = documentWith([heading, direction(30000), a, b]);
+    const add = { kind: "add_row_transition" as const, transitionId: id(99001), toRowId: a.id, expectedToVersion: a.version };
+    refuse(initial, { ...add, expectedFromVersion: 1 }, "ROW_COMMAND_INVALID");
+    refuse(initial, { ...add, fromRowId: b.id }, "ROW_COMMAND_INVALID");
+    refuse(initial, { ...add, toRowId: b.id }, "ROW_TRANSITION_PAIR_INVALID");
+
+    const session = createRowEditSessionV2(initial);
+    const added = session.apply(add);
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    const intent = { ...intentFor(add), settings: { durationFrames: 24, alignment: "right" } };
+    expect(added.document.rowTransitions).toEqual([intent]);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(added.document))).toEqual({ ok: true, document: added.document });
+    expect(session.undo().document.rowTransitions).toBeUndefined();
+    expect(session.redo().document.rowTransitions).toEqual([intent]);
+    refuse(added.document, { ...add, transitionId: id(99002) }, "ROW_TRANSITION_PAIR_OCCUPIED");
+    refuse(added.document, { kind: "delete_rows", rowIds: [a.id] }, "ROW_REFERENCE_REVIEW_REQUIRED");
+
+    const inserted = session.apply({ kind: "create_row", row: clipRow(40000), destination: gap(heading.id, id(30000), a.id) });
+    expect(inserted.ok, JSON.stringify(inserted.diagnostics)).toBe(true);
+    expect(inserted.document.rowTransitions).toEqual([{ ...intent, state: "needs_review" }]);
+    expect(session.apply({ ...add, kind: "remove_row_transition" }).document.rowTransitions).toBeUndefined();
   });
 
   it("refuses unsupported clip-root shapes on either side", () => {

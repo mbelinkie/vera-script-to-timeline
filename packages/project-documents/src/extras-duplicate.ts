@@ -300,7 +300,7 @@ export function duplicateExtrasRows(
   // Opaque row references and audio-span effects cannot safely become new authored intent.
   if ((document.rowReferences ?? []).some((ref) => selected.has(ref.rowId)) ||
       (document.rowAudioSpans ?? []).some((span) => selected.has(span.startRowId) || selected.has(span.endRowId)) ||
-      (document.rowTransitions ?? []).some((pair) => selected.has(pair.fromRowId) || selected.has(pair.toRowId))) {
+      (document.rowTransitions ?? []).some((pair) => (pair.fromRowId !== undefined && selected.has(pair.fromRowId)) || selected.has(pair.toRowId))) {
     return refusal(document, "EXTRAS_DUPLICATE_REVIEW_REQUIRED", "Review external row references and audio/transition effects before duplicating.");
   }
 

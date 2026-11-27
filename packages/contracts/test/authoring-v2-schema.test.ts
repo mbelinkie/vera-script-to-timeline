@@ -394,6 +394,18 @@ function expectSettingsInvalid(value: unknown): void {
 }
 
 describe("authoring v2 document and project-settings schemas", () => {
+  it("allows an omitted opening endpoint but rejects null and unknown outgoing rows", () => {
+    const doc = documentWithBlock(narrationBlock());
+    const fade = {
+      id: ids.event, toRowId: ids.narration, effect: "Cross Dissolve",
+      settings: { durationFrames: 24, alignment: "right" }, state: "active",
+    };
+    expectDocumentValid({ ...doc, rowTransitions: [fade] });
+    expectDocumentInvalid({ ...doc, rowTransitions: [{ ...fade, fromRowId: null }] });
+    expect(validateScriptDocumentV2({ ...doc, rowTransitions: [{ ...fade, fromRowId: ids.annotation }] }).diagnostics)
+      .toContainEqual(expect.objectContaining({ code: "ROW_REFERENCE_INVALID", entityId: fade.id }));
+  });
+
   it("accepts optional per-placement names on narrated and standalone clips and stills and saves them unchanged", () => {
     for (const placement of ["narrated", "standalone"] as const) {
       for (const pictureKind of ["clip", "image"] as const) {

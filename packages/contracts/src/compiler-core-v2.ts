@@ -863,8 +863,10 @@ function joinAdjacentQuoteBackgrounds(document: ScriptDocumentV2, plan: Resolved
   return joinedSources;
 }
 
+class OpeningFadeUnqualified extends RangeError {}
+
 interface FrozenTransitionPair {
-  pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number];
+  pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number] & { fromRowId: string };
   fromPayloadId: string;
   toPayloadId: string;
   boundaryFrame: number;
@@ -918,10 +920,23 @@ function freezeRowTransitions(document: ScriptDocumentV2, dependencies: Compiler
   };
 
   for (const pair of activePairs) {
+    const { fromRowId } = pair;
     if (pair.effect !== "Cross Dissolve") throw new RangeError(`Unsupported or ambiguous transition effect ${pair.effect} on ${pair.id}; only verified native/simple Cross Dissolve is qualified`);
     if (usedIds.has(pair.id)) throw new RangeError(`Duplicate transition identity ${pair.id}`);
     usedIds.add(pair.id);
-    const fromIndex = rows.findIndex((row) => row.block.id === pair.fromRowId);
+    if (fromRowId === undefined) {
+      const duration = requestedTransitionFrames(pair.settings, rate);
+      if (pair.settings.alignment !== undefined && pair.settings.alignment !== "right") {
+        throw new RangeError("An opening fade must extend right from frame zero.");
+      }
+      const first = rows[0];
+      if (!first || first.block.id !== pair.toRowId || first.startFrame !== 0 || first.durationFrames < duration) {
+        throw new RangeError("The first picture must start at frame zero and cover the full opening fade.");
+      }
+      rootClip(first);
+      throw new OpeningFadeUnqualified("Opening fade delivery at frame zero has not been verified in Resolve.");
+    }
+    const fromIndex = rows.findIndex((row) => row.block.id === fromRowId);
     if (fromIndex < 0 || rows[fromIndex + 1]?.block.id !== pair.toRowId) throw new RangeError(`Transition ${pair.id} does not name two currently adjacent active picture rows`);
     const outgoing = rootClip(rows[fromIndex]!);
     const incoming = rootClip(rows[fromIndex + 1]!);
@@ -941,7 +956,7 @@ function freezeRowTransitions(document: ScriptDocumentV2, dependencies: Compiler
     const decision = decideTransitionBoundary({ boundaryId: pair.id, boundaryFrame, outgoingEndFrame: outgoing.endFrame, incomingStartFrame: incoming.startFrame,
       outgoingDurationFrames: outgoing.endFrame - outgoing.startFrame, incomingDurationFrames: incoming.endFrame - incoming.startFrame,
       outgoingRightHandleFrames: enoughOutgoing ? right : 0, incomingLeftHandleFrames: enoughIncoming ? left : 0 }, durationFrames, alignment);
-    const frozen: FrozenTransitionPair = { pair, fromPayloadId: outgoing.payloadId, toPayloadId: incoming.payloadId, boundaryFrame, durationFrames, alignment, disposition: decision.kind,
+    const frozen: FrozenTransitionPair = { pair: { ...pair, fromRowId }, fromPayloadId: outgoing.payloadId, toPayloadId: incoming.payloadId, boundaryFrame, durationFrames, alignment, disposition: decision.kind,
       ...(decision.kind === "cut_insufficient_handles" ? { reason: `Transition ${pair.id} (${pair.fromRowId} -> ${pair.toRowId}) at frame ${boundaryFrame}: ${decision.reason}` } : {}) };
     pairs.push(frozen);
     if (decision.kind === "apply") {
@@ -2443,7 +2458,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     const manifestJson = canonicalJson(manifest); const reportJson = canonicalJson(report);
     return { ok: true, manifest, report, manifestJson, reportJson };
   } catch (error) {
-    return fail({ code: "COMPILATION_PRECONDITION_FAILED", message: error instanceof Error ? error.message : String(error) });
+    return fail({ code: error instanceof OpeningFadeUnqualified ? "ROW_OPENING_FADE_UNQUALIFIED" : "COMPILATION_PRECONDITION_FAILED", message: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -2479,6 +2494,6 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     if (hardRefusal) return { ok: false, diagnostics: [{ code: hardRefusal.code, message: hardRefusal.message, ...(hardRefusal.entity.id ? { entityId: hardRefusal.entity.id } : {}), ...(hardRefusal.code === "BOUNDARY_EVIDENCE_REQUIRED" && hardRefusal.entity.path ? { jsonPath: hardRefusal.entity.path } : {}) }] };
     return { ok: true, requirements: plan.requirements, durationFrames: plan.durationFrames };
   } catch (error) {
-    return { ok: false, diagnostics: [{ code: "MEDIA_NEEDS_FAILED", message: error instanceof Error ? error.message : String(error) }] };
+    return { ok: false, diagnostics: [{ code: error instanceof OpeningFadeUnqualified ? "ROW_OPENING_FADE_UNQUALIFIED" : "MEDIA_NEEDS_FAILED", message: error instanceof Error ? error.message : String(error) }] };
   }
 }
