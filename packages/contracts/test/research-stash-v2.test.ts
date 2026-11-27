@@ -123,6 +123,57 @@ describe("saved compact Research Stash", () => {
     expect(after.overlayEvents).toEqual([]);
   });
 
+  it("retires only the unshared generated quote placeholder and preserves the exact attributed words", () => {
+    const { doc } = researchStashFixture(false);
+    const q = { ...quote(), background: null };
+    const saved = capture(doc, q);
+    const placed = consumeResearchStashItemV2(saved, q.id, { kind: "quote", request: {
+      expectedDocumentRevision: saved.rowEditRevision!,
+      destination: { kind: "gap", sectionId: null, afterRowId: null, beforeRowId: null },
+    } });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const row = placed.document.activeDraft.blocks[0]!;
+    if (row.type !== "narration") throw new Error("Missing quote row");
+    const event = row.overlayEvents[0]!;
+    const request = { expectedDocumentRevision: placed.document.rowEditRevision!, rowId: row.id,
+      expectedRowVersion: row.version, overlayId: event.id, expectedOverlayVersion: event.version };
+    const location = { sectionId: null, noteRowId: null };
+    const snapshot = structuredClone(placed.document);
+    const savedBox = captureResearchQuoteBoxV2(placed.document, request, location, id(910015), null, null);
+    expect(savedBox.ok, JSON.stringify(savedBox.diagnostics)).toBe(true);
+    expect(savedBox.document.rowEditRevision).toBe(placed.document.rowEditRevision! + 1);
+    expect(savedBox.document.stashResearchItems).toEqual([{ ...q, id: id(910015) }]);
+    const after = savedBox.document.activeDraft.blocks[0]!;
+    if (after.type !== "narration") throw new Error("Missing quote row");
+    expect(after.text).toBe(row.text);
+    expect(after.tokens).toEqual(row.tokens);
+    expect(after.overlayEvents).toEqual([]);
+    expect(after.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.pictureKind === "unresolved_visual")).toBe(false);
+    expect(placed.document).toEqual(snapshot);
+
+    // Another adjacent quote can still depend on the same generated slate.
+    const second = capture(placed.document, { ...q, id: id(910016) });
+    const appended = consumeResearchStashItemV2(second, id(910016), { kind: "quote", request: {
+      expectedDocumentRevision: second.rowEditRevision!,
+      rowId: row.id, destination: { kind: "insert", beforeTokenId: null },
+      expectedRowVersion: row.version, expectedSequenceVersion: row.primaryVisualSequence!.version,
+    } });
+    expect(appended.ok, JSON.stringify(appended.diagnostics)).toBe(true);
+    const sharedRow = appended.document.activeDraft.blocks[0]!;
+    if (sharedRow.type !== "narration") throw new Error("Missing quote row");
+    expect(sharedRow.overlayEvents[1]?.quoteBox?.backgroundPayloadId).toBe(event.quoteBox?.backgroundPayloadId);
+    const shared = captureResearchQuoteBoxV2(appended.document, {
+      ...request, expectedDocumentRevision: appended.document.rowEditRevision!, expectedRowVersion: sharedRow.version,
+      expectedOverlayVersion: sharedRow.overlayEvents[0]!.version,
+    }, location, id(910017), null, null);
+    expect(shared.ok, JSON.stringify(shared.diagnostics)).toBe(true);
+    const remaining = shared.document.activeDraft.blocks[0]!;
+    if (remaining.type !== "narration") throw new Error("Missing quote row");
+    expect(remaining.primaryVisualSequence).toEqual(sharedRow.primaryVisualSequence);
+    expect(remaining.overlayEvents).toEqual([sharedRow.overlayEvents[1]]);
+  });
+
   it("permits multiple independent occurrences of the same Library quote, but refuses repeated or occupied occurrence IDs", () => {
     const { doc, note } = researchStashFixture(false);
     const first = capture(doc, quote());

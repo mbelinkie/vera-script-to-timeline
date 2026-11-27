@@ -5,6 +5,8 @@ import { applyRowEditV2, serializeAuthoringDocumentV2, type RowEditResultV2 } fr
 import { placeResearchQuoteV2, type ResearchQuotePlacementV2 } from "./research-quote-placement.js";
 import { insertResearchStillBrowserV2, type ResearchStillBrowserInsertV2 } from "./research-still-browser-insert.js";
 import { readKeptOriginalAsset, readKeptStillProvenance } from "./research-still-records.js";
+import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
+import { isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 
 export type StashResearchItemV2 = NonNullable<ScriptDocumentV2["stashResearchItems"]>[number];
 
@@ -220,17 +222,52 @@ export function researchQuoteBoxForStashV2(document: ScriptDocumentV2, request: 
   const background = payload?.kind === "visual" && payload.researchQuotePicture
     ? { kind: "still_image" as const, picture: payload.researchQuotePicture,
       ...(payload.displayName ? { displayName: payload.displayName } : {}) } : null;
-  return { row, event, box, background };
+  // Only the exact contiguous words attributed to this use can recover an
+  // inserted quote independently of a newer Library version or display edit.
+  const attributed = row.tokens.filter((token) => box.researchQuoteUseId &&
+    token.researchQuoteProvenance?.useId === box.researchQuoteUseId);
+  const first = attributed[0];
+  const last = attributed.at(-1);
+  let spokenText: string | null = null;
+  const firstIndex = first ? row.tokens.indexOf(first) : -1;
+  if (first && last && attributed.every((token, index) => row.tokens[firstIndex + index] === token)) {
+    const text = row.text.slice(first.startOffset, last.endOffset);
+    if ((text.startsWith("“") && text.endsWith("”")) || (text.startsWith('"') && text.endsWith('"'))) {
+      spokenText = text.slice(1, -1);
+    }
+  }
+  return { row, event, box, background, spokenText };
 }
 
-/** Capture and remove just the overlay in a single returned document revision. */
+/** Capture the overlay and retire only its unshared generated missing-picture placeholder. */
 export function captureResearchQuoteBoxV2(
   document: ScriptDocumentV2, request: ResearchQuoteBoxCaptureV2, location: ResearchStashLocationV2,
-  itemId: string, spokenText: string, afterItemId: string | null,
+  itemId: string, spokenText: string | null, afterItemId: string | null,
 ): RowEditResultV2 {
   const source = researchQuoteBoxForStashV2(document, request);
   if (!source) return refuseResearchStash(document, "The quote box changed before Stash capture.");
   const { row, event, box, background } = source;
+  const frozenSpokenText = source.spokenText ?? spokenText;
+  if (!frozenSpokenText) return refuseResearchStash(document, "The original quote wording is unavailable. Keep the quote box until its wording can be verified.");
+  const editedRow = structuredClone(row);
+  editedRow.overlayEvents = editedRow.overlayEvents.filter(({ id }) => id !== event.id);
+  // A real or author-replaced background is an independent visual. Only the
+  // automatically generated, no-longer-shared Need to Find is retired, since
+  // its quote-specific build-slate exception disappears with the overlay.
+  if (!editedRow.overlayEvents.some(({ quoteBox }) => quoteBox?.backgroundPayloadId === box.backgroundPayloadId)) {
+    const slot = editedRow.primaryVisualSequence?.slots.find((candidate) =>
+      candidate.kind === "content" && candidate.payload.kind === "visual" &&
+      candidate.payload.payloadId === box.backgroundPayloadId);
+    const waiting = editedRow.unattachedVisuals?.find(({ payload }) => payload.kind === "visual" &&
+      payload.payloadId === box.backgroundPayloadId);
+    const payload = slot?.kind === "content" ? slot.payload : waiting?.payload;
+    if (payload?.kind === "visual" && payload.pictureKind === "unresolved_visual" &&
+        payload.source.kind === "unresolved_visual" && payload.source.description === "Find a picture for this Research quote." &&
+        !payload.source.wantedPictureKind) {
+      const removed = liftVisualV2(editedRow, slot?.id ?? waiting!.slotId, "stashed");
+      if (isCoverageRefusalV2(removed)) return refuseResearchStash(document, removed.message);
+    }
+  }
   const fields = {
     researchQuoteId: box.researchQuoteId, displayText: box.displayText,
     speakerName: box.speakerName, speakerTitle: box.speakerTitle,
@@ -240,13 +277,13 @@ export function captureResearchQuoteBoxV2(
   const captured = captureResearchStashItemV2(document, request.expectedDocumentRevision, {
     ...location, id: itemId, kind: "quote", background,
     quote: { ...fields, researchProjectId: box.researchProjectId!, researchSourceId: box.researchSourceId!,
-      researchQuoteVersion: box.researchQuoteVersion!, spokenText },
+      researchQuoteVersion: box.researchQuoteVersion!, spokenText: frozenSpokenText },
   }, afterItemId);
   if (!captured.ok) return captured;
   // The private intermediate is never published. The ordinary row edit owns the sole revision advance.
   captured.document.rowEditRevision = request.expectedDocumentRevision;
   const edited = applyRowEditV2(captured.document, request.expectedDocumentRevision, {
-    kind: "edit_row", rowId: row.id, row: { ...row, overlayEvents: row.overlayEvents.filter(({ id }) => id !== event.id) },
+    kind: "edit_row", rowId: row.id, row: editedRow,
   });
   return edited.ok ? edited : { ...edited, document };
 }

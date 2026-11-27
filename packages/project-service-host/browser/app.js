@@ -98,7 +98,10 @@ const savedResearchDragType = "application/x-vera-saved-research";
 const libraryResearchDragType = "application/x-vera-library-stash-research";
 
 function queueResearchStash(body, expected, label) {
-  if (!expected || sortingTrial || editorDocument() !== expected) return Promise.resolve(false);
+  if (!expected || sortingTrial || editorDocument() !== expected) {
+    setSaveStatus("The script or Stash changed. Close the picker and choose again.");
+    return Promise.resolve(false);
+  }
   return queueCommand((latest) => {
     if (latest !== expected) throw new Error("The script or Stash changed. Choose again.");
     return typeof body === "function" ? body(latest) : body;
@@ -111,10 +114,16 @@ function captureLibraryResearch(source, location, expected = editorDocument()) {
     location }, expected, "Add Research item to Stash");
 }
 
+function appendResearchLocation(model, location) {
+  const last = model?.stashResearchItems?.filter((item) =>
+    item.sectionId === location.sectionId && item.noteRowId === location.noteRowId).at(-1);
+  return { ...location, afterItemId: last?.id ?? null };
+}
+
 function captureQuoteBox(request) {
   const expected = editorDocument();
   return queueResearchStash({ action: "capture_quote_box", ...request,
-    location: { sectionId: null, noteRowId: null, afterItemId: null } }, expected, "Stash quote box")
+    location: appendResearchLocation(expected, { sectionId: null, noteRowId: null }) }, expected, "Stash quote box")
     .then((ok) => { if (ok && activeProjectId === expected.projectId) stashPanel.open(); return ok; });
 }
 
@@ -149,7 +158,7 @@ function addPickerResearch(source) {
   const intent = stashPickerLocation;
   const expected = intent?.model ?? editorDocument();
   const location = intent?.location ?? { sectionId: null, noteRowId: null, afterItemId: null };
-  return captureLibraryResearch(source, location, expected).then((ok) => {
+  return captureLibraryResearch(source, appendResearchLocation(expected, location), expected).then((ok) => {
     if (ok && activeProjectId === expected.projectId && intent === stashPickerLocation) {
       stashPickerLocation = intent ? { location, model: editorDocument() } : null;
       stashPanel.open();

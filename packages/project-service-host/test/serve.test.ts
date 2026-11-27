@@ -1156,6 +1156,9 @@ describe("protected Research quote placement", () => {
       location: { sectionId: null, noteRowId: null, afterItemId: null } };
     const send = (body: unknown) => h.read("research-stash", { method: "POST", body });
     expect((await send({ ...capture, expectedOverlayVersion: event.version + 1 })).status).toBe(409);
+    // Newer Library display text must not replace this placed use's spoken words.
+    h.fake.state.quoteVersion = 8;
+    h.fake.state.quoteDisplayText = "New Library wording";
     const captured = await (await send(capture)).json() as CommandResult;
     expect(captured.ok, JSON.stringify(captured.diagnostics)).toBe(true);
     const after = captured.document.activeDraft.blocks[0] as NarrationBlockV2;
@@ -1164,7 +1167,7 @@ describe("protected Research quote placement", () => {
     expect(after.overlayEvents).toEqual([]);
     expect(captured.document.rowEditRevision).toBe(placed.document.rowEditRevision! + 1);
     const item = captured.document.stashResearchItems![0]!;
-    expect(item).toMatchObject({ kind: "quote", quote: { displayText: "Edited display", speakerName: "Edited speaker",
+    expect(item).toMatchObject({ kind: "quote", quote: { spokenText: "This is the spoken quotation.", researchQuoteVersion: 7, displayText: "Edited display", speakerName: "Edited speaker",
       speakerTitle: "Edited title", citationText: "Edited citation", italicSpan: null, citationOverridden: true },
       background: { picture: { revisionId: RESEARCH_QUOTE_PICTURE } } });
     const place = { action: "place", timelineProjectId: TIMELINE_PROJECT, document: captured.document,
@@ -1175,6 +1178,7 @@ describe("protected Research quote placement", () => {
     const replaced = await (await send(place)).json() as CommandResult;
     expect(replaced.ok, JSON.stringify(replaced.diagnostics)).toBe(true);
     const newRow = replaced.document.activeDraft.blocks.find(({ id }) => id !== row.id) as NarrationBlockV2;
+    expect(newRow.text).toBe(before.text);
     expect(newRow.overlayEvents[0]!.quoteBox).toMatchObject({ displayText: "Edited display",
       speakerName: "Edited speaker", speakerTitle: "Edited title", citationText: "Edited citation" });
     expect(replaced.document.stashResearchItems).toBeUndefined();

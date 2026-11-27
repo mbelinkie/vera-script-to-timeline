@@ -2829,6 +2829,22 @@ describe("browser authoring over the local project service", () => {
       await page.reload();
       await page.getByRole("button", { name: "Stash", exact: true }).click();
       await expect.poll(() => page.locator("[data-stash-research-note] blockquote").textContent()).toBe(typedQuoteWithoutPicture.displayText);
+      // Button acquisition appends, just like a drag onto the note's end.
+      await page.locator("[data-stash-research-note]").getByRole("button", { name: "Add quote from Library" }).click();
+      const addQuote = page.locator(".footage-item--quote").filter({ has: quote }).getByRole("button", { name: "Add quote to Stash" });
+      await addQuote.waitFor();
+      const firstId = (await load()).document.stashResearchItems![0]!.id;
+      await addQuote.click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(2);
+      expect((await load()).document.stashResearchItems![0]!.id).toBe(firstId);
+      const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+      await editor.press("End");
+      await editor.press("!");
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe("alpha beta gamma delta!");
+      const stale = await load();
+      await addQuote.click();
+      await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/close the picker and choose again/i);
+      expect(await load()).toEqual(stale);
     } finally { await page.close(); }
   }, 90_000);
 

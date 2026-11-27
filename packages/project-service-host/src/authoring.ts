@@ -1089,7 +1089,9 @@ export function createAuthoringHandler(
               quote.sourceId !== box.researchSourceId || quote.itemVersion < box.researchQuoteVersion!) {
             return researchResponse(409, { error: "research_quote_changed" });
           }
-          result = captureResearchQuoteBoxV2(document, body.boxRequest, body.location, randomUUID(), quote.text, body.afterItemId);
+          const originalWording = quote.itemVersion === box.researchQuoteVersion
+            ? /[[\]]/u.test(quote.displayText) ? quote.text : quote.displayText : null;
+          result = captureResearchQuoteBoxV2(document, body.boxRequest, body.location, randomUUID(), originalWording, body.afterItemId);
         } else if (body.action === "place") {
           const item = body.item;
           if (item.kind === "quote") {
