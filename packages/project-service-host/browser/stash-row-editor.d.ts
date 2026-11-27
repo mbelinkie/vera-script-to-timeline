@@ -31,6 +31,7 @@ export interface StashRowEditorOptions {
   applyCommand: (document: ScriptDocumentV2, command: RowEditCommandV2,
     splitProof?: string, expectedSequenceVersion?: number) => Promise<StashRowEditorApplyResult>;
   fetchProjection?: (document: ScriptDocumentV2) => Promise<PrimarySequenceProjectionV2>;
+  getProjectVisualHoldMs?: () => number | undefined;
   onSave?: (members: StashRowEditorMember[], metadata: StashRowEditorSaveMetadata) => boolean | Promise<boolean>;
 }
 

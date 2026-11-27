@@ -116,7 +116,7 @@ function restoreCaret(root, offset) {
 }
 
 /** Detached saved-row/group editor. No command writes the canonical document. */
-export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProjection, onSave }) {
+export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProjection, getProjectVisualHoldMs, onSave }) {
   if (!host?.ownerDocument || typeof getDocument !== "function" || typeof applyCommand !== "function") {
     throw new TypeError("The saved-row editor needs a host, document reader and command adapter.");
   }
@@ -213,6 +213,7 @@ export function mountStashRowEditor({ host, getDocument, applyCommand, fetchProj
     const renderedDocument = { ...stageDocument,
       activeDraft: { ...stageDocument.activeDraft, blocks: clone(visibleMembers) } };
     renderRows(rowsRoot, renderedDocument, { projection,
+      projectVisualHoldMs: getProjectVisualHoldMs?.(),
       visualCommand: (command, caption) => stageCommand(command, caption),
     });
     cleanup.push(mountVisualCardMenus(rowsRoot, (command, caption) => stageCommand(command, caption)));

@@ -3603,6 +3603,72 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#748 shows the project default Hold in a saved row without writing it", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const { document, dependencies } = JSON.parse(readFileSync(VISUAL_ONLY_FIXTURE, "utf8")) as {
+        document: ScriptDocumentV2; dependencies: CompilerDependenciesV2;
+      };
+      document.id = randomUUID();
+      document.projectId = randomUUID();
+      const draft = document.activeDraft.blocks[0];
+      if (draft?.type !== "visual_only") throw new Error("missing still fixture");
+      const implicit = structuredClone(draft);
+      implicit.id = randomUUID();
+      implicit.orderKey = "a1";
+      implicit.payload.payloadId = randomUUID();
+      const explicit = structuredClone(implicit);
+      explicit.id = randomUUID();
+      explicit.orderKey = "a2";
+      explicit.payload.payloadId = randomUUID();
+      explicit.visualOnlyTiming.durationOverrideMs = 5600;
+      document.activeDraft.blocks.push(implicit, explicit);
+      const parked = applyRowEditV2(document, document.rowEditRevision ?? 0, {
+        kind: "stash_rows", rowIds: [implicit.id, explicit.id], bundleId: randomUUID(),
+      });
+      expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+      await page.goto(origin);
+      const created = await appRequest(page, "/authoring/projects", "POST", {
+        projectId: document.projectId, title: document.title, clientRequestId: randomUUID(), document: parked.document,
+        settings: {
+          schemaVersion: "authoring-project-settings/v1", id: randomUUID(), projectId: document.projectId,
+          version: 1, settingsHash: dependencies.authoringDefaults.settingsHash, visualOnlyStillDurationMs: 3200,
+        },
+      });
+      expect(created.status).toBe(201);
+      const saved = async () => {
+        const response = await appRequest(page, `/authoring/projects/${document.projectId}/document`);
+        expect(response.status).toBe(200);
+        return response.body as SavedDocument;
+      };
+      const baseline = await saved();
+      const savedRow = (id: string) => baseline.document.stash?.flatMap((bundle) => bundle.rows)
+        .find((row) => row.id === id);
+      const implicitRow = savedRow(implicit.id);
+      if (implicitRow?.type !== "visual_only") throw new Error("missing saved still");
+      expect(implicitRow.visualOnlyTiming.durationOverrideMs).toBeUndefined();
+      expect(savedRow(explicit.id)).toMatchObject({ visualOnlyTiming: { durationOverrideMs: 5600 } });
+
+      await page.goto(`${origin}/?project=${document.projectId}`);
+      const draftHold = page.locator(`#script-rows [data-row-id="${draft.id}"] .visual-card__hold-input`);
+      await expect.poll(() => draftHold.inputValue()).toBe("3.2");
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const dialog = page.locator(".stash-row-editor");
+      for (const [id, expected] of [[implicit.id, "3.2"], [explicit.id, "5.6"]]) {
+        await page.locator(`[data-stash-row-id="${id}"]`).getByRole("button", { name: "Edit saved row…" }).click();
+        const hold = dialog.locator(`[data-row-id="${id}"] .visual-card__hold-input`);
+        await expect.poll(() => hold.inputValue()).toBe(expected);
+        expect(await saved()).toEqual(baseline);
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        expect(await saved()).toEqual(baseline);
+      }
+      expect(await draftHold.inputValue()).toBe("3.2");
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
   it("#746 reloads an inherited still, moves it to narration, attaches and undoes without losing provenance", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

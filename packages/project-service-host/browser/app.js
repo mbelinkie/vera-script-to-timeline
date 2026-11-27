@@ -3236,6 +3236,7 @@ stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
   getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused || !canEditAccount()),
   applyCommand: applyBrowserCommand, fetchProjection, pickClip: openStashClipPicker,
+  getProjectVisualHoldMs: () => projectVisualHoldMs,
   loadClip: async ({ researchProjectId, clipId, clipVersion }) => {
     const { clip } = await researchCatalogGet(researchProjectId, clipId);
     return clip?.version === clipVersion ? clip : null;
