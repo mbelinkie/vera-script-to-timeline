@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
-import { fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
+import { fastWorkspaceConcurrency, fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
 
 test("selects exactly the existing fast workspace scripts and keeps all their original commands", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
@@ -102,4 +102,38 @@ test("unexpected runner exception and invalid status both fail closed", async ()
     run: () => null,
     write: () => {},
   }), 1);
+});
+
+test("Linux workspace concurrency is bounded by CPU and memory without changing Mac scheduling", () => {
+  const GiB = 1024 ** 3;
+  const limit = (cpus, memoryBytes, platform = "linux") => fastWorkspaceConcurrency({ cpus, memoryBytes, platform });
+  assert.equal(limit(6, 7.8 * GiB), 1);
+  assert.equal(limit(16, 4 * GiB), 1);
+  assert.equal(limit(8, 16 * GiB), 2);
+  assert.equal(limit(12, 16 * GiB), 3);
+  assert.equal(limit(64, 64 * GiB), 3);
+  assert.equal(limit(1, 1 * GiB), 1);
+  assert.equal(limit(NaN, 8 * GiB), 1);
+  assert.equal(limit(6, 8 * GiB, "darwin"), 3);
+});
+
+test("small Linux host executes every selected workspace serially", async () => {
+  const selected = ["contracts", "authorization", "builds"];
+  const seen = [];
+  let active = 0;
+  const concurrency = fastWorkspaceConcurrency({ platform: "linux", cpus: 6, memoryBytes: 8 * 1024 ** 3 });
+  const status = await runWorkspaces(selected, {
+    concurrency,
+    run: async (name) => {
+      active += 1;
+      assert.equal(active, 1);
+      await Promise.resolve();
+      seen.push(name);
+      active -= 1;
+      return 0;
+    },
+    write: () => {},
+  });
+  assert.equal(status, 0);
+  assert.deepEqual(seen, selected);
 });
