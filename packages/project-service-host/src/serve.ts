@@ -15,6 +15,7 @@ import { CollaborationHub, createCollaborationUpgradeHandler,
 import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService,
   SubtitleCopyService } from "@vera/project-documents";
 
+import { createAccountAuthoringHandler, type AccountMode } from "./account-session.js";
 import { listenQaHttp } from "./http.js";
 import { loadQaIdentity } from "./qa-identity.js";
 import { parseQaConfig, type QaConfig } from "./qa-config.js";
@@ -48,6 +49,7 @@ export interface QaRunningServer {
 
 /** Injectable infrastructure for isolated host tests; production uses real Postgres. */
 export interface QaHostInfrastructure {
+  accountMode?: AccountMode;
   createPool?: (config: QaConfig, onError: () => void) => QaPgPool;
   migrate?: typeof applyQaMigrations;
   /** Only a trusted, independently implemented accepted-source store. */
@@ -94,13 +96,20 @@ export async function startQaServer(
     return closing;
   };
   try {
-    const identity = await loadQaIdentity(config.identityFile, protectedCheckoutRoots());
+    const qaIdentity = await loadQaIdentity(config.identityFile, protectedCheckoutRoots());
+    const accountIdentity = infrastructure.accountMode?.identity;
+    // Account cookies are consumed ONLY by the CSRF-protected browser gateway.
+    // Raw API and WebSocket identity adapters receive bearer credentials only.
+    const identity = accountIdentity ? { authenticate: async (request: Request) =>
+      await accountIdentity.authenticate(new Request(request.url, { headers: {
+        authorization: request.headers.get("authorization") ?? "",
+      } })) } : qaIdentity;
     const host = `127.0.0.1:${config.port}`;
     const origin = `http://${host}`;
     const authorization = config.authoringToken === undefined ? undefined :
       `Bearer ${config.authoringToken}`;
     if (authorization !== undefined) {
-      await identity.authenticate(new Request(origin, { headers: { authorization } }));
+      await qaIdentity.authenticate(new Request(origin, { headers: { authorization } }));
     }
     pool = (infrastructure.createPool ?? createQaPgPool)(config, () => {
       idleFailed = true;
@@ -159,10 +168,13 @@ export async function startQaServer(
         await auth.authorizeRequest(projectId, principal, action);
       },
     } : undefined;
-    const authoring = authorization === undefined ? undefined :
+    const authoring = infrastructure.accountMode || authorization === undefined ? undefined :
       createAuthoringHandler(origin, authorization, handleApi, research);
+    const accountAuthoring = infrastructure.accountMode && createAccountAuthoringHandler(
+      origin, infrastructure.accountMode, auth, handleApi,
+    );
     server = await listenQaHttp(config.bindHost, config.port,
-      async (request) => await authoring?.handle(request) ?? await handleApi(request),
+      async (request) => await accountAuthoring?.(request) ?? await authoring?.handle(request) ?? await handleApi(request),
       createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
     if (idleFailed) throw new QaStartupRefusal();
     return { server, stop, ...(authoring && { authoringLaunchCode: authoring.launchCode }) };

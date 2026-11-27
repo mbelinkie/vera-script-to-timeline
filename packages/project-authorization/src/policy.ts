@@ -11,7 +11,7 @@ export type ProjectAction =
   | "capture_pin";
 
 const VIEWER: readonly string[] = [
-  "view_document", "view_history", "view_comments", "view_build_results",
+  "view_document", "view_history", "view_comments", "view_build_results", "comment",
   "capture_read",
 ];
 const EDITOR: readonly string[] = [

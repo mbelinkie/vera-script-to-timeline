@@ -324,6 +324,7 @@ export interface PutSettingsInput {
   settings: AuthoringProjectSettingsV1;
 }
 export interface PatchProjectInput {
+  writeSessionId?: string;
   expectedProjectVersion: number;
   clientMutationId: string;
   title: string;
@@ -1833,6 +1834,7 @@ export class ProjectDocumentService {
     const expected = requireRevision(input.expectedProjectVersion);
     if (!expected) throw new ProjectDocumentInputError("Project version must be positive.");
     const title = requireTitle(input.title);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
     const requestDigest = fingerprint({ expectedProjectVersion: expected, title });
     return await this.authorized(projectId, principal, "manage_settings", async (db, actor) => {
       const prior = await db.query<TitleMutationRow>(
@@ -1864,7 +1866,7 @@ export class ProjectDocumentService {
       );
       return { project: { ...viewProject(row), title, projectVersion: expected + 1 },
         clientMutationId: mutationId, duplicateDelivery: false };
-    });
+    }, sessionId);
   }
 
   async putSettings(
