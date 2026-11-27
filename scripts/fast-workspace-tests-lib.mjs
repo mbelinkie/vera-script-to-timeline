@@ -42,6 +42,15 @@ export function scheduleFastWorkspaces(selected) {
   return { exclusive, parallel };
 }
 
+// Each workspace can itself start several test workers. On Linux, reserve a
+// four-CPU/four-GiB budget per workspace rather than multiplying workers
+// across small hosts. This changes scheduling only, never test selection.
+export function fastWorkspaceConcurrency({ platform, cpus, memoryBytes }) {
+  if (platform !== "linux") return 3;
+  if (!Number.isFinite(cpus) || !Number.isFinite(memoryBytes)) return 1;
+  return Math.max(1, Math.min(3, Math.floor(cpus / 4), Math.floor(memoryBytes / (4 * 1024 ** 3))));
+}
+
 // Once a child fails, do not start new suites. Already-running suites finish,
 // so no partial or stale test processes are left behind before the next phase.
 export async function runWorkspaces(selected, { run, write, concurrency = 3 }) {

@@ -114,6 +114,9 @@ export function previewSecondaryTimingReconcileV2(
     if (!isPositiveSafe(block.version) || block.version === Number.MAX_SAFE_INTEGER) {
       return refusal("INVALID_INPUT", "The visual-only row cannot advance its version safely.");
     }
+    if (block.visualOnlyTiming.durationOverrideMs !== command.durationOverrideMs) {
+      delete block.visualOnlyTiming.systemPreservedDefaultHold;
+    }
     block.visualOnlyTiming.durationOverrideMs = command.durationOverrideMs;
     block.version += 1;
     affectedEventId = event.eventId;

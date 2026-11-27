@@ -209,6 +209,7 @@ class MatchAudioDuration(TypedDict):
 class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
+    systemPreservedDefaultHold: NotRequired[Literal[True]]
     matchAudioDuration: NotRequired[MatchAudioDuration]
     selectedSourceRange: NotRequired[SelectedSourceRange]
 
