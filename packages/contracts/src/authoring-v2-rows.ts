@@ -13,7 +13,7 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
-  appendWordlessV2, defaultWordlessHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
+  appendWordlessV2, defaultWordlessHoldV2, hasNondefaultAuthoredHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
   LEGACY_VISUAL_HOLD_MS, NEW_VISUAL_HOLD_MS, preserveWordlessHoldV2,
   promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
 } from "./authoring-v2-wordless.js";
@@ -105,10 +105,11 @@ function restoreClearedNarration(
   for (const visual of visuals) {
     const slot = slots.get(visual.payload.payloadId);
     const { audioPolicy } = visual.payload;
-    const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
-    // Four seconds is the new source-free default, not an authored nondefault
-    // hold. It can be discarded when the restored visual waits for words.
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== NEW_VISUAL_HOLD_MS) {
+    const { selectedSourceRange } = visual.visualOnlyTiming;
+    // A frozen system default can be discarded when the visual waits for words;
+    // custom timing and active music matching cannot.
+    if (!slot || audioPolicy === "full" || visual.visualOnlyTiming.matchAudioDuration ||
+        hasNondefaultAuthoredHoldV2(visual.visualOnlyTiming)) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {

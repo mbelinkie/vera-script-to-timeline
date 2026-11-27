@@ -1196,6 +1196,10 @@ export interface VisualOnlyTimingV2 {
   kind: "visual_only";
   durationOverrideMs?: number;
   /**
+   * The fixed hold was materialized from the prior effective system default to keep wordless playout unchanged. Omitted for custom or unknown-origin fixed holds.
+   */
+  systemPreservedDefaultHold?: true;
+  /**
    * Explicit opt-in to match this untimed visual's duration to one saved music cue. The fixed hold remains the fallback if the match is cleared.
    */
   matchAudioDuration?: {
