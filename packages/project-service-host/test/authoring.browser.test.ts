@@ -2945,8 +2945,20 @@ describe("browser authoring over the local project service", () => {
       await page.locator("[data-research-still-close]").click();
       expect(await load()).toEqual(before);
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(history);
+      let releaseCatalog: () => void = () => undefined;
+      const catalogGate = new Promise<void>((resolve) => { releaseCatalog = resolve; });
+      const catalogPath = `**/authoring/research/${projectId}/projects`;
+      await page.route(catalogPath, async (route) => {
+        await catalogGate;
+        await route.continue();
+      });
       await page.getByRole("button", { name: "Add kept still", exact: true }).click();
+      try {
+        await expect.poll(() => page.locator("#research-still-panel").getAttribute("aria-busy")).toBe("true");
+        expect(await stillChoice.count()).toBe(0);
+      } finally { releaseCatalog(); }
       await stillChoice.waitFor();
+      await page.unroute(catalogPath);
       researchVisible = false;
       await stillChoice.click();
       await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/research|unavailable|access|refus/i);

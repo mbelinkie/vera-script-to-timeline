@@ -82,6 +82,10 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, stas
     placement = null;
     committing = false;
     revokeThumbnails();
+    results.replaceChildren();
+    projects.replaceChildren(make(doc, "option", "", "Choose project…"));
+    projects.firstChild.value = "";
+    loadMore.hidden = true;
     root.hidden = true;
     onClose?.();
     if (opener?.isConnected) opener.focus();
@@ -280,6 +284,12 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, stas
 
   const open = async ({ placement: selectedPlacement, from = doc.activeElement } = {}) => {
     committing = false;
+    // A new catalog request must never expose a previous opening's choices.
+    stills = [];
+    nextOffset = null;
+    revokeThumbnails();
+    results.replaceChildren();
+    loadMore.hidden = true;
     projects.disabled = false;
     opener = from;
     placement = selectedPlacement;
