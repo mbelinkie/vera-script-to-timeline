@@ -214,7 +214,7 @@ export function createResearchClient(options: {
 
   // Active published workspace only; no acquisition, historical read, or
   // guessed word timing. Keep the response bounded before parsing JSON.
-  async function matchedClipCues(pin: ResearchClipSnapshotV2): Promise<ResearchClipCue[] | null> {
+  async function readClipTranscript(pin: ResearchClipSnapshotV2): Promise<unknown> {
     if (!UUID.test(pin.researchProjectId) || !UUID.test(pin.catalogVideoId)) return null;
     const response = await send(
       `/api/projects/${pin.researchProjectId}/videos/${pin.catalogVideoId}/transcript?preferredLanguage=en`,
@@ -235,12 +235,20 @@ export function createResearchClient(options: {
         }
         chunks.push(part.value);
       }
-      return matchingResearchClipCues(JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown, pin);
+      return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
     } catch {
       return null;
     } finally {
       reader.releaseLock();
     }
+  }
+
+  async function matchedClipCues(pin: ResearchClipSnapshotV2): Promise<ResearchClipCue[] | null> {
+    return matchingResearchClipCues(await readClipTranscript(pin), pin);
+  }
+
+  async function matchedCutTranscript(pin: ResearchClipSnapshotV2, clock: ResearchCutTranscriptClock) {
+    return matchingResearchCutTranscript(await readClipTranscript(pin), pin, clock);
   }
 
   async function source(projectId: string, sourceId: string) {
@@ -330,6 +338,7 @@ export function createResearchClient(options: {
   return {
     item,
     matchedClipCues,
+    matchedCutTranscript,
     source,
     readQuotePicture: quotePicture,
 
@@ -508,4 +517,128 @@ export function matchingResearchClipCues(value: unknown, pin: ResearchClipSnapsh
   if (!ids.has(selection.firstSegmentId) || !ids.has(selection.lastSegmentId) ||
       !cues.length || cues.length > 1000) return null;
   return cues.sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+}
+
+export interface ResearchCutTranscriptClock {
+  schemaVersion: 1;
+  mediaSha256: string;
+  transcriptVersionId: string;
+  trackId: string;
+  trackVersion: number;
+  trackContentSha256: string;
+  alignmentFingerprint: string;
+  alignmentAudioSha256: string;
+  firstFrame: { numerator: number; denominator: number };
+  frameDuration: { numerator: number; denominator: number };
+  frameCount: number;
+}
+
+export interface ResearchTimedText {
+  startFrame: number;
+  endFrame: number;
+  activeStartFrame?: number;
+  text: string;
+}
+
+export type ResearchCutTranscript = {
+  precision: "word" | "cue";
+  entries: ResearchTimedText[];
+};
+
+/** Use source milliseconds only after matching them to this exact verified cut. */
+export function matchingResearchCutTranscript(
+  value: unknown, pin: ResearchClipSnapshotV2, clock: ResearchCutTranscriptClock,
+): ResearchCutTranscript | null {
+  if (!object(value) || value.schemaVersion !== 1 || value.catalogState !== "active_verified" ||
+      value.transcriptVersionId !== clock.transcriptVersionId || value.projectId !== pin.researchProjectId ||
+      value.catalogVideoId !== pin.catalogVideoId || value.youtubeVideoId !== pin.video.youtubeVideoId) return null;
+  const selection = pin.loggedSelection;
+  if (clock.trackId !== selection.trackId || clock.trackVersion !== selection.transcriptVersion) return null;
+  const transcript = [value.english, value.original].find(candidate =>
+    object(candidate) && object(candidate.track) && candidate.track.id === selection.trackId);
+  if (!object(transcript) || !object(transcript.track) ||
+      !Array.isArray(transcript.segments) || transcript.segments.length > 50_000 ||
+      !Array.isArray(transcript.tokens) || transcript.tokens.length > 100_000) return null;
+  const track = transcript.track;
+  const alignment = track.alignment;
+  if (track.version !== selection.transcriptVersion || track.videoId !== pin.video.youtubeVideoId ||
+      track.contentSha256 !== clock.trackContentSha256 ||
+      !object(alignment) || alignment.fingerprint !== clock.alignmentFingerprint ||
+      !object(alignment.audio) || alignment.audio.hash !== clock.alignmentAudioSha256 ||
+      alignment.audio.sampleRate !== 16_000 || !Number.isSafeInteger(alignment.audio.durationSamples)) return null;
+
+  const validTime = (time: ResearchCutTranscriptClock["firstFrame"]) =>
+    Number.isSafeInteger(time.numerator) && time.numerator >= 0 &&
+    Number.isSafeInteger(time.denominator) && time.denominator > 0;
+  if (!validTime(clock.firstFrame) || !validTime(clock.frameDuration) ||
+      clock.frameDuration.numerator <= 0 || !Number.isSafeInteger(clock.frameCount) || clock.frameCount < 2) return null;
+  const firstN = BigInt(clock.firstFrame.numerator);
+  const firstD = BigInt(clock.firstFrame.denominator);
+  const frameN = BigInt(clock.frameDuration.numerator);
+  const frameD = BigInt(clock.frameDuration.denominator);
+  const lastD = firstD * frameD;
+  const lastN = firstN * frameD + BigInt(clock.frameCount) * frameN * firstD;
+  if (lastN * 16_000n > BigInt(alignment.audio.durationSamples as number) * lastD) return null;
+
+  function validInterval(entry: Record<string, unknown>): entry is Record<string, unknown> &
+    { startMs: number; endMs: number; text: string } {
+    return Number.isSafeInteger(entry.startMs) && Number.isSafeInteger(entry.endMs) &&
+      (entry.startMs as number) >= 0 && (entry.endMs as number) > (entry.startMs as number) &&
+      typeof entry.text === "string" && !!entry.text.trim() && entry.text.length <= 20_000;
+  }
+  function interval(entry: { startMs: number; endMs: number; text: string }, acoustic = false): ResearchTimedText | undefined {
+    const divisor = firstD * 1000n * frameN;
+    const fromOrigin = (ms: number) => (BigInt(ms) * firstD - firstN * 1000n) * frameD;
+    const start = fromOrigin(entry.startMs);
+    const end = fromOrigin(entry.endMs);
+    if (end <= 0n || start >= BigInt(clock.frameCount) * divisor) return;
+    return {
+      startFrame: start <= 0n ? 0 : Number(start / divisor),
+      endFrame: Math.min(clock.frameCount, Number((end + divisor - 1n) / divisor)),
+      ...(acoustic ? { activeStartFrame: start <= 0n ? 0 : Number((start + divisor - 1n) / divisor) } : {}),
+      text: entry.text,
+    };
+  }
+  const cues: ResearchTimedText[] = [];
+  const relevantSegments = new Set<string>();
+  const allSegments = new Set<string>();
+  for (const segment of transcript.segments as unknown[]) {
+    if (!object(segment) || typeof segment.id !== "string" || allSegments.has(segment.id) ||
+        segment.trackId !== selection.trackId || !validInterval(segment)) return null;
+    allSegments.add(segment.id);
+    const timing = interval(segment);
+    if (timing) {
+      relevantSegments.add(segment.id);
+      cues.push(timing);
+    }
+  }
+  if (!allSegments.has(selection.firstSegmentId) || !allSegments.has(selection.lastSegmentId) ||
+      cues.length === 0 || cues.length > 1000) return null;
+
+  const words: ResearchTimedText[] = [];
+  const withTokens = new Set<string>();
+  const seenTokens = new Set<string>();
+  for (const token of transcript.tokens as unknown[]) {
+    if (!object(token) || typeof token.segmentId !== "string" || typeof token.id !== "string" ||
+        seenTokens.has(token.id) || !allSegments.has(token.segmentId)) return null;
+    seenTokens.add(token.id);
+    if (!relevantSegments.has(token.segmentId)) continue;
+    if (token.alignmentStatus !== "acoustic" || token.endTiming !== undefined ||
+        !validInterval(token) || BigInt(token.endMs) * 16n > BigInt(alignment.audio.durationSamples as number)) {
+      return { precision: "cue", entries: cues };
+    }
+    withTokens.add(token.segmentId);
+    const timing = interval(token, true);
+    if (timing) words.push(timing);
+  }
+  if (withTokens.size !== relevantSegments.size || !words.length || words.length > 3000) {
+    return { precision: "cue", entries: cues };
+  }
+  if ((selection.firstTokenId && !seenTokens.has(selection.firstTokenId)) ||
+      (selection.lastTokenId && !seenTokens.has(selection.lastTokenId))) return null;
+  if (words.some((word, index) => index > 0 &&
+      (word.startFrame <= words[index - 1]!.startFrame || word.endFrame <= words[index - 1]!.endFrame))) {
+    return { precision: "cue", entries: cues };
+  }
+  return { precision: "word", entries: words };
 }

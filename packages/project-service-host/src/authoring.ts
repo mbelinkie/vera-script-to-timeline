@@ -420,7 +420,7 @@ interface QuoteDefaultUndo {
 /** Host-only Research authority. No request transport or bearer reaches the browser. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
-  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText" | "matchedClipCues"> & {
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText" | "matchedClipCues" | "matchedCutTranscript"> & {
     quotePicture(projectId: string, quote: ResearchQuoteRecord): Promise<ResearchQuotePictureV2 | null>;
     retainedQuotePicture(picture: ResearchQuotePictureV2): Promise<Uint8Array | null>;
     quoteThumbnail(projectId: string, quote: ResearchQuoteRecord): Promise<{

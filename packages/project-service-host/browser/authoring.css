@@ -1559,3 +1559,49 @@ html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }
 }
 
 .stash-entry--dragging { outline: 2px solid var(--gold); }
+
+.occurrence-footage button.occurrence-footage__word-bracket {
+  border: 1px solid #a28454;
+  border-radius: .22em;
+  padding: .02em .24em;
+  margin-inline: .12em;
+  background: transparent;
+  color: #e4c792;
+  font: inherit;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.occurrence-footage button.occurrence-footage__word {
+  position: relative;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.occurrence-footage button[data-occurrence-word-outside] {
+  color: #a6a299;
+}
+.occurrence-footage [data-occurrence-word-drag] .occurrence-footage__word-bracket {
+  opacity: .35;
+}
+.occurrence-footage [data-occurrence-proposed-in]::before,
+.occurrence-footage [data-occurrence-proposed-out]::after {
+  position: absolute;
+  top: -.12em;
+  color: #f1d097;
+  pointer-events: none;
+}
+.occurrence-footage [data-occurrence-proposed-in]::before {
+  left: -.58em;
+  content: "⟦";
+}
+.occurrence-footage [data-occurrence-proposed-out]::after {
+  right: -.58em;
+  content: "⟧";
+}
+.occurrence-footage [data-occurrence-playing-word] {
+  text-decoration: underline;
+  text-underline-offset: .16em;
+}

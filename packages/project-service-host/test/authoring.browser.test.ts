@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
-import { ResearchReadError } from "@vera/contracts/research-clip-client";
+import { matchingResearchCutTranscript, ResearchReadError } from "@vera/contracts/research-clip-client";
 import { resolveMediaRequirementsV2 } from "@vera/contracts/compiler-core-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { compileTimelineV2 } from "@vera/contracts/compiler-core-v2";
@@ -595,6 +595,7 @@ describe("browser authoring over the local project service", () => {
   let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
   let researchClips = [loggedClip];
   let researchMedia: ResearchMediaConfig | undefined;
+  let transcriptWorkspace: unknown;
   let directory: string;
   let databaseDirectory: string;
   let browser: Browser;
@@ -622,6 +623,7 @@ describe("browser authoring over the local project service", () => {
           }
           return Promise.resolve(structuredClone(clip));
         },
+        matchedCutTranscript: (pin, clock) => Promise.resolve(matchingResearchCutTranscript(transcriptWorkspace, pin, clock)),
         stills: (projectId) => {
           if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
             return Promise.reject(new Error("The Research still project is no longer accessible."));
@@ -1639,9 +1641,21 @@ describe("browser authoring over the local project service", () => {
       expect(initial.slot?.frameBinding).toBeUndefined();
       const rootId = initial.root!.id;
       const slotId = initial.slot!.payloadId;
+      const selection = initial.root!.researchClip!.loggedSelection;
+      const transcriptVersionId = randomUUID();
+      const transcriptClock = {
+        schemaVersion: 1 as const, transcriptVersionId,
+        trackId: selection.trackId, trackVersion: selection.transcriptVersion,
+        trackContentSha256: "a".repeat(64), alignmentFingerprint: "b".repeat(64),
+        alignmentAudioSha256: `sha256:${"c".repeat(64)}`,
+        firstFrame: { numerator: 12004, denominator: 24000 },
+        frameDuration: { numerator: 1001, denominator: 24000 }, frameCount: 8,
+      };
 
       const python = process.env.VERA_PROOF_PYTHON ?? join(REPOSITORY_ROOT, ".venv", "bin", "python");
-      const media = await makeResearchBindingProofMedia(directory, initial.root!.researchClip!, rootId, initial.root!.payload.payloadId);
+      const media = await makeResearchBindingProofMedia(
+        directory, initial.root!.researchClip!, rootId, initial.root!.payload.payloadId, transcriptClock,
+      );
       const mediaRoot = await realpath(directory);
       const exportRoot = join(mediaRoot, "exports");
       researchMedia = { projectId, mediaRoot, exportRoot, python, cwd: REPOSITORY_ROOT };
@@ -1778,7 +1792,7 @@ describe("browser authoring over the local project service", () => {
             const video = mount.querySelector("video");
             if (!video) return;
             observer.disconnect();
-            video.playbackRate = 0.25;
+            video.playbackRate = 0.125;
             const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
             const frames: number[] = [];
             const sample = () => {
@@ -1836,20 +1850,93 @@ describe("browser authoring over the local project service", () => {
           await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}-lower.png`) });
         }
       }
+      const cached = join(cutParent, media.digest.slice("sha256:".length));
+      transcriptWorkspace = {
+        schemaVersion: 1, catalogState: "active_verified", transcriptVersionId,
+        projectId: loggedClip.projectId, catalogVideoId: loggedClip.catalogVideoId,
+        youtubeVideoId: loggedClip.video.youtubeVideoId,
+        english: {
+          track: { id: selection.trackId, version: selection.transcriptVersion,
+            videoId: loggedClip.video.youtubeVideoId, contentSha256: transcriptClock.trackContentSha256,
+            alignment: { fingerprint: transcriptClock.alignmentFingerprint, audio: {
+              hash: transcriptClock.alignmentAudioSha256, sampleRate: 16000, durationSamples: 16000,
+            } } },
+          segments: [
+            { id: selection.firstSegmentId, trackId: selection.trackId, startMs: 542, endMs: 650, text: "Alpha beta" },
+            { id: selection.lastSegmentId, trackId: selection.trackId, startMs: 650, endMs: 792, text: "Gamma delta final" },
+          ],
+          tokens: [
+            ["Alpha", 550, 579], ["beta", 587, 619], ["gamma", 630, 661],
+            ["delta", 667, 698], ["final", 714, 740],
+          ].map(([text, startMs, endMs], index) => ({
+            id: randomUUID(), segmentId: index < 2 ? selection.firstSegmentId : selection.lastSegmentId,
+            text, startMs, endMs, alignmentStatus: "acoustic",
+          })),
+        },
+      };
+      const timedDescribe = await status("describe", rootId, (await loadOwners()).head);
+      expect(timedDescribe.body).toMatchObject({ transcriptTiming: { precision: "word" } });
+      await page.reload();
+      const rootExcerpt = page.locator(`[data-row-id="${rootId}"] .visual-card__source-transcript`);
+      const siblingExcerpt = page.locator(`[data-footage-placement="${initial.placementId}"] .visual-card__source-transcript`);
+      await rootExcerpt.scrollIntoViewIfNeeded();
+      await expect.poll(() => rootExcerpt.textContent(), { timeout: 12_000 }).toBe("beta gamma delta");
+      await siblingExcerpt.scrollIntoViewIfNeeded();
+      await expect.poll(() => siblingExcerpt.textContent(), { timeout: 12_000 }).toBe("Alpha beta gamma delta final");
+      await rootCard.click();
+      const transcriptText = panel.locator("[data-occurrence-transcript]");
+      await expect.poll(async () => (await transcriptText.textContent())?.trim()).toBe("beta gamma delta");
+      await toggle.click();
+      const wordIn = panel.getByRole("button", { name: "Transcript in bracket" });
+      const wordOut = panel.getByRole("button", { name: "Transcript out bracket" });
+      await wordIn.press("ArrowRight");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 3, durationFrames: 2 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await wordOut.scrollIntoViewIfNeeded();
+      const outBounds = (await wordOut.boundingBox())!;
+      const finalWord = transcriptText.getByText("final", { exact: true });
+      const finalBounds = (await finalWord.boundingBox())!;
+      await page.mouse.move(outBounds.x + outBounds.width / 2, outBounds.y + outBounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(finalBounds.x + finalBounds.width / 2, finalBounds.y + finalBounds.height / 2);
+      expect(await finalWord.getAttribute("data-occurrence-proposed-out")).toBe("");
+      await page.mouse.up();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 4 });
+      await waitForPlayback();
+      await transcriptText.getByRole("button", { name: "delta", exact: true }).click();
+      await assertFrame(4);
+      expect(await panel.locator("[data-occurrence-playing-word]").textContent()).toBe("delta");
+      if (process.env.VERA_DESIGN_EVIDENCE_DIR) {
+        for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
+          await page.setViewportSize(viewport);
+          await transcriptText.scrollIntoViewIfNeeded();
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timed-${viewport.width}.png`) });
+        }
+      }
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      expect((await loadOwners()).slot).toEqual(refined.slot);
+      const afterWordTests = await loadOwners();
       const otherProject = await createProject(page, origin, "Preview teardown");
       await page.evaluate(id => window.__veraVisualTest!.openScript(id), otherProject);
       expect(await panel.isHidden()).toBe(true);
       expect(await panel.locator("video,img").count()).toBe(0);
       await page.evaluate(id => window.__veraVisualTest!.openScript(id), projectId);
       await rm(exported, { recursive: true });
-      await rm(join(cutParent, media.digest.slice("sha256:".length)), { recursive: true });
-      expect((await status("describe", rootId, refined.head)).status).toBe(404);
+      await rm(cached, { recursive: true });
+      expect((await status("describe", rootId, afterWordTests.head)).status).toBe(404);
       await rootCard.click();
       await expect.poll(() => panel.locator("[data-occurrence-player-status]").textContent()).toContain("Verified media is missing");
       expect(await play.isDisabled()).toBe(true);
-      expect(await loadOwners()).toEqual(refined);
+      expect(await loadOwners()).toEqual(afterWordTests);
     } finally {
       researchClips = originalCatalog;
+      transcriptWorkspace = undefined;
       researchMedia = undefined;
       await restartHostAndDatabase();
       await page.close();

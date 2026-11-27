@@ -938,6 +938,12 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   const feedback = find("feedback");
   const rangeLabel = find("range");
   const status = find("player-status");
+  const transcript = find("transcript");
+  const fullTranscript = find("transcript-full");
+  const timingNote = find("timing");
+  let showFullTranscript = false;
+  let wordDrag = null;
+  let focusWordEdge = null;
   let selected, model, occurrence, interval, basis, descriptor, lookup, lookupError, playhead, gesture;
   let frameRequest = null;
   let scrubbing = false;
@@ -946,11 +952,14 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   let openTrim = false;
   let pending = false;
   let playing = false;
+  let cardRoot = null;
+  let cardScope = null;
 
-  const owner = () => occurrence.selector ?? (occurrence.owner ? { clipRowId: occurrence.owner.id } : null);
+  const selectorFor = entry => entry.selector ?? (entry.owner ? { clipRowId: entry.owner.id } : null);
+  const owner = () => selectorFor(occurrence);
   const player = mountVerifiedFootagePlayer(find("player-mount"),
     (action, options) => mediaRequest(basis, owner(), action, options),
-    frame => { playhead = frame; renderTransport(); },
+    frame => { playhead = frame; renderTransport(); highlightWord(); },
     message => { status.textContent = message; },
     value => { playing = value; renderPlayLabel(); });
 
@@ -959,6 +968,84 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     return [...root.ownerDocument.querySelectorAll("[data-footage-placement]")].find(node =>
       node.dataset.footagePlacement === entry.placementId &&
       node.closest("[data-row-id]")?.dataset.rowId === entry.rowId);
+  }
+
+  const cardObserver = new win.IntersectionObserver(entries => {
+    const scope = cardScope;
+    if (!scope) return;
+    for (const { target, isIntersecting } of entries) {
+      if (!isIntersecting || !cardRoot?.contains(target)) continue;
+      cardObserver.unobserve(target);
+      const entry = cardEntry(target, scope);
+      if (entry && !scope.cards.has(entry.key) && !scope.queue.has(entry.key)) {
+        scope.queue.set(entry.key, entry);
+      }
+    }
+    void loadCardTiming(scope);
+  });
+
+  function cardEntry(card, scope) {
+    const rowId = card.closest("[data-row-id]")?.dataset.rowId;
+    const placementId = card.dataset.footagePlacement;
+    const entry = occurrenceFor(scope.basis.document, rowId, placementId);
+    const bounds = boundInterval(entry?.owner);
+    const selector = entry && selectorFor(entry);
+    if (bounds && selector) return { rowId, placementId, bounds, selector, key: JSON.stringify([rowId, placementId]) };
+  }
+
+  function observeCards(editor = cardRoot, rendered = false) {
+    const current = getBasis();
+    if (current?.projectId !== cardScope?.basis.projectId ||
+        current?.document !== cardScope?.basis.document ||
+        current?.revision !== cardScope?.basis.revision ||
+        current?.digest !== cardScope?.basis.digest) {
+      cardScope?.controller.abort();
+      cardScope = current && { basis: current, controller: new AbortController(), cards: new Map(), queue: new Map() };
+    } else if (editor === cardRoot && !rendered) {
+      return;
+    }
+    cardRoot = editor;
+    scanCards();
+  }
+
+  function scanCards() {
+    cardObserver.disconnect();
+    const scope = cardScope;
+    if (!scope || !cardRoot) return;
+    for (const card of cardRoot.querySelectorAll("[data-footage-placement]")) {
+      const entry = cardEntry(card, scope);
+      if (!entry) continue;
+      if (!scope.cards.has(entry.key)) cardObserver.observe(card);
+      else writeCardTiming(card, scope.cards.get(entry.key), entry.bounds);
+    }
+  }
+
+  async function loadCardTiming(scope) {
+    if (scope.loading || scope.controller.signal.aborted) return;
+    scope.loading = true;
+    try {
+      for (const [key, entry] of scope.queue) {
+        if (scope !== cardScope) return;
+        try {
+          const result = await mediaRequest(scope.basis, entry.selector, "describe", { signal: scope.controller.signal });
+          if (scope !== cardScope) return;
+          scope.cards.set(key, result.transcriptTiming ?? null);
+          writeCardTiming(cardFor(entry), result.transcriptTiming, entry.bounds);
+        } catch (error) {
+          if (scope !== cardScope) return;
+          scope.cards.set(key, null);
+          if (error?.body?.error === "research_media_unconfigured") {
+            for (const queued of scope.queue.keys()) scope.cards.set(queued, null);
+            scope.queue.clear();
+            cardObserver.disconnect();
+            return;
+          }
+        }
+        scope.queue.delete(key);
+      }
+    } finally {
+      scope.loading = false;
+    }
   }
 
   function position() {
@@ -1007,6 +1094,8 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     const prior = selected;
     selected = null;
     gesture = null;
+    wordDrag = focusWordEdge = null;
+    showFullTranscript = false;
     pending = false;
     moving = panelPosition = null;
     invalidateMedia();
@@ -1020,13 +1109,98 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
 
   const whole = () => interval?.start === interval?.min && interval?.end === interval?.max;
   const ready = () => Boolean(descriptor?.bound && interval && basis && !pending);
+  const overlapsRange = (entry, start, end) => entry.startFrame < end && entry.endFrame > start;
+  const overlapsSaved = entry => overlapsRange(entry, interval.start, interval.end);
+  function writeCardTiming(card, timing, bounds) {
+    const summary = card?.querySelector(".visual-card__source-transcript");
+    if (!summary || !timing) return;
+    const entries = timing.entries.filter(entry => overlapsRange(entry, bounds.start, bounds.end));
+    summary.textContent = entries.map(entry => entry.text).join(" ") ||
+      (timing.precision === "word" ? "No timed words in the selected range." : "No timed captions in the selected range.");
+    summary.title = timing.precision === "cue" ? "Approximate excerpt from caption timing" : "Words in this occurrence’s saved range";
+  }
+
+  function renderCardExcerpt() {
+    const timing = descriptor?.transcriptTiming;
+    if (!selected || !interval || !timing) return;
+    writeCardTiming(cardFor(selected), timing, interval);
+  }
+
+  function highlightWord() {
+    for (const span of transcript.querySelectorAll("[data-occurrence-word]")) {
+      span.toggleAttribute("data-occurrence-playing-word",
+        playhead != null && Number(span.dataset.activeStart) <= playhead && playhead < Number(span.dataset.end));
+    }
+  }
+
+  function bracket(edge) {
+    const button = make(root.ownerDocument, "button", "occurrence-footage__word-bracket", edge === "in" ? "⟦" : "⟧");
+    button.type = "button";
+    button.dataset.occurrenceWordEdge = edge;
+    button.setAttribute("aria-label", edge === "in" ? "Transcript in bracket" : "Transcript out bracket");
+    button.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight Home End");
+    return button;
+  }
+
   function renderExcerpt() {
     const pin = occurrence.snapshot;
     const fullText = pin.englishText || pin.loggedSelection.text || "No saved transcript";
-    const result = excerpt(null, pin.loggedSelection.exportStartMs, pin.loggedSelection.exportEndMs, fullText);
-    find("transcript").textContent = result.text;
-    find("timing").textContent = `${result.note} Showing the full transcript.`;
+    const timing = descriptor?.transcriptTiming;
+    fullTranscript.hidden = !timing || !interval || openTrim && timing.precision === "word";
+    fullTranscript.textContent = showFullTranscript ? "Show trimmed transcript" : "Show full transcript";
+    if (!timing || !interval) {
+      const result = excerpt(null, pin.loggedSelection.exportStartMs, pin.loggedSelection.exportEndMs, fullText);
+      transcript.textContent = result.text;
+      timingNote.textContent = `${result.note} Showing the full transcript.`;
+      return;
+    }
+    const selectedEntries = timing.entries.filter(overlapsSaved);
+    if (timing.precision === "cue" || (showFullTranscript && !openTrim)) {
+      const body = [
+        selectedEntries.some(entry => entry.startFrame < interval.start) ? "…" : "",
+        ...selectedEntries.map(entry => entry.text),
+        selectedEntries.some(entry => entry.endFrame > interval.end) ? "…" : "",
+      ].filter(Boolean).join(" ");
+      transcript.textContent = showFullTranscript ? fullText : body || "No timed captions in the selected range.";
+      timingNote.textContent = showFullTranscript ? "" : "Approximate excerpt from caption timing.";
+      return;
+    }
+    const entries = openTrim ? timing.entries : selectedEntries;
+    if (!entries.length) {
+      transcript.textContent = "No timed words in the selected range.";
+      timingNote.textContent = "";
+      return;
+    }
+    const first = selectedEntries[0];
+    const last = selectedEntries.at(-1);
+    const nodes = [];
+    for (const entry of entries) {
+      if (openTrim && entry === first) nodes.push(bracket("in"));
+      const word = make(root.ownerDocument, "button", "occurrence-footage__word", entry.text);
+      word.type = "button";
+      word.dataset.occurrenceWord = "";
+      word.dataset.start = String(entry.startFrame);
+      word.dataset.activeStart = String(entry.activeStartFrame);
+      word.dataset.end = String(entry.endFrame);
+      word.toggleAttribute("data-occurrence-word-outside", openTrim && !overlapsSaved(entry));
+      nodes.push(word);
+      if (openTrim && entry === last) nodes.push(bracket("out"));
+      nodes.push(" ");
+    }
+    if (openTrim && !first) nodes.unshift(bracket("in"), bracket("out"), " ");
+    transcript.replaceChildren(...nodes);
+    timingNote.textContent = openTrim ? "Transcript brackets adjust the trim by word." : "";
+    highlightWord();
+    if (focusWordEdge) {
+      transcript.querySelector(`[data-occurrence-word-edge="${focusWordEdge}"]`)?.focus({ preventScroll: true });
+      focusWordEdge = null;
+    }
   }
+
+  fullTranscript.addEventListener("click", () => {
+    showFullTranscript = !showFullTranscript;
+    renderExcerpt();
+  });
 
   function renderTransport() {
     const enabled = ready();
@@ -1068,6 +1242,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     const editable = ready();
     const currentOwner = owner();
     renderTransport();
+    renderCardExcerpt();
     renderPlayLabel();
     toggle.textContent = openTrim ? "Hide trim" : "Trim";
     find("preview-range").textContent = openTrim ? "Full logged cut" : "Saved occurrence";
@@ -1097,6 +1272,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
       const result = await mediaRequest(current, owner(), "describe", { signal: started.signal });
       if (lookup !== started) return;
       descriptor = result;
+      renderExcerpt();
       status.textContent = descriptor.bound ? "" : descriptor.bindable ?
         "Bind verified media to play or trim this occurrence." :
         "Verified media binding is unavailable for this placement.";
@@ -1109,6 +1285,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   }
 
   function update() {
+    observeCards();
     if (!selected) return;
     const current = getDocument();
     if (current?.projectId !== model?.projectId) { close(false); return; }
@@ -1208,6 +1385,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     playhead = null;
     toggle.setAttribute("aria-expanded", String(openTrim));
     resetInputs();
+    renderExcerpt();
     render();
     position();
   });
@@ -1237,6 +1415,7 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     }
     const target = selected;
     const focused = root.contains(root.ownerDocument.activeElement);
+    focusWordEdge = root.ownerDocument.activeElement?.dataset?.occurrenceWordEdge ?? null;
     pending = true;
     feedback.textContent = "Saving trim…";
     render();
@@ -1293,11 +1472,97 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
   clearOut.addEventListener("click", () => void apply({
     edge: "range", startFrame: interval.start, endFrame: interval.max,
   }, basis));
+  function wordProposal(edge, frame) {
+    if (!interval) return null;
+    const startFrame = edge === "in" ? frame : interval.start;
+    const endFrame = edge === "out" ? frame : interval.end;
+    return interval.min <= startFrame && startFrame < endFrame && endFrame <= interval.max
+      ? { edge: "range", startFrame, endFrame } : null;
+  }
+
+  transcript.addEventListener("click", event => {
+    const word = event.target.closest("[data-occurrence-word]");
+    if (!word || !ready()) return;
+    const min = openTrim ? interval.min : interval.start;
+    const max = openTrim ? interval.max : interval.end;
+    const first = Number(word.dataset.activeStart);
+    const frame = first < Number(word.dataset.end) ? first : Number(word.dataset.start);
+    void playback("frame", Math.max(min, Math.min(max - 1, frame)));
+  });
+
+  function drawWordProposal(edge, proposal, target) {
+    const start = proposal?.startFrame ?? interval.start;
+    const end = proposal?.endFrame ?? interval.end;
+    for (const word of transcript.querySelectorAll("[data-occurrence-word]")) {
+      word.toggleAttribute("data-occurrence-word-outside",
+        !overlapsRange({ startFrame: Number(word.dataset.start), endFrame: Number(word.dataset.end) }, start, end));
+      word.toggleAttribute("data-occurrence-proposed-in", word === target && edge === "in");
+      word.toggleAttribute("data-occurrence-proposed-out", word === target && edge === "out");
+    }
+    transcript.toggleAttribute("data-occurrence-word-drag", Boolean(target));
+    drawSelection(start, end);
+  }
+
+  transcript.addEventListener("keydown", event => {
+    const edge = event.target.dataset.occurrenceWordEdge;
+    const timing = descriptor?.transcriptTiming;
+    if (!edge || !openTrim || !ready() || timing?.precision !== "word" ||
+        !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const current = edge === "in" ? interval.start : interval.end;
+    const frames = [...new Set(timing.entries.map(entry => edge === "in" ? entry.startFrame : entry.endFrame))]
+      .filter(frame => wordProposal(edge, frame)).sort((a, b) => a - b);
+    const frame = event.key === "Home" ? frames[0] : event.key === "End" ? frames.at(-1) :
+      event.key === "ArrowLeft" ? frames.findLast(value => value < current) : frames.find(value => value > current);
+    if (frame !== undefined && frame !== current) void apply(wordProposal(edge, frame), basis);
+  });
+
+  transcript.addEventListener("pointerdown", event => {
+    const edge = event.target.dataset.occurrenceWordEdge;
+    if (!edge || event.button !== 0 || !openTrim || !ready()) return;
+    begin();
+    if (!gesture) return;
+    event.target.focus({ preventScroll: true });
+    event.target.setPointerCapture(event.pointerId);
+    wordDrag = { edge, proposal: null };
+  });
+  transcript.addEventListener("pointermove", event => {
+    if (!wordDrag || !gesture) return;
+    const word = root.ownerDocument.elementFromPoint(event.clientX, event.clientY)?.closest("[data-occurrence-word]");
+    if (!word || !transcript.contains(word)) return;
+    const frame = Number(wordDrag.edge === "in" ? word.dataset.start : word.dataset.end);
+    wordDrag.proposal = wordProposal(wordDrag.edge, frame);
+    drawWordProposal(wordDrag.edge, wordDrag.proposal, wordDrag.proposal ? word : null);
+    if (!wordDrag.proposal) { feedback.textContent = ""; return; }
+    const { startFrame, endFrame } = wordDrag.proposal;
+    feedback.textContent = `Proposed frames ${startFrame}–${endFrame}`;
+  });
+  transcript.addEventListener("pointerup", () => {
+    const proof = gesture;
+    const proposed = wordDrag?.proposal;
+    if (!wordDrag) return;
+    gesture = wordDrag = null;
+    drawWordProposal(null, null, null);
+    resetInputs();
+    if (proposed && (proposed.startFrame !== interval.start || proposed.endFrame !== interval.end)) void apply(proposed, proof);
+  });
+  transcript.addEventListener("pointercancel", () => {
+    if (!wordDrag) return;
+    gesture = wordDrag = null;
+    feedback.textContent = "";
+    drawWordProposal(null, null, null);
+    resetInputs();
+  });
   root.addEventListener("keydown", event => {
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      if (gesture) { gesture = null; feedback.textContent = ""; resetInputs(); }
+      if (gesture) {
+        if (wordDrag) drawWordProposal(null, null, null);
+        gesture = wordDrag = null;
+        feedback.textContent = "";
+        resetInputs();
+      }
       else close();
     } else if (openTrim && !event.altKey && !event.ctrlKey && !event.metaKey &&
         ["i", "o"].includes(event.key.toLowerCase())) {
@@ -1305,5 +1570,5 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
       setAtPlayhead(event.key.toLowerCase() === "i" ? "in" : "out");
     }
   });
-  return { show, close, update };
+  return { show, close, update, observeCards(editor) { observeCards(editor, true); } };
 }

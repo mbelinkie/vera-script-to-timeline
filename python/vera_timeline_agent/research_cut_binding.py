@@ -34,6 +34,11 @@ def cut_identity(snapshot: Json) -> Json:
 
 def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
     """Verify the returned package against the frozen selection and actual bytes."""
+    video, digest, _ = _verified_cut(folder, snapshot)
+    return video, digest
+
+
+def _verified_cut(folder: Path, snapshot: Json) -> tuple[Path, str, Json]:
     expected = cut_identity(snapshot)
     clip_id = expected["clipId"]
     manifest = folder / f"{clip_id}.json"
@@ -78,7 +83,87 @@ def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
         manifest.name
     }:
         raise ValueError("Unexpected files in Research cut package")
-    return folder / video_name, video_hash
+    return folder / video_name, video_hash, record
+
+
+def verified_transcript_clock(
+    folder: Path, snapshot: Json, media: MediaInspection
+) -> Json | None:
+    """Accept optional timing only for the exact verified cut and cadence."""
+    video, digest, record = _verified_cut(folder, snapshot)
+    clock = record.get("transcriptClock")
+    if not isinstance(clock, dict) or set(clock) != {
+        "schemaVersion",
+        "transcriptVersionId",
+        "trackId",
+        "trackVersion",
+        "mediaSha256",
+        "trackContentSha256",
+        "alignmentFingerprint",
+        "alignmentAudioSha256",
+        "firstFrame",
+        "frameDuration",
+        "frameCount",
+    }:
+        return None
+    if (
+        type(clock["schemaVersion"]) is not int
+        or clock["schemaVersion"] != 1
+        or digest != media.content_hash
+        or clock["mediaSha256"] != digest.removeprefix("sha256:")
+        or type(clock["frameCount"]) is not int
+        or clock["frameCount"] != len(media.video_frames)
+        or clock["frameCount"] < 2
+        or clock["trackId"] != record["selectionTrackId"]
+        or type(clock["trackVersion"]) is not int
+        or clock["trackVersion"] != record["selectionTrackVersion"]
+        or clock["transcriptVersionId"] != record.get("transcriptVersionId")
+        or not isinstance(record.get("transcriptVersionId"), str)
+        or not re.fullmatch(r"[a-f0-9-]{36}", record["transcriptVersionId"])
+    ):
+        return None
+    for key, pattern in [
+        ("trackContentSha256", r"[a-f0-9]{64}"),
+        ("alignmentFingerprint", r"[a-f0-9]{64}"),
+        ("alignmentAudioSha256", r"sha256:[a-f0-9]{64}"),
+    ]:
+        if not isinstance(clock[key], str) or not re.fullmatch(pattern, clock[key]):
+            return None
+    for key in ["firstFrame", "frameDuration"]:
+        item = clock[key]
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"numerator", "denominator"}
+            or any(
+                type(value) is not int or abs(value) >= 2**53 for value in item.values()
+            )
+            or item["denominator"] <= 0
+            or item["numerator"] < 0
+        ):
+            return None
+    duration = clock["frameDuration"]
+    if Fraction(duration["numerator"], duration["denominator"]) != 1 / media.rate:
+        return None
+    # Clock fields are committed inside the same bytes that establish the
+    # occurrence binding. Editing a retained manifest alone cannot shift them.
+    marker = b"uuid" + bytes.fromhex("8a4266a98b524776bd451c894db33d53")
+    with video.open("rb") as stream:
+        stream.seek(max(0, video.stat().st_size - 8192))
+        tail = stream.read(8192)
+    offset = tail.rfind(marker)
+    if (
+        offset < 4
+        or int.from_bytes(tail[offset - 4 : offset], "big") != len(tail) - offset + 4
+    ):
+        return None
+    try:
+        embedded = json.loads(tail[offset + len(marker) :])
+    except (UnicodeError, ValueError):
+        return None
+    evidence = {key: value for key, value in clock.items() if key != "mediaSha256"}
+    if embedded != evidence:
+        return None
+    return clock
 
 
 def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:

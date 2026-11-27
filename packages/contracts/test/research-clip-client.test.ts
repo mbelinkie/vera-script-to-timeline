@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import {
-  createResearchClient, researchOrigin, resolveProjectName, matchingResearchClipCues,
+  createResearchClient, researchOrigin, resolveProjectName, matchingResearchClipCues, matchingResearchCutTranscript,
   type ResearchProject,
 } from "../src/research-clip-client.js";
 import { snapshotResearchCandidateV2 } from "../src/authoring-v2-research-snapshot.js";
@@ -334,5 +334,70 @@ describe("published transcript cue read", () => {
     for (const body of ["not JSON", JSON.stringify({ large: "x".repeat(4 * 1024 * 1024) })]) {
       expect(await client(fakeService(() => new Response(body)).request).matchedClipCues(pin)).toBeNull();
     }
+  });
+});
+
+describe("digest-bound Research cut transcript", () => {
+  const pin = snapshotResearchCandidateV2(researchCandidate());
+  const version = researchId(710099);
+  const clock = {
+    schemaVersion: 1 as const,
+    transcriptVersionId: version,
+    trackId: pin.loggedSelection.trackId,
+    trackVersion: pin.loggedSelection.transcriptVersion,
+    mediaSha256: "1".repeat(64),
+    trackContentSha256: "2".repeat(64),
+    alignmentFingerprint: "3".repeat(64),
+    alignmentAudioSha256: `sha256:${"4".repeat(64)}`,
+    firstFrame: { numerator: 1, denominator: 1 },
+    frameDuration: { numerator: 1001, denominator: 24000 },
+    frameCount: 96,
+  };
+  function workspace() {
+    const { trackId, transcriptVersion, firstSegmentId, lastSegmentId } = pin.loggedSelection;
+    return {
+      schemaVersion: 1, catalogState: "active_verified", transcriptVersionId: version,
+      projectId: pin.researchProjectId, catalogVideoId: pin.catalogVideoId, youtubeVideoId: pin.video.youtubeVideoId,
+      english: {
+        track: { id: trackId, version: transcriptVersion, videoId: pin.video.youtubeVideoId,
+          contentSha256: clock.trackContentSha256, alignment: { fingerprint: clock.alignmentFingerprint,
+            audio: { hash: clock.alignmentAudioSha256, sampleRate: 16000, durationSamples: 120000 } } },
+        segments: [
+          { id: firstSegmentId, trackId, startMs: 1000, endMs: 1500, text: "First cue" },
+          { id: lastSegmentId, trackId, startMs: 1500, endMs: 3000, text: "Second cue" },
+        ],
+        tokens: [
+          { id: researchId(100), segmentId: firstSegmentId, startMs: 1041, endMs: 1084,
+            text: "First", alignmentStatus: "acoustic" },
+          { id: researchId(101), segmentId: lastSegmentId, startMs: 1510, endMs: 1600,
+            text: "Second", alignmentStatus: "acoustic" },
+        ],
+      },
+    };
+  }
+  it("quantizes acoustic words against the rational cut clock", async () => {
+    const service = fakeService(() => Response.json(workspace()));
+    expect(await client(service.request).matchedCutTranscript(pin, clock)).toEqual({
+      precision: "word", entries: [
+        { startFrame: 0, activeStartFrame: 1, endFrame: 3, text: "First" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 15, text: "Second" },
+      ],
+    });
+  });
+  it("falls back to verified cues for unaligned words or full text for a mismatched identity", () => {
+    const partial = workspace();
+    partial.english.tokens[0]!.alignmentStatus = "unaligned";
+    expect(matchingResearchCutTranscript(partial, pin, clock)).toMatchObject({ precision: "cue" });
+    const sameFrame = workspace();
+    sameFrame.english.tokens.push({
+      ...sameFrame.english.tokens[1]!, id: researchId(102), startMs: 1511, endMs: 1599, text: "Duplicate boundary",
+    });
+    expect(matchingResearchCutTranscript(sameFrame, pin, clock)).toMatchObject({ precision: "cue" });
+    for (const different of [
+      { ...clock, transcriptVersionId: researchId(105) },
+      { ...clock, trackContentSha256: "5".repeat(64) },
+      { ...clock, alignmentAudioSha256: `sha256:${"6".repeat(64)}` },
+      { ...clock, frameCount: 1000 },
+    ]) expect(matchingResearchCutTranscript(workspace(), pin, different)).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import {
   findPrimaryResearchOwnerV2, parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2,
   snapshotResearchCandidateV2, validateScriptDocumentV2,
 } from "@vera/contracts/authoring-v2";
-import { ResearchReadError } from "@vera/contracts/research-clip-client";
+import { ResearchReadError, type ResearchCutTranscriptClock } from "@vera/contracts/research-clip-client";
 import type { ResearchFrameBindingV2, ScriptDocumentV2, SourceFrameMapV1 } from "@vera/contracts/v2";
 
 import { ProjectAuthError } from "@vera/project-authorization";
@@ -156,8 +156,9 @@ export async function handleResearchMedia(
     return response(422, { error: "research_binding_unsupported" });
   const descriptorInput = { pin: owner.pin, rowId: owner.rowId, payloadId: owner.payloadId };
   try {
-    const verified = JSON.parse((await worker(config, { action: "resolve", materialize: action === "bind" && !owner.binding, ...descriptorInput })).toString()) as {
-      binding: ResearchFrameBindingV2; sourceFrameMap: SourceFrameMapV1;
+    const verified = JSON.parse((await worker(config, { action: "resolve", materialize: action === "bind" && !owner.binding,
+      includeTranscriptClock: action === "describe", ...descriptorInput })).toString()) as {
+      binding: ResearchFrameBindingV2; sourceFrameMap: SourceFrameMapV1; transcriptClock?: ResearchCutTranscriptClock | null;
     };
     if (owner.binding && !isDeepStrictEqual(owner.binding, verified.binding)) {
       return response(409, { error: "research_media_changed" });
@@ -172,6 +173,9 @@ export async function handleResearchMedia(
     const bytes = preview ? await worker(config, {
       action: action === "frame" ? "frame" : "preview", ...descriptorInput, binding: verified.binding, startFrame, endFrame,
     }) : undefined;
+    const transcriptTiming = verified.transcriptClock && action === "describe"
+      ? await research.catalog.matchedCutTranscript?.(owner.pin, verified.transcriptClock).catch(() => null)
+      : null;
     if (!(await authorizeResearch(owner))) return response(409, { error: "research_pin_changed" });
     const latest = await read();
     if (!latest.ok) return latest;
@@ -180,8 +184,9 @@ export async function handleResearchMedia(
       "Content-Type": action === "frame" ? "image/png" : "video/mp4", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
     } });
     if (action === "describe" || owner.binding) {
-      return response(200, { ...verified, bound: !!owner.binding, bindable: owner.bindable, savedRange: owner.range ?? null,
-        transcriptClock: null, revision: head.revision, digest: head.digest });
+      return response(200, { binding: verified.binding, sourceFrameMap: verified.sourceFrameMap,
+        bound: !!owner.binding, bindable: owner.bindable, savedRange: owner.range ?? null,
+        transcriptTiming: transcriptTiming ?? null, revision: head.revision, digest: head.digest });
     }
     const revision = (head.document.rowEditRevision ?? 0) + 1;
     if (!Number.isSafeInteger(revision) || !owner.attach(verified.binding)) return stale();

@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -10,6 +10,7 @@ import type {
   ResearchFrameBindingV2,
   VisualOnlyBlockV2,
 } from "@vera/contracts/v2";
+import type { ResearchCutTranscriptClock } from "@vera/contracts/research-clip-client";
 
 const execFile = promisify(execFileCallback);
 const repository = fileURLToPath(new URL("../../../", import.meta.url));
@@ -46,7 +47,13 @@ if sys.argv[3] == "create":
         data = media.read_bytes()
         artifacts.append({"name": media.name, "sha256": hashlib.sha256(data).hexdigest(),
                           "byteSize": len(data)})
-    (folder / f"{clip_id}.json").write_text(json.dumps({**cut_identity(snapshot), "artifacts": artifacts}))
+    record = {**cut_identity(snapshot), "artifacts": artifacts}
+    clock = json.loads(sys.argv[4])
+    if clock:
+        digest = next(item["sha256"] for item in artifacts if item["name"] == f"{clip_id}.mp4")
+        record.update(transcriptVersionId=clock["transcriptVersionId"],
+                      transcriptClock={**clock, "mediaSha256": digest})
+    (folder / f"{clip_id}.json").write_text(json.dumps(record))
 _, media, descriptor = bind_research_cut(row, folder, MediaTools())
 print(json.dumps({"binding": row["frameBinding"], "descriptor": descriptor,
                   "digest": media.content_hash}))
@@ -55,6 +62,7 @@ print(json.dumps({"binding": row["frameBinding"], "descriptor": descriptor,
 /** Builds a real disposable cut with a source frame number encoded in each picture. */
 export async function makeResearchBindingProofMedia(
   root: string, snapshot: ResearchClipSnapshotV2, rowId: string, payloadId: string,
+  clock?: Omit<ResearchCutTranscriptClock, "mediaSha256">,
 ) {
   const proofRoot = await realpath(root);
   const folder = join(proofRoot, "verified-cut");
@@ -80,13 +88,21 @@ export async function makeResearchBindingProofMedia(
     "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
     "-vf", "scale=out_color_matrix=bt709,setsar=1", "-shortest", ...encode, path,
   ]);
+  if (clock) {
+    const payload = Buffer.from(JSON.stringify(clock));
+    const header = Buffer.alloc(24);
+    header.writeUInt32BE(header.length + payload.length);
+    header.write("uuid", 4);
+    header.write("8a4266a98b524776bd451c894db33d53", 8, "hex");
+    await appendFile(path, Buffer.concat([header, payload]));
+  }
   await writeFile(join(folder, `${snapshot.clipId}.en.srt`),
     "1\n00:00:00,042 --> 00:00:00,292\nGenerated media proof\n");
   const python = process.env.VERA_PROOF_PYTHON;
   async function bind(row: unknown, action: "create" | "rebind") {
     const { stdout } = await execFile(python ?? "uv", [
       ...(python ? [] : ["run", "--no-sync", "--frozen", "python"]),
-      "-c", verify, JSON.stringify(row), folder, action,
+      "-c", verify, JSON.stringify(row), folder, action, JSON.stringify(clock ?? null),
     ], { cwd: repository, env: { ...process.env, PYTHONPATH: join(repository, "python") } });
     return JSON.parse(stdout) as {
       binding: ResearchFrameBindingV2;

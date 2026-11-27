@@ -450,6 +450,7 @@ function renderEditor() {
     flashIds: flashVisualIds,
   });
   if (!sortingTrial) renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard });
+  occurrenceFootage?.observeCards(root);
   occurrenceFootage?.update();
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root,
@@ -2862,9 +2863,14 @@ async function openScript(projectId) {
   if (opening || pendingExtras || sortingTrial?.acceptance) return;
   occurrenceFootage?.close(false);
   opening = true;
+  occurrenceFootage?.update();
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
-  finally { opening = false; updatePrompterControls(); }
+  finally {
+    opening = false;
+    updatePrompterControls();
+    occurrenceFootage?.update();
+  }
 }
 
 function newScript(title) {

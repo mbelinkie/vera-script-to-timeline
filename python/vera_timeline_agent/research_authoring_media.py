@@ -19,6 +19,7 @@ from .research_cut_binding import (
     copy_cut,
     find_cached_research_cut,
     research_clip_folder,
+    verified_transcript_clock,
 )
 
 
@@ -49,6 +50,11 @@ def resolve(root: Path, export_root: Path | None, request: dict[str, Any]) -> No
                 {
                     "binding": row["frameBinding"],
                     "sourceFrameMap": descriptor["sourceFrameMap"],
+                    **(
+                        {"transcriptClock": verified_transcript_clock(cut, pin, media)}
+                        if request.get("includeTranscriptClock")
+                        else {}
+                    ),
                 }
             )
         )
