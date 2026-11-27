@@ -1877,10 +1877,10 @@ describe("browser authoring over the local project service", () => {
             { id: selection.lastSegmentId, trackId: selection.trackId, startMs: 650, endMs: 792, text: "Gamma delta final" },
           ],
           tokens: [
-            ["Alpha", 550, 579], ["beta", 587, 619], ["gamma", 630, 661],
+            ["Alpha", 550, 566], ["brief", 566, 581], ["beta", 587, 619], ["gamma", 630, 661],
             ["delta", 667, 698], ["final", 714, 740],
           ].map(([text, startMs, endMs], index) => ({
-            id: randomUUID(), segmentId: index < 2 ? selection.firstSegmentId : selection.lastSegmentId,
+            id: randomUUID(), segmentId: index < 3 ? selection.firstSegmentId : selection.lastSegmentId,
             text, startMs, endMs, alignmentStatus: "acoustic",
           })),
         },
@@ -1893,11 +1893,13 @@ describe("browser authoring over the local project service", () => {
       await rootExcerpt.scrollIntoViewIfNeeded();
       await expect.poll(() => rootExcerpt.textContent(), { timeout: 12_000 }).toBe("beta gamma delta");
       await siblingExcerpt.scrollIntoViewIfNeeded();
-      await expect.poll(() => siblingExcerpt.textContent(), { timeout: 12_000 }).toBe("Alpha beta gamma delta final");
+      await expect.poll(() => siblingExcerpt.textContent(), { timeout: 12_000 }).toBe("Alpha brief beta gamma delta final");
       await rootCard.click();
       const transcriptText = panel.locator("[data-occurrence-transcript]");
       await expect.poll(async () => (await transcriptText.textContent())?.trim()).toBe("beta gamma delta");
       await toggle.click();
+      expect(await panel.locator("[data-occurrence-timing]").textContent())
+        .toBe("Words on the same source frame share a trim boundary.");
       const wordIn = panel.getByRole("button", { name: "Transcript in bracket" });
       const wordOut = panel.getByRole("button", { name: "Transcript out bracket" });
       await wordIn.press("ArrowRight");

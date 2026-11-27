@@ -643,6 +643,7 @@ export function matchingResearchCutTranscript(
   const words: ResearchTimedText[] = [];
   const withTokens = new Set<string>();
   const seenTokens = new Set<string>();
+  let previousWordEndMs = 0;
   for (const token of transcript.tokens as unknown[]) {
     if (!object(token) || typeof token.segmentId !== "string" || typeof token.id !== "string" ||
         seenTokens.has(token.id) || !allSegments.has(token.segmentId)) return null;
@@ -654,16 +655,16 @@ export function matchingResearchCutTranscript(
     }
     withTokens.add(token.segmentId);
     const timing = interval(token, true);
-    if (timing) words.push(timing);
+    if (timing) {
+      if (token.startMs < previousWordEndMs) return { precision: "cue", entries: cues };
+      words.push(timing);
+      previousWordEndMs = token.endMs;
+    }
   }
   if (withTokens.size !== relevantSegments.size || !words.length || words.length > 3000) {
     return { precision: "cue", entries: cues };
   }
   if ((selection.firstTokenId && !seenTokens.has(selection.firstTokenId)) ||
       (selection.lastTokenId && !seenTokens.has(selection.lastTokenId))) return null;
-  if (words.some((word, index) => index > 0 &&
-      (word.startFrame <= words[index - 1]!.startFrame || word.endFrame <= words[index - 1]!.endFrame))) {
-    return { precision: "cue", entries: cues };
-  }
   return { precision: "word", entries: words };
 }

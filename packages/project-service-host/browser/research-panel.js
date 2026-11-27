@@ -1419,7 +1419,11 @@ export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, me
     }
     if (openTrim && !first) nodes.unshift(bracket("in"), bracket("out"), " ");
     transcript.replaceChildren(...nodes);
-    timingNote.textContent = openTrim ? "Transcript brackets adjust the trim by word." : "";
+    const sharedBoundary = entries.some((entry, index) => index > 0 &&
+      (entry.startFrame === entries[index - 1].startFrame || entry.endFrame === entries[index - 1].endFrame));
+    timingNote.textContent = !openTrim ? "" : sharedBoundary
+      ? "Words on the same source frame share a trim boundary."
+      : "Transcript brackets adjust the trim by word.";
     highlightWord();
     if (focusWordEdge) {
       transcript.querySelector(`[data-occurrence-word-edge="${focusWordEdge}"]`)?.focus({ preventScroll: true });

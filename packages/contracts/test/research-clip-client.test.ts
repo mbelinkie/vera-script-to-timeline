@@ -388,17 +388,29 @@ describe("digest-bound Research cut transcript", () => {
     const partial = workspace();
     partial.english.tokens[0]!.alignmentStatus = "unaligned";
     expect(matchingResearchCutTranscript(partial, pin, clock)).toMatchObject({ precision: "cue" });
-    const sameFrame = workspace();
-    sameFrame.english.tokens.push({
-      ...sameFrame.english.tokens[1]!, id: researchId(102), startMs: 1511, endMs: 1599, text: "Duplicate boundary",
-    });
-    expect(matchingResearchCutTranscript(sameFrame, pin, clock)).toMatchObject({ precision: "cue" });
     for (const different of [
       { ...clock, transcriptVersionId: researchId(105) },
       { ...clock, trackContentSha256: "5".repeat(64) },
       { ...clock, alignmentAudioSha256: `sha256:${"6".repeat(64)}` },
       { ...clock, frameCount: 1000 },
     ]) expect(matchingResearchCutTranscript(workspace(), pin, different)).toBeNull();
+  });
+  it("keeps acoustic words with a shared frame boundary and falls back for overlapping acoustic times", () => {
+    const shared = workspace();
+    const previous = shared.english.tokens[1]!;
+    previous.endMs = 1530;
+    shared.english.tokens.push({
+      ...previous, id: researchId(102), startMs: 1530, endMs: 1566, text: "Next",
+    });
+    expect(matchingResearchCutTranscript(shared, pin, clock)).toEqual({
+      precision: "word", entries: [
+        { startFrame: 0, activeStartFrame: 1, endFrame: 3, text: "First" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 13, text: "Second" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 14, text: "Next" },
+      ],
+    });
+    shared.english.tokens[2]!.startMs = 1529;
+    expect(matchingResearchCutTranscript(shared, pin, clock)).toMatchObject({ precision: "cue" });
   });
 });
 
