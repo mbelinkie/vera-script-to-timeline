@@ -1118,7 +1118,7 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .footage-item__preview, .footage-item__quote-place { align-self: center; justify-self: start; margin: 0; }
 .footage-item__quote-place { padding: 0.3rem 0.45rem; border: 1px solid #9fb9be; border-radius: 0.3rem;
   background: #f4f9fa; color: #174d59; font-size: 0.74rem; font-weight: 650; }
-.footage-panel [data-footage-load-more] { padding: 0.4rem; }
+.footage-panel [data-footage-load-more], .footage-panel [data-still-load-more] { padding: 0.4rem; }
 html[data-thumbnail-scale="0"] .footage-item { grid-template-columns: minmax(0, 1fr); }
 html[data-thumbnail-scale="0"] .footage-item__thumbnail,
 html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }

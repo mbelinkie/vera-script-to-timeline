@@ -275,6 +275,19 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     const details = [credit, provenance].filter(Boolean).join(" · ");
     meta.append(makeElement(document, "span", "visual-card__source-state",
       details ? `Saved Research · ${details}` : "Saved Research"));
+    if (blockId && slotId && visualCommand) {
+      const control = makeElement(document, "label", "visual-card__credit", "Show credit on screen");
+      const checkbox = makeElement(document, "input");
+      checkbox.type = "checkbox";
+      checkbox.checked = payload.showResearchStillCredit === true;
+      checkbox.disabled = !credit;
+      checkbox.addEventListener("change", () => {
+        void visualCommand({ kind: "set_research_still_credit", blockId, slotId,
+          payloadId: payload.payloadId, show: checkbox.checked }, "Show still credit");
+      });
+      control.prepend(checkbox);
+      meta.append(control);
+    }
   }
   if (isOnCamera && slotId && visualCommand) {
     meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));

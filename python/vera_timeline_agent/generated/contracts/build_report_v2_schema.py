@@ -173,6 +173,7 @@ class EventResultV2(TypedDict):
         "primary_visual",
         "overlay_visual",
         "quote_box",
+        "still_credit",
         "source_audio",
         "music",
         "placeholder",

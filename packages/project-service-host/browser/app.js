@@ -27,7 +27,7 @@ const prompterStatus = element("prompter-status");
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing",
+  "set_visual_range", "set_on_camera_framing", "set_research_still_credit",
   "move_visual_to_row", "attach_visual_to_words",
 ]);
 const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
@@ -1386,7 +1386,8 @@ function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
 
 function openLibraryAtCaret(snapshot, from) {
   stashPanel.close(false);
-  void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot) });
+  void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot),
+    stillPlacement: stillPlacementFromTarget(snapshot) });
 }
 
 function selectedNarrationTarget() {
@@ -1520,6 +1521,36 @@ function placeLibraryQuote(quote, destination) {
   return queueResearchQuoteInsert({ quote, placement });
 }
 
+function stillPlacementFromTarget(snapshot) {
+  return (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === snapshot.rowId);
+    if (row?.type !== "narration" || row.text !== snapshot.text || row.version !== snapshot.rowVersion ||
+        row.primaryVisualSequence?.version !== snapshot.sequenceVersion) {
+      throw new Error("The destination narration changed. Choose it again.");
+    }
+    const base = { rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version };
+    if (!snapshot.selected) return { kind: "unattached", ...base };
+    const words = selectedSpokenWords(row, snapshot.selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", ...base, startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  };
+}
+
+function stillRowTarget(row) {
+  return { rowId: row.id, text: row.text, rowVersion: row.version,
+    sequenceVersion: row.primaryVisualSequence?.version, selected: false };
+}
+
+function placeLibraryStill(still, destination) {
+  const row = destination && scriptDocument?.activeDraft?.blocks.find((item) => item.id === destination.rowId);
+  const target = destination ? row?.type === "narration" ? stillRowTarget(row) : null :
+    selectedNarrationTarget() ?? lastQuoteTarget;
+  if (!target || (!destination && !target.selected)) return null;
+  lastQuoteTarget = null;
+  return queueResearchStillInsert({ ...still, placement: stillPlacementFromTarget(target) });
+}
+
 function openStillForWords({ rowId, text, selection, from }) {
   stashPanel.close(false);
   void researchStillPanel.open({ from, placement: (latest) => {
@@ -1580,6 +1611,7 @@ function mountResearchDragging(root) {
   };
   const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
   const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
+  const draggingStill = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-still");
   const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote");
   const quoteDestination = (event) => {
     const gap = event.target.closest?.("[data-row-gap]");
@@ -1611,21 +1643,40 @@ function mountResearchDragging(root) {
       selection: { start: offset, end: offset }, selected: false,
     }) };
   };
-  const showCue = (next, mode) => {
+  const stillDestination = (event) => {
+    const rowNode = event.target.closest?.(".script-row[data-row-kind='narration']");
+    if (!rowNode) return null;
+    const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowNode.dataset.rowId);
+    if (row?.type !== "narration") return null;
+    if (quoteSelection?.rowId === row.id && quoteSelection.selected &&
+        pointInQuoteRects(quoteSelection.rects, event.clientX, event.clientY)) {
+      return { target: rowNode, mode: "attach", placement: stillPlacementFromTarget(quoteSelection) };
+    }
+    const editor = rowNode.querySelector("[data-narration-editor]");
+    const token = editor && narrationTokenAtPoint(row, editor, event.clientX, event.clientY);
+    const snapshot = stillRowTarget(row);
+    if (token) {
+      snapshot.selected = true;
+      snapshot.selection = { start: token.startOffset, end: token.endOffset };
+    }
+    return { target: rowNode, mode: token ? "attach" : "waiting", placement: stillPlacementFromTarget(snapshot) };
+  };
+  const showCue = (next, mode, still = false) => {
     clear();
     target = next;
     target.classList.add(target.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
     cue = ownerDocument.createElement("span");
     cue.className = "research-quote-drop-cue";
     cue.dataset.quoteDropMode = mode;
-    cue.textContent = mode === "attach" ? "Attach quote · narration unchanged" :
+    cue.textContent = still ? (mode === "attach" ? "Attach still · narration unchanged" : "Add still waiting for words") :
+      mode === "attach" ? "Attach quote · narration unchanged" :
       target.matches("[data-row-gap]") ? "Insert quote as new row" : "Insert quote";
     cue.setAttribute("role", "status");
     cue.setAttribute("aria-live", "polite");
     (target.matches("[data-row-gap]") ? target : target.querySelector(".narration-cell"))?.append(cue);
   };
   const captureQuoteSelection = (event) => {
-    quoteSelection = draggingQuote(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+    quoteSelection = draggingQuote(event) || draggingStill(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
   };
   const rememberQuoteTarget = (event) => {
     const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
@@ -1634,12 +1685,21 @@ function mountResearchDragging(root) {
     if (target?.matches("#open-footage")) {
       lastQuoteTarget = selectedNarrationTarget();
     } else if (target?.matches("#footage-panel")) {
-      lastQuoteTarget = targetNode.closest("[data-quote-place-id]")
+      lastQuoteTarget = targetNode.closest("[data-quote-place-id], [data-still-place-id]")
         ? selectedNarrationTarget() ?? lastQuoteTarget : null;
     } else lastQuoteTarget = null;
   };
   const endDrag = () => { clear(); quoteSelection = null; };
   const over = (event) => {
+    if (draggingStill(event)) {
+      const next = stillDestination(event);
+      if (!next) { clear(); return; }
+      event.preventDefault();
+      event.stopPropagation();
+      showCue(next.target, next.mode, true);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      return;
+    }
     if (draggingQuote(event)) {
       const next = quoteDestination(event);
       if (!next) { clear(); return; }
@@ -1660,6 +1720,18 @@ function mountResearchDragging(root) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
   };
   const drop = (event) => {
+    if (draggingStill(event)) {
+      const next = stillDestination(event);
+      const still = researchPanel.dropStill(event.dataTransfer?.getData("application/x-vera-research-still"));
+      clear();
+      quoteSelection = null;
+      if (!next || !still) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void queueResearchStillInsert({ ...still, placement: next.placement })
+        .then((success) => { if (success) researchPanel.update(); });
+      return;
+    }
     if (draggingQuote(event)) {
       const next = quoteDestination(event);
       const quote = researchPanel.dropQuote(event.dataTransfer?.getData("application/x-vera-research-quote"));
@@ -3042,6 +3114,10 @@ researchPanel = mountResearchPanel({
   catalog: researchCatalogGet,
   quotesCatalog: researchQuoteCatalogGet,
   quoteThumbnail: researchQuoteThumbnailGet,
+  stillsCatalog: researchStillCatalogGet,
+  stillThumbnail: researchStillThumbnailGet,
+  insertStill: (still, placement) => queueResearchStillInsert({ ...still, placement }),
+  onPlaceStill: placeLibraryStill,
   getDocument: editorDocument,
   insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
     clipId: clip.id, clipVersion: clip.version, placement }),

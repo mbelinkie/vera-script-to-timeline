@@ -37,6 +37,7 @@ from .music_input import (
 from .package_cache import default_cache_root
 from .quote_box_inputs import freeze_quote_box_inputs
 from .row_timeline_map import make_row_timeline_map
+from .still_credit import freeze_still_credit_inputs
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
 from .workflow_v2 import (
@@ -321,7 +322,8 @@ def compile_prepared(
         music.dependencies if music is not None else _read_json(inputs.dependencies)
     )
     has_quotes = freeze_quote_box_inputs(document, effective_deps)
-    if has_quotes or music is not None:
+    has_still_credits = freeze_still_credit_inputs(document, effective_deps)
+    if has_quotes or has_still_credits or music is not None:
         dependencies = output / "effective-compiler-dependencies.json"
         publish_immutable_output(
             dependencies,

@@ -583,6 +583,7 @@
             "primary_visual",
             "overlay_visual",
             "quote_box",
+            "still_credit",
             "source_audio",
             "music",
             "placeholder",
@@ -670,6 +671,15 @@
               "type": "null"
             }
           ]
+        },
+        "stillCredit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pictureEventId", "text"],
+          "properties": {
+            "pictureEventId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+            "text": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
         },
         "quoteBox": {
           "$ref": "script-document-v2.schema.json#/$defs/QuoteBoxV2"
@@ -785,6 +795,23 @@
               }
             }
           }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "still_credit" } }, "required": ["kind"] },
+          "then": {
+            "required": ["stillCredit"],
+            "properties": {
+              "stillCredit": {},
+              "trackRole": { "const": "overlay" },
+              "provenance": { "type": "object", "properties": { "sourceId": { "type": "null" }, "payloadId": { "type": "null" } } },
+              "sourceRange": { "type": "null" },
+              "sourceTimeMapping": { "type": "null" },
+              "preparationBindingHash": { "type": "null" },
+              "audio": { "type": "null" },
+              "pictureTreatment": { "type": "null" }
+            }
+          },
+          "else": { "not": { "properties": { "stillCredit": {} }, "required": ["stillCredit"] } }
         },
         {
           "if": {
