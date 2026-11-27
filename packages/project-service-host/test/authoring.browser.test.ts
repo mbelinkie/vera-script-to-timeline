@@ -1142,6 +1142,57 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([false, true])("#747 duplicates and undoes saved multi-card rows (cleared narration: %s)", async (cleared) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Saved pictures duplicate and Undo");
+      const { document } = documentFixture(projectId);
+      const source = document.activeDraft.blocks.find((block) => block.type === "visual_only");
+      if (source?.type !== "visual_only" || !source.additionalVisuals?.length) throw new Error("Missing multi-card fixture");
+      if (cleared) {
+        const formerSlot = (visualId: string) => ({ id: randomUUID(), version: 1, visualId });
+        source.clearedNarration = { id: randomUUID(), version: 1,
+          slots: [formerSlot(source.payload.payloadId), formerSlot(source.additionalVisuals[0].payload.payloadId),
+            ...source.additionalVisuals.slice(1).map(({ payload }) => formerSlot(payload.payloadId))] };
+      }
+      const model = prompterBrowserFixture(document);
+      source.orderKey = "1";
+      model.activeDraft.blocks[1] = source;
+      const parked = applyRowEditV2(model, model.rowEditRevision ?? 0, {
+        kind: "stash_rows", rowIds: [source.id], bundleId: randomUUID(),
+      });
+      expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+      await saveDocumentFixture(page, projectId, parked.document);
+      const read = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+      const before = await read();
+      await page.goto(`${origin}/?project=${projectId}`);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      await page.locator("#open-stash").click();
+      const entry = page.locator(`[data-stash-row-id="${source.id}"]`);
+      await entry.getByRole("button", { name: /^Duplicate as new/ }).click();
+      await page.getByRole("button", { name: "Duplicate as new", exact: true }).click();
+      await expect.poll(() => page.locator("[data-stash-status]").innerText()).toContain("original kept");
+      const duplicated = await read();
+      expect(duplicated.revision).toBe(before.revision + 1);
+      expect(duplicated.document.stash).toEqual(before.document.stash);
+      const copy = duplicated.document.activeDraft.blocks.find((block) => block.type === "visual_only");
+      if (copy?.type !== "visual_only") throw new Error("Missing duplicate pictures");
+      expect(copy.id).not.toBe(source.id);
+      expect([copy, ...(copy.additionalVisuals ?? [])].map(({ visualOnlyTiming }) => visualOnlyTiming))
+        .toEqual([source, ...source.additionalVisuals].map(({ visualOnlyTiming }) => visualOnlyTiming));
+      await page.getByRole("button", { name: "Undo Duplicate saved row", exact: true }).click();
+      await expect.poll(async () => (await read()).revision).toBe(duplicated.revision + 1);
+      expect((await read()).document).toEqual(before.document);
+      await expect.poll(() => page.locator("#undo").isDisabled()).toBe(true);
+      await page.reload();
+      await page.locator("#script-rows").waitFor({ state: "visible" });
+      expect((await read()).document).toEqual(before.document);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
   it("#78 refuses an old chooser after Draft edits and a stale saved-head restore", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
