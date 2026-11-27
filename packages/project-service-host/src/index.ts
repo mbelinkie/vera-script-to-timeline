@@ -4,3 +4,4 @@ export * from "./migrate.js";
 export * from "./qa-identity.js";
 export * from "./http.js";
 export * from "./serve.js";
+export * from "./account-session.js";

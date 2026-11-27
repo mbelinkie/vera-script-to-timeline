@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { researchQuoteUsage } from "../browser/research-panel.js";
+import { researchQuoteUsage, researchStillUsage } from "../browser/research-panel.js";
 import { filterLoggedResearchClips, filterResearchLibraryItems, libraryFilterOptions } from "../browser/research-search.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -107,5 +107,49 @@ describe("mixed authorized Library filtering", () => {
       { id: "overlay-2", quoteBox: { researchProjectId: projectId, researchQuoteId: "quote", researchQuoteUseId: "use-2" } },
     ] }] } };
     expect(researchQuoteUsage(attached)[0]?.scriptCount).toBe(1);
+  });
+});
+
+describe("kept still Library groundwork", () => {
+  const stills = [
+    { itemId: "a", researchProjectId: projectId, title: "Harbor still", credit: "Archive collection",
+      sourceTitle: "Coastal photographs", logger: "logger-a", topics: ["Transport"],
+      createdAt: "2026-11-15T12:00:00Z", originalUrl: "https://not-searchable.example" },
+    { itemId: "other", researchProjectId: otherProject, title: "Harbor still", credit: "Archive collection" },
+  ];
+  it("searches only intended still text, with mixed filters and kind-specific usage", () => {
+    const filter = { projectId, kind: "stills" as const };
+    for (const query of ["harbor", "archive", "coastal"]) {
+      expect(filterResearchLibraryItems(clips, quotes, [], { ...filter, query }, stills)
+        .map((row) => row.item.itemId)).toEqual(["a"]);
+    }
+    for (const query of ["not-searchable", "logger-a", "Transport"]) {
+      expect(filterResearchLibraryItems(clips, quotes, [], { ...filter, query }, stills)).toEqual([]);
+    }
+    const uses = [{ kind: "still" as const, researchProjectId: projectId, itemId: "a", scriptCount: 2 }];
+    expect(filterResearchLibraryItems(clips, quotes, uses, filter, stills)).toEqual([]);
+    expect(filterResearchLibraryItems(clips, quotes, uses, { ...filter, showUsed: true }, stills)).toHaveLength(1);
+    expect(filterResearchLibraryItems(clips, quotes, uses, { projectId, kind: "footage" }, stills)
+      .map((row) => row.item.id)).toEqual(["b", "a"]);
+    expect(filterResearchLibraryItems(clips, quotes, [], { projectId, logger: "LOGGER-A", topic: "transport" }, stills)
+      .map((row) => row.kind)).toEqual(["still", "quote"]);
+    expect(filterResearchLibraryItems(clips, quotes, [], { projectId, seed: "harbor still" }, stills)[0]?.kind).toBe("still");
+    expect(libraryFilterOptions([], [], stills)).toEqual({ loggers: [["logger-a", "logger-a"]], topics: ["Transport"] });
+  });
+
+  it("counts individual Draft payloads, deduplicating mirrors but ignoring quote pictures and Stash", () => {
+    const snapshot = { researchProjectId: projectId, itemId: "a" };
+    const visual = (payloadId: string) => ({ kind: "visual", payloadId, researchStill: snapshot });
+    const a = visual("payload-a");
+    const b = visual("payload-b");
+    const row = { id: "row", type: "narration", primaryVisualSequence: { slots: [
+      { kind: "content", id: "slot-a", payload: a }, { kind: "content", id: "slot-b", payload: b },
+    ] }, unattachedVisuals: [{ slotId: "waiting", payload: visual("payload-c") }],
+      overlayEvents: [{ id: "mirror", payload: a }, { id: "quote-picture", quoteBox: { picture: snapshot } }] };
+    const model = { activeDraft: { blocks: [row] }, stash: [{ rows: [{ ...row, id: "parked" }] }] };
+    expect(researchStillUsage(model)).toEqual([{ kind: "still", researchProjectId: projectId, itemId: "a",
+      scriptCount: 3, scriptUses: [{ rowId: "row", placementId: "slot-a" }, { rowId: "row", placementId: "slot-b" },
+        { rowId: "row", placementId: "waiting" }] }]);
+    expect(researchStillUsage({ ...model, activeDraft: { blocks: [] } })).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@ import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
 import { compareSecondaryTimingV2 } from "../src/secondary-timing-v2.js";
+import { previewSecondaryTimingReconcileV2 } from "../src/secondary-timing-reconcile-v2.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -284,6 +285,25 @@ describe("#389 bounded Research clip occurrence survives media requirements and 
     }
     expect(JSON.stringify([doc, deps])).toBe(before);
   };
+
+  it("compiles the exact atomic range and reset, with one Undo restoring the selected source interval", () => {
+    const { document, dependenciesFor } = researchTrimBuildFixture();
+    const clip = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const command = { kind: "trim_research_clip", clipRowId: clip.id } as const;
+    const session = createRowEditSessionV2(document);
+    const refined = session.apply({ ...command, edge: "range", startFrame: 66, endFrame: 90 });
+    expect(refined.ok, JSON.stringify(refined.diagnostics)).toBe(true);
+    expect(refined.document.rowEditRevision).toBe(1);
+    verify(refined.document, dependenciesFor, [[66, 90], [24, 60]]);
+    const reset = session.apply({ ...command, edge: "reset" });
+    expect(reset.ok, JSON.stringify(reset.diagnostics)).toBe(true);
+    expect(reset.document.rowEditRevision).toBe(2);
+    verify(reset.document, dependenciesFor, [[12, 108], [24, 60]]);
+    expect(reset.document.activeDraft.blocks[0]).toMatchObject({ researchClip: clip.researchClip, frameBinding: clip.frameBinding, payload: clip.payload });
+    expect(reset.document.activeDraft.blocks[1]).toEqual(document.activeDraft.blocks[1]);
+    expect(session.undo().document).toEqual({ ...refined.document, rowEditRevision: 3 });
+    verify(session.document, dependenciesFor, [[66, 90], [24, 60]]);
+  });
 
   it("builds an inward trim without touching the Research snapshot or another use; clearing restores the full clip", () => {
     const { document: original, dependenciesFor } = researchTrimBuildFixture();
@@ -2274,6 +2294,50 @@ describe("pure v2 compiler", () => {
       readGolden("narrated-image-still-holds.manifest", compiled.manifestJson);
       readGolden("narrated-image-still-holds.report", compiled.reportJson);
     }
+    const pin = {
+      researchProjectId: id(900), itemId: id(901), itemVersion: 1, sourceId: id(902),
+      title: "Kept still", credit: "  Example Credit  ",
+      provenance: { kind: "still_crop" as const, sourceUrl: "https://example.com/a.jpg",
+        resolvedUrl: "https://example.com/a.jpg", pageUrl: "https://example.com/",
+        altText: "Fixture", parentItemId: id(903), crop: { x: 0, y: 0, width: 1, height: 1 }, inputSha256: "a".repeat(64) },
+      original: { versionId: "v1", sha256: "a".repeat(64), byteCount: 100, mimeType: "image/jpeg" as const, width: 1920, height: 1080 },
+    };
+    root.payload.researchStill = structuredClone(pin);
+    const overlay = row.overlayEvents[0]!;
+    overlay.payload.researchStill = structuredClone(pin);
+    const credits = () => {
+      const result = compileTimelineV2(doc, deps);
+      if (!result.ok) throw new Error(JSON.stringify(result));
+      return result.manifest.events.filter(event => event.kind === "still_credit");
+    };
+    expect(credits()).toEqual([]);
+    root.payload.showResearchStillCredit = false;
+    expect(credits()).toEqual([]);
+    root.payload.showResearchStillCredit = true;
+    deps.tracks.push({ id: "still-credit", kind: "video", index: 6, name: "Still Credits" });
+    deps.roles.overlayTrackIds.push("still-credit");
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 24, endFrame: 96 }, stillCredit: { text: "Example Credit" } }]);
+    root.payload.showResearchStillCredit = false;
+    overlay.payload.showResearchStillCredit = true;
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 24 }, stillCredit: { text: "Example Credit" } }]);
+    root.payload.showResearchStillCredit = true;
+    delete overlay.payload.researchStill.credit;
+    if (overlay.timing.kind !== "timed") throw new Error("Expected timed overlay");
+    overlay.timing.durationMs = 500;
+    expect(credits()).toMatchObject([{ recordRange: { startFrame: 12, endFrame: 96 }, stillCredit: { text: "Example Credit" } }]);
+
+    const before = compileTimelineV2(doc, deps);
+    if (!before.ok) throw new Error(JSON.stringify(before.diagnostics));
+    const coveringPicture = before.manifest.events.find((event) => event.kind === "overlay_visual")!;
+    const preview = previewSecondaryTimingReconcileV2(doc, deps, before.manifest, {
+      kind: "overlay_duration", blockId: row.id, overlayEventId: overlay.id,
+      expectedEventVersion: overlay.version, expectedRange: coveringPicture.recordRange, durationMs: 1000,
+    });
+    expect(preview).toMatchObject({ ok: true, disposition: "proposed_not_applied" });
+    if (!preview.ok) return;
+    const after = compileTimelineV2(preview.candidateDocument, deps);
+    expect(after.ok && after.manifest.events.filter((event) => event.kind === "still_credit"))
+      .toMatchObject([{ recordRange: { startFrame: 24, endFrame: 96 } }]);
   });
 
   it("freezes presenter-still fallback, project default, and a distinct script override", () => {
@@ -3108,4 +3172,72 @@ describe("Quote box compiler bindings", () => {
     ]));
     expect(compiled.manifest.events.some((event) => event.kind === "quote_box")).toBe(true);
   });
+});
+
+it("checkpoint B preserves the fixed interval and refuses insufficient selected frames", () => {
+  const {document: clips, dependenciesFor} = researchTrimBuildFixture();
+  const clip = clips.activeDraft.blocks[0] as VisualOnlyBlockV2;
+  const doc = document();
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const sequence = row.primaryVisualSequence!;
+  const slot = sequence.slots[0]!;
+  if (slot.kind !== "content") throw new Error("Expected root content");
+  const deps = dependencies();
+  const rate = {numerator: 24000, denominator: 1001};
+  deps.timeline.frameRate = rate;
+  const descriptor = dependenciesFor(clips).occurrenceResolutions[0]!;
+  descriptor.owner = {kind:"primary_slot", sequenceId:sequence.id, slotId:slot.id};
+  descriptor.logicalSourceBounds.frameRate = rate;
+  descriptor.sourceFrameMap.decodedPackageFrameRate = rate;
+  descriptor.sourceFrameMap.packageVideoTimeBase = {numerator:1001, denominator:24000};
+  const run = (startFrame: number, endFrame: number) => {
+    slot.payload = {
+      ...structuredClone(clip.payload),
+      audioPolicy: "mute",
+      researchClip: structuredClone(clip.researchClip!),
+      frameBinding: structuredClone(clip.frameBinding!),
+      selectedSourceRange: {startFrame, durationFrames:endFrame-startFrame},
+      sourceUsage: {sourceInFrame:startFrame},
+    };
+    descriptor.occurrenceSourceInFrame = startFrame;
+    descriptor.selectedSourceRange = {startFrame,endFrame};
+    return resolveMediaRequirementsV2(doc, {
+      timing:deps.narrationTimingMaps, defaults:deps.authoringDefaults,
+      sourceDescriptors:[descriptor], frameRate:rate,
+    });
+  };
+  const baseline = run(12,108);
+  const trimmed = run(24,60);
+  expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+  expect(trimmed).toMatchObject({ok:false,diagnostics:[{code:"SOURCE_INSUFFICIENT"}]});
+});
+
+
+it("checkpoint B complete clip media-end follows the selected exclusive out at fractional rate", () => {
+  const { doc, deps } = completeClipBoundaryFixture([
+    { value: "alpha", start: { numerator: 0, denominator: 1 } },
+    { value: "beta", start: { numerator: 10, denominator: 1 } },
+  ]);
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const root = row.primaryVisualSequence!.slots[0]!;
+  if (root.kind !== "content" || root.payload.kind !== "visual") throw new Error("Expected clip");
+  const descriptor = deps.occurrenceResolutions[0]!;
+  root.payload.sourceUsage = { sourceInFrame: 50 };
+  root.payload.selectedSourceRange = { startFrame: 50, durationFrames: 100 };
+  descriptor.occurrenceSourceInFrame = 50;
+  descriptor.selectedSourceRange = { startFrame: 50, endFrame: 150 };
+  const frozen = JSON.stringify([doc, deps]);
+  const needs = resolveMediaRequirementsV2(doc, {
+    timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+    sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate,
+  });
+  expect(needs.ok, JSON.stringify(needs)).toBe(true);
+  if (!needs.ok) throw new Error(JSON.stringify(needs));
+  expect(needs.requirements[0]).toMatchObject({
+    requiredSourceRange: { startFrame: 50, endFrame: 150 },
+    recordRange: { startFrame: 0, endFrame: 96 },
+    requestedRange: { sourceInFrame: 50, duration: { numerator: 4, denominator: 1 } },
+  });
+  expect(needs.requirements[1]?.recordRange.startFrame).toBe(96);
+  expect(JSON.stringify([doc, deps])).toBe(frozen);
 });

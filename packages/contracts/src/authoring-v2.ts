@@ -287,6 +287,13 @@ export type VisualSequenceEditCommandV2 =
       endTokenId: string;
     }
   | {
+      kind: "set_research_still_credit";
+      blockId: string;
+      slotId: string;
+      payloadId: string;
+      show: boolean;
+    }
+  | {
       /** The only authored On Camera choice: Wide or Tight for one passage. */
       kind: "set_on_camera_framing";
       blockId: string;
@@ -446,6 +453,9 @@ export {
   createResearchClipOccurrenceV2,
   withResearchClipUseRangeV2,
   trimResearchClipOccurrenceV2,
+  findPrimaryResearchOwnerV2,
+  resetResearchClipOccurrenceV2,
+  type ResearchClipTrimChangeV2,
   type ResearchLoggedCandidateInputV2,
   type ResearchClipOccurrenceInputV2,
   type FrameIntervalV2,
@@ -517,6 +527,8 @@ export {
   createRowEditSessionV2,
   serializeAuthoringDocumentV2,
   deserializeAuthoringDocumentV2,
+  parkAttachedFootageForSortingV2,
+  presentAttachedFootageForSortingV2,
   type RowEditCommandV2,
   type StashFootageCommandV2,
   type StashGroupCommandV2,

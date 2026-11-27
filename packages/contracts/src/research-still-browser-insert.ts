@@ -16,13 +16,10 @@ export interface ResearchStillBrowserInsertV2 {
   itemId: string;
   itemVersion: number;
   placement: {
-    kind: "selected_words";
     rowId: string;
     expectedRowVersion: number;
     expectedSequenceVersion: number;
-    startTokenId: string;
-    endTokenId: string;
-  };
+  } & ({ kind: "selected_words"; startTokenId: string; endTokenId: string } | { kind: "unattached" });
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -60,7 +57,7 @@ export function insertResearchStillBrowserV2(
     return refused(document, "ROW_REVISION_STALE", "The script changed before still placement.");
   }
   const placement = request.placement;
-  if (!placement || placement.kind !== "selected_words") {
+  if (!placement || placement.kind !== "selected_words" && placement.kind !== "unattached") {
     return refused(document, "STILL_PLACEMENT_INVALID", "Select spoken words for this still.");
   }
 
@@ -100,13 +97,12 @@ export function insertResearchStillBrowserV2(
     };
     const edited = structuredClone(row);
     edited.unattachedVisuals = [...(edited.unattachedVisuals ?? []), { slotId, payload, version: 1 }];
-    const attached = attachVisualToWordsV2(
-      edited,
-      slotId,
-      placement.startTokenId,
-      placement.endTokenId,
-    );
-    if (isCoverageRefusalV2(attached)) return refused(document, attached.code, attached.message);
+    if (placement.kind === "selected_words") {
+      const attached = attachVisualToWordsV2(edited, slotId, placement.startTokenId, placement.endTokenId);
+      if (isCoverageRefusalV2(attached)) return refused(document, attached.code, attached.message);
+    } else {
+      edited.primaryVisualSequence!.version += 1;
+    }
     edited.version += 1;
     return applyRowEditV2(document, request.expectedDocumentRevision, {
       kind: "edit_row",

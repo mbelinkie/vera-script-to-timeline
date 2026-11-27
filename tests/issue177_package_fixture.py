@@ -24,6 +24,7 @@ _FIXTURES = {
 }
 _SCENARIOS = {
     "quote-background": "narrated-image-still-holds",
+    "still-credit": "narrated-image-still-holds",
     "root-child-overlay-return": "root-child-overlay-return",
     "shared-preparation": "issue531-shared-preparation",
     "intentional-slate": "visual-only-default-25fps",

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import {
-  createResearchClient, researchOrigin, resolveProjectName,
+  createResearchClient, researchOrigin, resolveProjectName, matchingResearchClipCues, matchingResearchCutTranscript,
   type ResearchProject,
 } from "../src/research-clip-client.js";
+import { snapshotResearchCandidateV2 } from "../src/authoring-v2-research-snapshot.js";
 import { researchCandidate, researchId } from "./issue-367-fixture.js";
 
 const SECRET = "private-dev-credential-do-not-print";
@@ -277,5 +278,216 @@ describe("Research GET-only transport", () => {
     expect(messages.join(" | ")).not.toContain(SECRET);
     expect(messages[0]).toContain("Research is unavailable");
     expect(messages[1]).toContain("Research returned invalid JSON");
+  });
+});
+
+describe("published transcript cue read", () => {
+  const pin = snapshotResearchCandidateV2(researchCandidate());
+  function workspace() {
+    return {
+      schemaVersion: 1, catalogState: "active_verified", projectId: pin.researchProjectId,
+      catalogVideoId: pin.catalogVideoId, youtubeVideoId: pin.video.youtubeVideoId,
+      english: { track: { id: pin.loggedSelection.trackId, version: pin.loggedSelection.transcriptVersion,
+        videoId: pin.video.youtubeVideoId, kind: "english", language: "en", timingPrecision: "word" },
+        segments: [
+          { id: pin.loggedSelection.firstSegmentId, trackId: pin.loggedSelection.trackId,
+            startMs: 1000, endMs: 2000, text: "First" },
+          { id: pin.loggedSelection.lastSegmentId, trackId: pin.loggedSelection.trackId,
+            startMs: 2000, endMs: 4000, text: "Last" },
+          { id: researchId(710025), trackId: pin.loggedSelection.trackId,
+            startMs: 4000, endMs: 5000, text: "Not logged" },
+        ], tokens: [{ text: "not returned" }],
+      },
+    };
+  }
+  it("returns minimal caption intervals only, even from word-timed tracks", async () => {
+    const fake = fakeService(() => Response.json(workspace()));
+    expect(await client(fake.request).matchedClipCues(pin)).toEqual([
+      { startMs: 1000, endMs: 2000, text: "First" }, { startMs: 2000, endMs: 4000, text: "Last" },
+    ]);
+    expect(fake.calls[0]!.url.pathname).toBe(`/api/projects/${pin.researchProjectId}/videos/${pin.catalogVideoId}/transcript`);
+    expect(fake.calls[0]!.url.searchParams.get("preferredLanguage")).toBe("en");
+    expect(fake.calls[0]!.init?.method).toBe("GET");
+  });
+  it("falls back on each identity mismatch, offline/estimated tracks or malformed segments", () => {
+    for (const change of [
+      (w: ReturnType<typeof workspace>) => { w.projectId = researchId(1); },
+      (w: ReturnType<typeof workspace>) => { w.catalogVideoId = researchId(2); },
+      (w: ReturnType<typeof workspace>) => { w.youtubeVideoId = "different"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.id = researchId(3); },
+      (w: ReturnType<typeof workspace>) => { w.english.track.version++; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.videoId = "different"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.language = "es"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.kind = "translation"; },
+      (w: ReturnType<typeof workspace>) => { w.english.track.timingPrecision = "estimated"; },
+      (w: ReturnType<typeof workspace>) => { w.catalogState = "offline_cached"; },
+      (w: ReturnType<typeof workspace>) => { w.english.segments[0]!.trackId = researchId(4); },
+      (w: ReturnType<typeof workspace>) => { w.english.segments[0]!.endMs = 1000; },
+      (w: ReturnType<typeof workspace>) => { w.english.segments.shift(); },
+    ]) {
+      const changed = workspace();
+      change(changed);
+      expect(matchingResearchClipCues(changed, pin)).toBeNull();
+    }
+  });
+  it("bounds the response and refuses invalid JSON", async () => {
+    for (const body of ["not JSON", JSON.stringify({ large: "x".repeat(4 * 1024 * 1024) })]) {
+      expect(await client(fakeService(() => new Response(body)).request).matchedClipCues(pin)).toBeNull();
+    }
+  });
+});
+
+describe("digest-bound Research cut transcript", () => {
+  const pin = snapshotResearchCandidateV2(researchCandidate());
+  const version = researchId(710099);
+  const clock = {
+    schemaVersion: 1 as const,
+    transcriptVersionId: version,
+    trackId: pin.loggedSelection.trackId,
+    trackVersion: pin.loggedSelection.transcriptVersion,
+    mediaSha256: "1".repeat(64),
+    trackContentSha256: "2".repeat(64),
+    alignmentFingerprint: "3".repeat(64),
+    alignmentAudioSha256: `sha256:${"4".repeat(64)}`,
+    firstFrame: { numerator: 1, denominator: 1 },
+    frameDuration: { numerator: 1001, denominator: 24000 },
+    frameCount: 96,
+  };
+  function workspace() {
+    const { trackId, transcriptVersion, firstSegmentId, lastSegmentId } = pin.loggedSelection;
+    return {
+      schemaVersion: 1, catalogState: "active_verified", transcriptVersionId: version,
+      projectId: pin.researchProjectId, catalogVideoId: pin.catalogVideoId, youtubeVideoId: pin.video.youtubeVideoId,
+      english: {
+        track: { id: trackId, version: transcriptVersion, videoId: pin.video.youtubeVideoId,
+          contentSha256: clock.trackContentSha256, alignment: { fingerprint: clock.alignmentFingerprint,
+            audio: { hash: clock.alignmentAudioSha256, sampleRate: 16000, durationSamples: 120000 } } },
+        segments: [
+          { id: firstSegmentId, trackId, startMs: 1000, endMs: 1500, text: "First cue" },
+          { id: lastSegmentId, trackId, startMs: 1500, endMs: 3000, text: "Second cue" },
+        ],
+        tokens: [
+          { id: researchId(100), segmentId: firstSegmentId, startMs: 1041, endMs: 1084,
+            text: "First", alignmentStatus: "acoustic" },
+          { id: researchId(101), segmentId: lastSegmentId, startMs: 1510, endMs: 1600,
+            text: "Second", alignmentStatus: "acoustic" },
+        ],
+      },
+    };
+  }
+  it("quantizes acoustic words against the rational cut clock", async () => {
+    const service = fakeService(() => Response.json(workspace()));
+    expect(await client(service.request).matchedCutTranscript(pin, clock)).toEqual({
+      precision: "word", entries: [
+        { startFrame: 0, activeStartFrame: 1, endFrame: 3, text: "First" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 15, text: "Second" },
+      ],
+    });
+  });
+  it("falls back to verified cues for unaligned words or full text for a mismatched identity", () => {
+    const partial = workspace();
+    partial.english.tokens[0]!.alignmentStatus = "unaligned";
+    expect(matchingResearchCutTranscript(partial, pin, clock)).toMatchObject({ precision: "cue" });
+    for (const different of [
+      { ...clock, transcriptVersionId: researchId(105) },
+      { ...clock, trackContentSha256: "5".repeat(64) },
+      { ...clock, alignmentAudioSha256: `sha256:${"6".repeat(64)}` },
+      { ...clock, frameCount: 1000 },
+    ]) expect(matchingResearchCutTranscript(workspace(), pin, different)).toBeNull();
+  });
+  it("keeps acoustic words with a shared frame boundary and falls back for overlapping acoustic times", () => {
+    const shared = workspace();
+    const previous = shared.english.tokens[1]!;
+    previous.endMs = 1530;
+    shared.english.tokens.push({
+      ...previous, id: researchId(102), startMs: 1530, endMs: 1566, text: "Next",
+    });
+    expect(matchingResearchCutTranscript(shared, pin, clock)).toEqual({
+      precision: "word", entries: [
+        { startFrame: 0, activeStartFrame: 1, endFrame: 3, text: "First" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 13, text: "Second" },
+        { startFrame: 12, activeStartFrame: 13, endFrame: 14, text: "Next" },
+      ],
+    });
+    shared.english.tokens[2]!.startMs = 1529;
+    expect(matchingResearchCutTranscript(shared, pin, clock)).toMatchObject({ precision: "cue" });
+  });
+});
+
+describe("kept still catalog metadata", () => {
+  const sourceId = researchId(750000);
+  const still = { id: researchId(750001), projectId: PROJECT, sourceId, kind: "still", version: 3,
+    createdAt: "2026-11-15T12:00:00Z", createdBy: researchId(750002), topics: ["Transport"],
+    content: { title: " Harbor still ", credit: "Archive collection", licence: "Test licence", hidden: SECRET } };
+  const asset = { versionId: "synthetic-kept", sha256: "a".repeat(64), byteCount: 12,
+    width: 8, height: 8, mimeType: "image/png" };
+  const manifest = { assets: { original: asset, thumbnail: asset }, provenance: { kind: "file", inputSha256: asset.sha256 } };
+  const source = { id: sourceId, projectId: PROJECT, kind: "image", details: {},
+    bibliography: { title: { value: "Coastal photographs" } } };
+
+  it("returns validated list metadata and caches shared source titles within the raw page", async () => {
+    const entries = Array.from({ length: 13 }, (_, i) => ({ ...still, id: researchId(751000 + i) }));
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) {
+        expect([...url.searchParams]).toEqual([["kind", "still"], ["limit", "13"], ["offset", "24"]]);
+        return Response.json(entries);
+      }
+      if (url.pathname.endsWith("/assets")) {
+        if (url.pathname.includes(entries[0]!.id)) return serviceError(404);
+        return Response.json(manifest);
+      }
+      expect(url.pathname).toBe(`/api/projects/${PROJECT}/sources/${sourceId}`);
+      return Response.json(source);
+    });
+    const page = await client(fake.request).stills(PROJECT, 24);
+    expect(page.nextOffset).toBe(36);
+    expect(page.stills).toHaveLength(11);
+    expect(page.stills[0]).toEqual({ researchProjectId: PROJECT, itemId: entries[1]!.id, itemVersion: 3,
+      title: "Harbor still", credit: "Archive collection", licence: "Test licence",
+      createdAt: still.createdAt, logger: still.createdBy, topics: ["Transport"], sourceTitle: "Coastal photographs" });
+    expect(fake.calls.filter(({ url }) => url.pathname.includes("/sources/"))).toHaveLength(1);
+    expect(JSON.stringify(page)).not.toContain(SECRET);
+  });
+
+  it("keeps list-only metadata out of the saved snapshot and tolerates a missing source title", async () => {
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) return Response.json([still]);
+      if (url.pathname.endsWith("/assets")) return Response.json(manifest);
+      if (url.pathname.includes("/sources/")) return serviceError(404);
+      return Response.json(still);
+    });
+    const api = client(fake.request);
+    expect((await api.stills(PROJECT, 0)).stills[0]).not.toHaveProperty("sourceTitle");
+    const saved = await api.still(PROJECT, still.id, 3);
+    expect(saved).toEqual({ researchProjectId: PROJECT, itemId: still.id, itemVersion: 3, sourceId,
+      title: "Harbor still", credit: "Archive collection", licence: "Test licence",
+      original: asset, provenance: manifest.provenance });
+  });
+
+  it("keeps valid stills on a page with malformed records and refuses authorization failures", async () => {
+    const badAssets = { ...still, id: researchId(752000) };
+    const entries = [
+      { ...still, id: researchId(752001), createdBy: "invalid" },
+      { ...still, id: researchId(752002), createdAt: "invalid" },
+      { ...still, id: researchId(752003), topics: [123] },
+      badAssets,
+      still,
+    ];
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) return Response.json(entries);
+      if (url.pathname.includes("/sources/")) return serviceError(503);
+      if (url.pathname.includes(badAssets.id)) return Response.json({ assets: {} });
+      return Response.json(manifest);
+    });
+    const page = await client(fake.request).stills(PROJECT, 0);
+    expect(page.stills.map(({ itemId }) => itemId)).toEqual([still.id]);
+    expect(page.stills[0]).not.toHaveProperty("sourceTitle");
+    for (const status of [403, 429, 503]) {
+      const unavailable = fakeService((url) => url.pathname.endsWith("/items")
+        ? Response.json([still]) : serviceError(status));
+      const page = client(unavailable.request).stills(PROJECT, 0);
+      if (status === 403) await expect(page).rejects.toMatchObject({ status });
+      else await expect(page).rejects.toThrow("Research could not complete this read-only request.");
+    }
   });
 });

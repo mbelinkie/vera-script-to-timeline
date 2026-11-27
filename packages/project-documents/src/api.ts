@@ -11,6 +11,7 @@ import {
   requireHistoryLimit,
   requireObject,
   requireRevision,
+  requireUuid,
 } from "./model.js";
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
@@ -136,6 +137,43 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const writeSession = /^\/v1\/projects\/([^/]+)\/write-session$/u.exec(path);
+      if (writeSession) {
+        if (request.method !== "POST") return response(404, { error: "not_found" });
+        queryFields(url, []);
+        fields(await jsonBody(request), [], []);
+        return response(200, { writeSessionId: await deps.authorization.openWriteSession(requireUuid(writeSession[1]), principal) });
+      }
+      const access = /^\/v1\/projects\/([^/]+)\/access$/u.exec(path);
+      if (access) {
+        if (request.method !== "GET") return response(404, { error: "not_found" });
+        queryFields(url, []);
+        const decision = await deps.authorization.authorizeRequest(requireUuid(access[1]), principal, "view_document");
+        return response(200, { actorId: principal.principalId, role: decision.role,
+          membershipVersion: decision.membershipVersion });
+      }
+      const members = /^\/v1\/projects\/([^/]+)\/members(?:\/([^/]+))?$/u.exec(path);
+      if (members) {
+        queryFields(url, []);
+        const projectId = requireUuid(members[1]);
+        if (request.method === "GET" && members[2] === undefined) {
+          return response(200, { projectId,
+            members: await deps.authorization.listActiveProjectMembers(projectId, principal) });
+        }
+        if (request.method === "PATCH" && members[2] !== undefined) {
+          const actorId = requireUuid(members[2]);
+          const body = fields(await jsonBody(request), ["role"], ["role"]);
+          const role = body.role;
+          if (role !== null && role !== "producer" && role !== "editor" && role !== "viewer") {
+            throw new ProjectDocumentInputError("Invalid project role.");
+          }
+          const membershipVersion = await deps.authorization.changeMembership(
+            projectId, principal, actorId, role,
+          );
+          return response(200, { actorId, role, membershipVersion });
+        }
+        return response(404, { error: "not_found" });
+      }
       const secondaryTiming = /^\/v1\/projects\/([^/]+)\/document\/secondary-timing(?:\/(preview|operations))?$/u.exec(path);
       if (secondaryTiming) {
         if ((secondaryTiming[2] === "preview" || secondaryTiming[2] === "operations") ?
@@ -419,12 +457,13 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       }
       if (request.method === "PATCH" && !resource) {
         const body = fields(await jsonBody(request),
-          ["expectedProjectVersion", "clientMutationId", "title"],
+          ["expectedProjectVersion", "clientMutationId", "title", "writeSessionId"],
           ["expectedProjectVersion", "clientMutationId", "title"]);
         return response(200, await deps.documents.patchProject(id, principal, {
           expectedProjectVersion: body.expectedProjectVersion as number,
           clientMutationId: body.clientMutationId as string,
           title: body.title as string,
+          ...(Object.hasOwn(body, "writeSessionId") ? { writeSessionId: body.writeSessionId as string } : {}),
         }));
       }
       if (request.method === "PUT" && resource === "document") {

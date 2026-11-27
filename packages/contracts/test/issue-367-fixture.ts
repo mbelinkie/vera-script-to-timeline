@@ -1,5 +1,6 @@
 import { insertResearchStillBrowserV2 } from "../src/research-still-browser-insert.js";
 import { createResearchClipOccurrenceV2, type ResearchLoggedCandidateInputV2 } from "../src/authoring-v2-research-snapshot.js";
+import { toNarratedPlacementV2, wordlessPlacementsV2 } from "../src/authoring-v2-wordless.js";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 
 export const researchId = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -119,6 +120,25 @@ export function researchStashFixture(resolved = true) {
     ],
   };
   return { doc, anchor, note, clip };
+}
+
+/** Already-bound synthetic primary and waiting uses of the same logged source. */
+export function boundPrimaryFixture() {
+  const { doc } = researchStashFixture();
+  const row = researchNote(850100);
+  delete row.plainDirection;
+  row.tokens.forEach(token => { token.spoken = true; });
+  const first = researchOccurrence(850200);
+  const second = researchOccurrence(850300);
+  const a = toNarratedPlacementV2(wordlessPlacementsV2(first)[0]!);
+  const b = toNarratedPlacementV2(wordlessPlacementsV2(second)[0]!);
+  if (!("value" in a) || !("value" in b)) throw new Error("Expected bound clips");
+  const slot = row.primaryVisualSequence!.slots[0]!;
+  if (slot.kind !== "content") throw new Error("Expected primary slot");
+  slot.payload = a.value;
+  row.unattachedVisuals = [{ slotId: researchId(850400), version: 1, payload: b.value }];
+  doc.activeDraft.blocks = [row];
+  return { doc, row, first, second, slot };
 }
 
 /** Synthetic saved still placed through the normal browser insertion path. */

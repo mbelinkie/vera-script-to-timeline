@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
+import { availableParallelism, totalmem } from "node:os";
 import { performance } from "node:perf_hooks";
 
-import { fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
+import { fastWorkspaceConcurrency, fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
 
 const root = process.cwd();
 const selected = fastWorkspaces(root);
@@ -29,5 +30,11 @@ const options = {
   run,
   write: (line) => console.log(line),
 };
+const concurrency = fastWorkspaceConcurrency({
+  platform: process.platform,
+  cpus: availableParallelism(),
+  memoryBytes: Math.min(totalmem(), process.constrainedMemory() || Infinity),
+});
+console.log(`[fast-workspaces] parallel workspace limit: ${concurrency}`);
 const firstResult = await runWorkspaces(exclusive, { ...options, concurrency: 1 });
-process.exitCode = firstResult || await runWorkspaces(parallel, options);
+process.exitCode = firstResult || await runWorkspaces(parallel, { ...options, concurrency });

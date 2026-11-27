@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -34,6 +36,11 @@ def cut_identity(snapshot: Json) -> Json:
 
 def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
     """Verify the returned package against the frozen selection and actual bytes."""
+    video, digest, _ = _verified_cut(folder, snapshot)
+    return video, digest
+
+
+def _verified_cut(folder: Path, snapshot: Json) -> tuple[Path, str, Json]:
     expected = cut_identity(snapshot)
     clip_id = expected["clipId"]
     manifest = folder / f"{clip_id}.json"
@@ -78,7 +85,97 @@ def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
         manifest.name
     }:
         raise ValueError("Unexpected files in Research cut package")
-    return folder / video_name, video_hash
+    return folder / video_name, video_hash, record
+
+
+def verified_transcript_clock(
+    folder: Path, snapshot: Json, media: MediaInspection
+) -> Json | None:
+    """Accept optional timing only for the exact verified cut and cadence."""
+    video_path = folder / f"{cut_identity(snapshot)['clipId']}.mp4"
+    initial = _file_identity(video_path.stat(follow_symlinks=False))
+    video, digest, record = _verified_cut(folder, snapshot)
+    clock = record.get("transcriptClock")
+    if not isinstance(clock, dict) or set(clock) != {
+        "schemaVersion",
+        "transcriptVersionId",
+        "trackId",
+        "trackVersion",
+        "mediaSha256",
+        "trackContentSha256",
+        "alignmentFingerprint",
+        "alignmentAudioSha256",
+        "firstFrame",
+        "frameDuration",
+        "frameCount",
+    }:
+        return None
+    if (
+        type(clock["schemaVersion"]) is not int
+        or clock["schemaVersion"] != 1
+        or digest != media.content_hash
+        or clock["mediaSha256"] != digest.removeprefix("sha256:")
+        or type(clock["frameCount"]) is not int
+        or clock["frameCount"] != len(media.video_frames)
+        or clock["frameCount"] < 2
+        or clock["trackId"] != record["selectionTrackId"]
+        or type(clock["trackVersion"]) is not int
+        or clock["trackVersion"] != record["selectionTrackVersion"]
+        or clock["transcriptVersionId"] != record.get("transcriptVersionId")
+        or not isinstance(record.get("transcriptVersionId"), str)
+        or not re.fullmatch(r"[a-f0-9-]{36}", record["transcriptVersionId"])
+    ):
+        return None
+    for key, pattern in [
+        ("trackContentSha256", r"[a-f0-9]{64}"),
+        ("alignmentFingerprint", r"[a-f0-9]{64}"),
+        ("alignmentAudioSha256", r"sha256:[a-f0-9]{64}"),
+    ]:
+        if not isinstance(clock[key], str) or not re.fullmatch(pattern, clock[key]):
+            return None
+    for key in ["firstFrame", "frameDuration"]:
+        item = clock[key]
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"numerator", "denominator"}
+            or any(
+                type(value) is not int or abs(value) >= 2**53 for value in item.values()
+            )
+            or item["denominator"] <= 0
+            or item["numerator"] < 0
+        ):
+            return None
+    duration = clock["frameDuration"]
+    if Fraction(duration["numerator"], duration["denominator"]) != 1 / media.rate:
+        return None
+    # The media commits the clock's digest without carrying transcript IDs.
+    evidence = {key: value for key, value in clock.items() if key != "mediaSha256"}
+    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
+    expected = (
+        (56).to_bytes(4, "big")
+        + b"uuid"
+        + bytes.fromhex("8a4266a98b524776bd451c894db33d53")
+        + hashlib.sha256(canonical).digest()
+    )
+    try:
+        with os.fdopen(
+            os.open(video, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb"
+        ) as stream:
+            if _file_identity(os.fstat(stream.fileno())) != initial:
+                return None
+            stream.seek(-len(expected), os.SEEK_END)
+            if (
+                stream.read(len(expected)) != expected
+                or _file_identity(os.fstat(stream.fileno())) != initial
+            ):
+                return None
+    except OSError:
+        return None
+    return clock
+
+
+def _file_identity(info: os.stat_result) -> tuple[int, int, int, int, int]:
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
 def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:
@@ -103,6 +200,38 @@ def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:
             raise ValueError("Research cut changed during copy")
         stage.rename(destination)
     return destination
+
+
+def research_clip_folder(media: Path, snapshot: Json) -> Path:
+    clip_id = str(uuid.UUID(snapshot["clipId"]))
+    version = snapshot["clipVersion"]
+    if type(version) is not int or version < 1:
+        raise ValueError("Invalid Research revision")
+    path = media / "Research Clips" / clip_id / str(version)
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or any(part.is_symlink() for part in (path, *path.parents))
+    ):
+        raise ValueError("Research cache path must be local and cannot use symlinks")
+    return path
+
+
+def find_cached_research_cut(directory: Path, snapshot: Json) -> Path | None:
+    if not directory.exists():
+        return None
+    candidates = sorted(
+        path for path in directory.iterdir() if not path.name.startswith(".")
+    )
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise ValueError("Several copies claim the same Research clip revision")
+    cut = candidates[0]
+    _, digest = verify_cut(cut, snapshot)
+    if cut.name != digest.removeprefix("sha256:"):
+        raise ValueError("Project Research copy has a different content identity")
+    return cut
 
 
 def bind_research_cut(
@@ -148,6 +277,11 @@ def bind_research_cut(
         pictureKind="clip",
         source={"kind": "media_reference", "mediaReferenceId": media_id},
     )
+    # A system-frozen placeholder hold is superseded by the verified clip range.
+    # Keep existing explicitly authored overrides and the selected trim unchanged.
+    if timing.get("systemPreservedDefaultHold") is True:
+        timing.pop("systemPreservedDefaultHold")
+        timing.pop("durationOverrideMs", None)
     timing["selectedSourceRange"] = selected
     audio = media.audio
     assert audio is not None and media.audio_origin is not None
@@ -195,4 +329,31 @@ def bind_research_cut(
         "selectedSourceRange": {"startFrame": start, "endFrame": end},
         "preparedMediaRequirementKey": None,
     }
+    return video, media, descriptor
+
+
+def bind_narrated_research_cut(
+    payload: Json, owner: Json, folder: Path, tools: MediaTools
+) -> tuple[Path, MediaInspection, Json]:
+    """Verify a bound primary occurrence without editing the authored payload."""
+    binding = payload.get("frameBinding")
+    selection = payload.get("selectedSourceRange")
+    if binding is None or selection is None:
+        raise ValueError("Narrated Research clip needs a verified binding and range")
+    if payload.get("source") != {
+        "kind": "media_reference",
+        "mediaReferenceId": binding["mediaReferenceId"],
+    } or payload.get("sourceUsage") != {"sourceInFrame": selection["startFrame"]}:
+        raise ValueError(
+            "Narrated Research source differs from its saved range or binding"
+        )
+    row = {
+        "id": owner["slotId"],
+        "researchClip": payload["researchClip"],
+        "frameBinding": binding,
+        "payload": {"payloadId": payload["payloadId"]},
+        "visualOnlyTiming": {"selectedSourceRange": selection},
+    }
+    video, media, descriptor = bind_research_cut(row, folder, tools)
+    descriptor["owner"] = owner
     return video, media, descriptor

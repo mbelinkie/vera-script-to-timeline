@@ -209,6 +209,7 @@ class MatchAudioDuration(TypedDict):
 class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
+    systemPreservedDefaultHold: NotRequired[Literal[True]]
     matchAudioDuration: NotRequired[MatchAudioDuration]
     selectedSourceRange: NotRequired[SelectedSourceRange]
 
@@ -694,6 +695,7 @@ class NarratedVisualPayloadV2(TypedDict):
     imageMotion: NotRequired[ImageMotionV1]
     researchClip: NotRequired[ResearchClipSnapshotV2]
     researchStill: NotRequired[ResearchStillSnapshotV2]
+    showResearchStillCredit: NotRequired[bool]
     researchQuotePicture: NotRequired[ResearchQuotePictureV2]
     frameBinding: NotRequired[ResearchFrameBindingV2]
     selectedSourceRange: NotRequired[SelectedSourceRange]

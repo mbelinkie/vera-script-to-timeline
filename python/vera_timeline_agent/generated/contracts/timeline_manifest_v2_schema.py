@@ -143,6 +143,11 @@ class MusicEventV2(TypedDict):
     requestedEndFrame: compiler_dependencies_v2_schema.PositiveSafeInteger
 
 
+class StillCredit(TypedDict):
+    pictureEventId: compiler_dependencies_v2_schema.EntityId
+    text: str
+
+
 class QuoteBackgroundPart(TypedDict):
     blockId: compiler_dependencies_v2_schema.EntityId
     sequenceId: compiler_dependencies_v2_schema.EntityId
@@ -246,6 +251,7 @@ class TimelineEventV2(TypedDict):
         "primary_visual",
         "overlay_visual",
         "quote_box",
+        "still_credit",
         "source_audio",
         "music",
         "placeholder",
@@ -273,6 +279,7 @@ class TimelineEventV2(TypedDict):
     encodedBars: NotRequired[EncodedBarsIntentV1]
     music: NotRequired[MusicEventV2]
     pictureTreatment: NotRequired[PictureTreatmentV2 | None]
+    stillCredit: NotRequired[StillCredit]
     quoteBox: NotRequired[script_document_v2_schema.QuoteBoxV2]
     quoteBackgroundParts: NotRequired[list[QuoteBackgroundPart]]
     marker: NotRequired[ScriptMarkerTreatmentV2]

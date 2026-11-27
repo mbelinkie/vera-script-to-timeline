@@ -502,11 +502,13 @@ describe("authenticated and bounded project-document API", () => {
       kind: "create", threadId, messageId: randomUUID(), body: "Unique comment-only secret 385",
       mentionActorIds: [owner.principalId], anchor: { kind: "block", blockId: block.id },
     } };
-    expect((await api(request(`${url}/operations`, "POST", "viewer", payload))).status).toBe(403);
-    const created = await api(request(`${url}/operations`, "POST", "editor", payload));
+    expect((await api(request(`${url}/operations`, "POST", "viewer", {
+      expectedCommentRevision: 0, clientMutationId: randomUUID(), operation: { kind: "resolve", threadId },
+    }))).status).toBe(403);
+    const created = await api(request(`${url}/operations`, "POST", "viewer", payload));
     expect(created.status).toBe(200);
     expect(await body(created)).toMatchObject({ commentRevision: 1, duplicateDelivery: false });
-    expect(await body(await api(request(`${url}/operations`, "POST", "editor", payload))))
+    expect(await body(await api(request(`${url}/operations`, "POST", "viewer", payload))))
       .toMatchObject({ commentRevision: 1, duplicateDelivery: true });
     const view = await body(await api(request(url, "GET", "viewer")));
     expect(view.commentRevision).toBe(1);
@@ -520,7 +522,9 @@ describe("authenticated and bounded project-document API", () => {
       expectedCommentRevision: 1, clientMutationId: randomUUID(), operation: { kind: "resolve", threadId },
     }));
     expect((await body(resolved)).commentRevision).toBe(2);
-    expect((await api(request(`${url}/operations`, "POST", "viewer", payload))).status).toBe(403);
+    expect((await api(request(`${url}/operations`, "POST", "viewer", {
+      expectedCommentRevision: 2, clientMutationId: randomUUID(), operation: { kind: "reopen", threadId },
+    }))).status).toBe(403);
   });
 
   it("rejects cross-tenant comment reads/writes, spoofed actors, arbitrary fields and query strings", async () => {

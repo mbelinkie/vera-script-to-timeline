@@ -7,14 +7,14 @@ import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDi
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
 import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 import { copyStashNoteAsSpokenV2, invalidateChangedStashSourceLinksV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
-import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.js";
+import { findPrimaryResearchOwnerV2, trimNarratedResearchPayloadV2, trimResearchClipOccurrenceV2, type ResearchClipTrimChangeV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { ordinaryTransitionPairV2, qualifiedTransitionRowShapeV2 } from "./authoring-v2-row-transitions.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
-  appendWordlessV2, defaultWordlessHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
+  appendWordlessV2, defaultWordlessHoldV2, hasNondefaultAuthoredHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
   LEGACY_VISUAL_HOLD_MS, NEW_VISUAL_HOLD_MS, preserveWordlessHoldV2,
   promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
 } from "./authoring-v2-wordless.js";
@@ -106,10 +106,11 @@ function restoreClearedNarration(
   for (const visual of visuals) {
     const slot = slots.get(visual.payload.payloadId);
     const { audioPolicy } = visual.payload;
-    const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
-    // Four seconds is the new source-free default, not an authored nondefault
-    // hold. It can be discarded when the restored visual waits for words.
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== NEW_VISUAL_HOLD_MS) {
+    const { selectedSourceRange } = visual.visualOnlyTiming;
+    // A frozen system default can be discarded when the visual waits for words;
+    // custom timing and active music matching cannot.
+    if (!slot || audioPolicy === "full" || visual.visualOnlyTiming.matchAudioDuration ||
+        hasNondefaultAuthoredHoldV2(visual.visualOnlyTiming)) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {
@@ -171,8 +172,7 @@ export type RowEditCommandV2 =
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
   | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string; destination?: StashReturnDestinationV2 }
   | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string; clearText?: true }
-  | { kind: "trim_research_clip"; clipRowId: string; edge: "in" | "out"; frame: number }
-  | { kind: "trim_research_clip"; clipRowId: string; edge: "clear_out" }
+  | ({ kind: "trim_research_clip" } & ({ clipRowId: string; payloadId?: never } | { payloadId: string; clipRowId?: never }) & ResearchClipTrimChangeV2)
   | { kind: "place_attached_footage"; noteRowId: string; destination: RowGapV2 }
   | { kind: "set_stash_outline"; entries: StashOutlineEntryV2[] }
   | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2; includeDescendants?: boolean }
@@ -462,10 +462,17 @@ function validStashSectionChangeCommand(value: unknown): boolean {
 function validAttachmentCommand(value: unknown): boolean {
   if (!plainObject(value) || typeof value.kind !== "string") return false;
   if (value.kind === "trim_research_clip") {
-    return typeof value.clipRowId === "string" && value.clipRowId.length > 0 &&
-      (value.edge === "clear_out" ? exactKeys(value, ["kind", "clipRowId", "edge"]) :
+    const selector = Object.hasOwn(value, "payloadId") ? "payloadId" : "clipRowId";
+    const keys = ["kind", selector, "edge"];
+    const id = value[selector];
+    return typeof id === "string" && id.length > 0 &&
+      (value.edge === "clear_out" || value.edge === "reset" ? exactKeys(value, keys) :
+        value.edge === "range" ?
+          exactKeys(value, [...keys, "startFrame", "endFrame"]) &&
+          Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&
+          Number.isSafeInteger(value.endFrame) && (value.endFrame as number) >= 0 :
         (value.edge === "in" || value.edge === "out") &&
-        exactKeys(value, ["kind", "clipRowId", "edge", "frame"]) &&
+        exactKeys(value, [...keys, "frame"]) &&
         Number.isSafeInteger(value.frame) && (value.frame as number) >= 0);
   }
   if (typeof value.noteRowId !== "string" || value.noteRowId.length === 0) return false;
@@ -1542,7 +1549,7 @@ export function applyRowEditV2(
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
-  if (command.kind === "trim_research_clip" && (grouped.has(command.clipRowId) ||
+  if (command.kind === "trim_research_clip" && command.clipRowId !== undefined && (grouped.has(command.clipRowId) ||
     document.stash?.some((bundle) => bundle.rows.some((row) =>
       grouped.has(row.id) && row.type === "narration" && row.attachedFootage?.clip.id === command.clipRowId)))) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Trim a grouped row's footage through the staged group editor, not an independent row edit.");
@@ -2038,7 +2045,10 @@ export function applyRowEditV2(
       for (const visual of visuals) {
         if (visual.visualOnlyTiming.matchAudioDuration?.cueId !== command.cueId) continue;
         const restoredMilliseconds = visual.visualOnlyTiming.durationOverrideMs ?? 4000;
-        visual.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: restoredMilliseconds };
+        visual.visualOnlyTiming = {
+          kind: "visual_only", durationOverrideMs: restoredMilliseconds,
+          ...(visual.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
+        };
         operationDiagnostics.push({
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Removed the music cue; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
           severity: "warning",
@@ -2194,6 +2204,7 @@ export function applyRowEditV2(
         target.visualOnlyTiming = {
           kind: "visual_only",
           durationOverrideMs: restoredMilliseconds,
+          ...(target.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
         };
         operationDiagnostics = [{
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Match audio duration was cleared; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
@@ -2280,47 +2291,71 @@ export function applyRowEditV2(
     // Exact payload discrimination is checked above; all graph changes happen only on the clone.
     const attachmentCommand = command as StashFootageCommandV2;
     if (attachmentCommand.kind === "trim_research_clip") {
-      const stashClip = stashRowById(working, attachmentCommand.clipRowId);
-      const activeClip = blocks.find((row) => row.id === attachmentCommand.clipRowId);
-      const owner = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)].find(
-        (row): row is NarrationBlockV2 => row.type === "narration" &&
-          row.attachedFootage?.clip.id === attachmentCommand.clipRowId,
-      );
-      const clip = owner?.attachedFootage?.clip ?? (stashClip?.type === "visual_only" ? stashClip :
-        activeClip?.type === "visual_only" ? activeClip : undefined);
-      if (!clip) return refused(document, "RESEARCH_CLIP_NOT_FOUND", "Choose an existing Research clip occurrence, including an attached one.");
-      let trimmed: VisualOnlyBlockV2;
-      try {
-        trimmed = trimResearchClipOccurrenceV2(clip, attachmentCommand.edge === "clear_out"
-          ? { edge: "clear_out" } : { edge: attachmentCommand.edge, frame: attachmentCommand.frame });
-      } catch {
-        return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The selected source frame must remain inside the original evidenced logged interval, with a positive duration.");
-      }
-      if (sameAuthoringJsonV2(trimmed.visualOnlyTiming, clip.visualOnlyTiming)) {
-        return refused(document, "ROW_EDIT_NO_CHANGE", "The clip already uses this source range.");
-      }
-      trimmed.version = clip.version + 1;
-      if (!Number.isSafeInteger(trimmed.version)) return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The clip revision cannot advance.");
-      if (owner) {
-        owner.attachedFootage = { clip: trimmed };
-        // Active note visuals are derived from this one authoritative clip.
-        // Verify the old mirror before refreshing it, never replace an unrelated edit.
-        if (blocks.includes(owner)) {
-          const slot = owner.primaryVisualSequence?.slots[0];
-          if (!slot || owner.primaryVisualSequence?.slots.length !== 1 || slot.kind !== "content" ||
-            !sameAuthoringJsonV2(slot.payload, mirroredAttachmentPayload(owner.id, clip, slot.id))) {
-            return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The active note's visual no longer matches its owned footage.");
-          }
-          slot.payload = mirroredAttachmentPayload(owner.id, trimmed, slot.id);
+      if (attachmentCommand.payloadId !== undefined) {
+        const target = findPrimaryResearchOwnerV2(working, attachmentCommand.payloadId);
+        if (!target) return refused(document, "RESEARCH_CLIP_NOT_FOUND", "Choose an existing owned primary Research visual.");
+        const { row, item, payload } = target;
+        if (grouped.has(row.id)) return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Trim a grouped row's footage through the staged group editor, not an independent row edit.");
+        const sequence = row.primaryVisualSequence;
+        if (!sequence || [row.version, item.version, sequence.version].some(version => !Number.isSafeInteger(version + 1))) {
+          return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The owning visual revision cannot advance.");
         }
+        let trimmed;
+        try {
+          trimmed = trimNarratedResearchPayloadV2(payload, attachmentCommand);
+        } catch {
+          return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The selected source frame must remain inside the original evidenced logged interval, with a positive duration.");
+        }
+        if (sameAuthoringJsonV2(payload.selectedSourceRange, trimmed.selectedSourceRange)) {
+          return refused(document, "ROW_EDIT_NO_CHANGE", "The clip already uses this source range.");
+        }
+        Object.assign(payload, trimmed);
+        item.version++;
+        sequence.version++;
+        row.version++;
+        markStashOriginEditedV2(row);
       } else {
-        const target = stashClip?.type === "visual_only" ? stashClip : activeClip as VisualOnlyBlockV2;
-        const replacement = { ...trimmed, ...(target.stashOrigin ? { stashOrigin: structuredClone(target.stashOrigin) } : {}) };
-        markStashOriginEditedV2(replacement);
-        if (stashClip) {
-          const bundle = working.stash!.find((b) => b.rows.some((row) => row.id === target.id))!;
-          bundle.rows.splice(bundle.rows.findIndex((row) => row.id === target.id), 1, replacement);
-        } else blocks.splice(blocks.findIndex((row) => row.id === target.id), 1, replacement);
+        const stashClip = stashRowById(working, attachmentCommand.clipRowId);
+        const activeClip = blocks.find((row) => row.id === attachmentCommand.clipRowId);
+        const owner = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)].find(
+          (row): row is NarrationBlockV2 => row.type === "narration" &&
+            row.attachedFootage?.clip.id === attachmentCommand.clipRowId,
+        );
+        const clip = owner?.attachedFootage?.clip ?? (stashClip?.type === "visual_only" ? stashClip :
+          activeClip?.type === "visual_only" ? activeClip : undefined);
+        if (!clip) return refused(document, "RESEARCH_CLIP_NOT_FOUND", "Choose an existing Research clip occurrence, including an attached one.");
+        let trimmed: VisualOnlyBlockV2;
+        try {
+          trimmed = trimResearchClipOccurrenceV2(clip, attachmentCommand);
+        } catch {
+          return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The selected source frame must remain inside the original evidenced logged interval, with a positive duration.");
+        }
+        if (sameAuthoringJsonV2(trimmed.visualOnlyTiming, clip.visualOnlyTiming)) {
+          return refused(document, "ROW_EDIT_NO_CHANGE", "The clip already uses this source range.");
+        }
+        trimmed.version = clip.version + 1;
+        if (!Number.isSafeInteger(trimmed.version)) return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The clip revision cannot advance.");
+        if (owner) {
+          owner.attachedFootage = { clip: trimmed };
+          // Active note visuals are derived from this one authoritative clip.
+          // Verify the old mirror before refreshing it, never replace an unrelated edit.
+          if (blocks.includes(owner)) {
+            const slot = owner.primaryVisualSequence?.slots[0];
+            if (!slot || owner.primaryVisualSequence?.slots.length !== 1 || slot.kind !== "content" ||
+              !sameAuthoringJsonV2(slot.payload, mirroredAttachmentPayload(owner.id, clip, slot.id))) {
+              return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The active note's visual no longer matches its owned footage.");
+            }
+            slot.payload = mirroredAttachmentPayload(owner.id, trimmed, slot.id);
+          }
+        } else {
+          const target = stashClip?.type === "visual_only" ? stashClip : activeClip as VisualOnlyBlockV2;
+          const replacement = { ...trimmed, ...(target.stashOrigin ? { stashOrigin: structuredClone(target.stashOrigin) } : {}) };
+          markStashOriginEditedV2(replacement);
+          if (stashClip) {
+            const bundle = working.stash!.find((b) => b.rows.some((row) => row.id === target.id))!;
+            bundle.rows.splice(bundle.rows.findIndex((row) => row.id === target.id), 1, replacement);
+          } else blocks.splice(blocks.findIndex((row) => row.id === target.id), 1, replacement);
+        }
       }
     } else if (attachmentCommand.kind === "place_attached_footage") {
       const index = gapIndex(blocks, attachmentCommand.destination);

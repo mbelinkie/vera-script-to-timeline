@@ -3,7 +3,12 @@ import type { ResearchStillSnapshotV2 } from "./generated/contracts-v2.js";
 type StillItem = Omit<ResearchStillSnapshotV2, "original" | "provenance">;
 type Asset = ResearchStillSnapshotV2["original"];
 type Provenance = ResearchStillSnapshotV2["provenance"];
-export type ResearchStillChoice = Pick<StillItem, "itemId" | "itemVersion" | "title" | "credit">;
+export type ResearchStillChoice = Pick<StillItem, "researchProjectId" | "itemId" | "itemVersion" | "title" | "credit" | "licence" | "usageNote"> & {
+  sourceTitle?: string;
+  createdAt?: string;
+  logger?: string;
+  topics: string[];
+};
 export class UnsupportedKeptStillError extends Error {}
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
@@ -55,6 +60,25 @@ export function readStillItem(value: unknown, projectId: string, itemId?: string
     itemVersion: value.version, sourceId: value.sourceId.toLowerCase(), title,
     ...(credit === undefined ? {} : { credit }), ...(licence === undefined ? {} : { licence }),
     ...(usageNote === undefined ? {} : { usageNote }) };
+}
+
+/** List metadata is separate from the frozen build snapshot. */
+export function readStillChoice(value: unknown, projectId: string): ResearchStillChoice {
+  const item = readStillItem(value, projectId);
+  const raw = value as Record<string, unknown>;
+  const createdAt = optionalText(raw.createdAt, 64);
+  const logger = optionalText(raw.createdBy, 36);
+  const topics = raw.topics === undefined ? [] : raw.topics;
+  if ((createdAt !== undefined && !Number.isFinite(Date.parse(createdAt))) ||
+      (logger !== undefined && !uuid(logger)) || !Array.isArray(topics) || topics.length > 100 ||
+      !topics.every((topic): topic is string => typeof topic === "string" && !!optionalText(topic, 200))) {
+    throw new Error("Research returned invalid still catalog metadata.");
+  }
+  const { researchProjectId, itemId, itemVersion, title, credit, licence, usageNote } = item;
+  return { researchProjectId, itemId, itemVersion, title, topics,
+    ...(credit === undefined ? {} : { credit }), ...(licence === undefined ? {} : { licence }),
+    ...(usageNote === undefined ? {} : { usageNote }), ...(createdAt === undefined ? {} : { createdAt }),
+    ...(logger === undefined ? {} : { logger }) };
 }
 
 function readAsset(value: unknown, maxBytes: number, maxEdge: number): Asset {

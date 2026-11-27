@@ -114,6 +114,9 @@ export function previewSecondaryTimingReconcileV2(
     if (!isPositiveSafe(block.version) || block.version === Number.MAX_SAFE_INTEGER) {
       return refusal("INVALID_INPUT", "The visual-only row cannot advance its version safely.");
     }
+    if (block.visualOnlyTiming.durationOverrideMs !== command.durationOverrideMs) {
+      delete block.visualOnlyTiming.systemPreservedDefaultHold;
+    }
     block.visualOnlyTiming.durationOverrideMs = command.durationOverrideMs;
     block.version += 1;
     affectedEventId = event.eventId;
@@ -159,7 +162,12 @@ export function previewSecondaryTimingReconcileV2(
       compiled.report.diagnostics.map((item) => ({ code: item.code, message: item.message })));
   }
   try {
-    const comparison = compareSecondaryTimingV2(baseline, compiled.manifest);
+    // Both manifests were compiled above. Credit graphics are a projection of
+    // picture visibility, so changing an overlay can resize, add or remove them.
+    const pictureTiming = (manifest: TimelineManifestV2): TimelineManifestV2 => ({
+      ...manifest, events: manifest.events.filter((event) => event.kind !== "still_credit"),
+    });
+    const comparison = compareSecondaryTimingV2(pictureTiming(baseline), pictureTiming(compiled.manifest));
     if (comparison.boundaries.some((item) => item.deltaFrames !== 0 ||
         (item.durationDeltaFrames !== null && item.durationDeltaFrames !== 0)) ||
         comparison.visualEvents.some((item) => {

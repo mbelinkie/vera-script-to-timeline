@@ -61,6 +61,11 @@ function inventory(rows: SavedRow[], items: SupportingItemV2[]): Ref[] {
     own(row);
     if (row.type === "visual_only") {
       payload(row.payload);
+      row.additionalVisuals?.forEach((visual) => payload(visual.payload));
+      if (row.clearedNarration) {
+        own(row.clearedNarration);
+        row.clearedNarration.slots.forEach((slot) => own(slot));
+      }
     } else if (row.type === "narration") {
       row.tokens.forEach((token) => own(token));
       row.annotations?.forEach((annotation) => own(annotation));
@@ -144,6 +149,12 @@ function remapRefs(rows: SavedRow[], items: SupportingItemV2[], ids: Map<string,
     if (!value.start && !value.end) valid = false; // at least one proved owner anchor
   };
   const visit = (row: SavedRow): void => {
+    if (row.type === "visual_only") {
+      row.clearedNarration?.slots.forEach((slot) => {
+        slot.visualId = remap(slot.visualId);
+      });
+      return;
+    }
     if (row.type !== "narration") return;
     row.annotations?.forEach((entry) => range(entry.range));
     row.performanceBeats?.forEach((entry) => range(entry.range));
@@ -201,7 +212,8 @@ function safeAttachedMirror(row: SavedRow): boolean {
   if (row.type !== "narration" || !row.attachedFootage) return true;
   const clip = row.attachedFootage.clip;
   const slot = row.primaryVisualSequence?.slots[0];
-  if (clip.payload.audioPolicy === "full" || row.primaryVisualSequence?.slots.length !== 1 ||
+  if (clip.additionalVisuals?.length || clip.clearedNarration ||
+      clip.payload.audioPolicy === "full" || row.primaryVisualSequence?.slots.length !== 1 ||
       !slot || slot.kind !== "content" || slot.relation.kind !== "base" ||
       slot.boundaryBefore.kind !== "row_start" || slot.playoutPolicy !== "match_structural_interval" ||
       slot.payload.kind !== "visual") return false;

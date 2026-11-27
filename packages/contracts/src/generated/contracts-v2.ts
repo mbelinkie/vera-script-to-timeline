@@ -82,6 +82,10 @@ export type NarratedVisualPayloadV2 = {
       };
   researchClip?: ResearchClipSnapshotV2;
   researchStill?: ResearchStillSnapshotV2;
+  /**
+   * Per-occurrence on-screen credit; absent is off.
+   */
+  showResearchStillCredit?: boolean;
   researchQuotePicture?: ResearchQuotePictureV2;
   frameBinding?: ResearchFrameBindingV2;
   selectedSourceRange?: {
@@ -467,6 +471,7 @@ export type TimelineEventV2 = {
     | "primary_visual"
     | "overlay_visual"
     | "quote_box"
+    | "still_credit"
     | "source_audio"
     | "music"
     | "placeholder"
@@ -509,6 +514,10 @@ export type TimelineEventV2 = {
   pictureTreatment?:
     | (StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2)
     | null;
+  stillCredit?: {
+    pictureEventId: string;
+    text: string;
+  };
   quoteBox?: QuoteBoxV2;
   /**
    * Row-local ownership of one continuous Research quote still.
@@ -1190,6 +1199,10 @@ export interface AttachedFootageV2 {
 export interface VisualOnlyTimingV2 {
   kind: "visual_only";
   durationOverrideMs?: number;
+  /**
+   * The fixed hold was materialized from the prior effective system default to keep wordless playout unchanged. Omitted for custom or unknown-origin fixed holds.
+   */
+  systemPreservedDefaultHold?: true;
   /**
    * Explicit opt-in to match this untimed visual's duration to one saved music cue. The fixed hold remains the fallback if the match is cleared.
    */
@@ -2295,6 +2308,7 @@ export interface EventResultV2 {
     | "primary_visual"
     | "overlay_visual"
     | "quote_box"
+    | "still_credit"
     | "source_audio"
     | "music"
     | "placeholder"

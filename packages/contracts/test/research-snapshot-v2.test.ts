@@ -4,6 +4,8 @@ import {
   inwardUseRangeV2,
   snapshotResearchCandidateV2,
   withResearchClipUseRangeV2,
+  resetResearchClipOccurrenceV2,
+  trimResearchClipOccurrenceV2,
   type ResearchLoggedCandidateInputV2,
 } from "../src/authoring-v2-research-snapshot.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
@@ -123,6 +125,29 @@ describe("Research logged-clip snapshot and exclusive owner", () => {
     expect(first.id).not.toBe(second.id);
     expect(inwardUseRangeV2({ startFrame: 12, endFrame: 108 }, { startFrame: 24, endFrame: 60 }))
       .toEqual({ startFrame: 24, durationFrames: 36 });
+  });
+
+  it("sets both ends and resets an evidenced occurrence without touching its original or sibling", () => {
+    const first = ready();
+    const second = ready(610, 611);
+    const original = structuredClone(first);
+    const sibling = structuredClone(second);
+    const adjusted = trimResearchClipOccurrenceV2(first, { edge: "range", startFrame: 66, endFrame: 90 });
+    expect(adjusted.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 66, durationFrames: 24 });
+    const reset = resetResearchClipOccurrenceV2(adjusted);
+    expect(reset).toEqual({ ...original, visualOnlyTiming: {
+      ...original.visualOnlyTiming, selectedSourceRange: { startFrame: 12, durationFrames: 96 },
+    } });
+    expect(first).toEqual(original);
+    expect(second).toEqual(sibling);
+    expect(() => resetResearchClipOccurrenceV2(unresolved())).toThrow(/binding/);
+    expect(() => trimResearchClipOccurrenceV2(unresolved(), { edge: "range", startFrame: 24, endFrame: 60 })).toThrow();
+    const mismatched = structuredClone(first);
+    mismatched.frameBinding!.clipVersion++;
+    expect(() => resetResearchClipOccurrenceV2(mismatched)).toThrow(/mismatched/);
+    for (const [startFrame, endFrame] of [[11, 60], [24, 109], [50, 50], [51, 50], [24.5, 60], [24, Number.MAX_SAFE_INTEGER + 1]]) {
+      expect(() => trimResearchClipOccurrenceV2(first, { edge: "range", startFrame: startFrame!, endFrame: endFrame! })).toThrow();
+    }
   });
 
   it("rejects fake revision bindings, unsupported frame inference, unsafe/empty/outward trims and invalid source intervals", () => {

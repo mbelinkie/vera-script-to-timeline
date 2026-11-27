@@ -1141,6 +1141,21 @@ describe("authoring v2 document and project-settings schemas", () => {
     }
   });
 
+  it("#746 validates system-preserved default provenance only on fixed still holds", () => {
+    const marked = { kind: "visual_only", durationOverrideMs: 3200, systemPreservedDefaultHold: true };
+    expectDocumentValid(documentWithBlock(visualOnlyBlock("image", marked)));
+    for (const timing of [
+      { kind: "visual_only", systemPreservedDefaultHold: true },
+      { ...marked, systemPreservedDefaultHold: false },
+      { ...marked, systemPreservedDefaultHold: "true" },
+      { ...marked, durationOverrideMs: 0 },
+      { ...marked, selectedSourceRange: { startFrame: 0, durationFrames: 25 } },
+    ]) expectDocumentInvalid(documentWithBlock(visualOnlyBlock("image", timing)));
+    expectDocumentInvalid(documentWithBlock(visualOnlyBlock("clip", {
+      ...marked, selectedSourceRange: { startFrame: 0, durationFrames: 25 },
+    })));
+  });
+
   it("allows optional project and document settings while rejecting null and unknown settings", () => {
     expectDocumentValid(documentWithBlock());
     expectSettingsValid(projectSettings());

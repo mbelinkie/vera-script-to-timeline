@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBlockV2 } from "@vera/contracts/v2";
 import { describe, expect, it } from "vitest";
 
@@ -54,6 +54,82 @@ function refuseWithoutMutation(document: ScriptDocumentV2, raw: unknown, code: s
 }
 
 describe("Extras atomic duplicate-as-new", () => {
+  it.each([false, true])("duplicates all saved wordless cards and former slots (cleared narration: %s)", (cleared) => {
+    const document = documentFor(id(810));
+    document.id = id(811);
+    const row: VisualOnlyBlockV2 = {
+      type: "visual_only", id: id(812), orderKey: "pictures", version: 2,
+      payload: {
+        kind: "visual", payloadId: id(813), pictureKind: "image",
+        source: { kind: "media_reference", mediaReferenceId: id(814) }, audioPolicy: "mute",
+      },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 3000 },
+      additionalVisuals: [{
+        payload: {
+          kind: "visual", payloadId: id(815), pictureKind: "image",
+          source: { kind: "media_reference", mediaReferenceId: id(814) }, audioPolicy: "mute",
+        },
+        visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 5000 },
+      }, {
+        payload: {
+          kind: "visual", payloadId: id(816), pictureKind: "clip",
+          source: { kind: "media_reference", mediaReferenceId: id(817) }, audioPolicy: "quiet",
+        },
+        visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 48, durationFrames: 96 } },
+      }],
+    };
+    if (cleared) {
+      row.visualOnlyTiming.durationOverrideMs = 4000;
+      row.additionalVisuals![0].visualOnlyTiming.durationOverrideMs = 4000;
+      row.clearedNarration = { id: id(818), version: 3, slots: [
+        { id: id(819), version: 1, visualId: id(813) },
+        { id: id(820), version: 2, visualId: id(815) },
+        { id: id(821), version: 1, visualId: id(816) },
+      ] };
+    }
+    document.activeDraft.blocks = [
+      { type: "section", id: gap.sectionId, orderKey: "1", title: "Draft", version: 1 }, row,
+    ];
+    expect(validateScriptDocumentV2(document).diagnostics.filter((d) => d.severity !== "warning")).toEqual([]);
+    const parked = applyExtrasStorageOperation(document, { kind: "stash_rows", rowIds: [row.id], bundleId: id(822) });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(parked.document));
+    if (!reloaded.ok) throw new Error("Expected saved pictures to reload");
+    const stored = reloaded.document;
+    const before = JSON.stringify(stored);
+    const saved = stored.stash![0]!.rows[0] as VisualOnlyBlockV2;
+    const result = applyExtrasStorageOperation(stored, command([row.id]), allocator());
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const fresh = result.document.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const expected = structuredClone(saved);
+    delete expected.stashOrigin;
+    expected.id = fresh.id;
+    expected.payload.payloadId = fresh.payload.payloadId;
+    expected.additionalVisuals!.forEach((card, index) => {
+      card.payload.payloadId = fresh.additionalVisuals![index]!.payload.payloadId;
+    });
+    const originalIds = [saved.id, saved.payload.payloadId, ...saved.additionalVisuals!.map((card) => card.payload.payloadId)];
+    const newIds = [fresh.id, fresh.payload.payloadId, ...fresh.additionalVisuals!.map((card) => card.payload.payloadId)];
+    if (cleared) {
+      const oldSequence = saved.clearedNarration!;
+      const newSequence = fresh.clearedNarration!;
+      expected.clearedNarration!.id = newSequence.id;
+      expected.clearedNarration!.slots.forEach((slot, index) => {
+        slot.id = newSequence.slots[index]!.id;
+        slot.visualId = newIds[originalIds.indexOf(slot.visualId)]!;
+      });
+      originalIds.push(oldSequence.id, ...oldSequence.slots.map((slot) => slot.id));
+      newIds.push(newSequence.id, ...newSequence.slots.map((slot) => slot.id));
+    }
+    expect(new Set(newIds).size).toBe(originalIds.length);
+    expect(newIds.every((value) => !originalIds.includes(value))).toBe(true);
+    expect(fresh).toEqual(expected);
+    expect(result.document.stash).toEqual(stored.stash);
+    expect(result.document.stashOutline).toEqual(stored.stashOutline);
+    expect(JSON.stringify(stored)).toBe(before);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+  });
+
   it("duplicates a saved waiting-for-words visual with fresh identities and unchanged source and trim", () => {
     const { document, rowId, sectionId } = extrasDocumentFor(id(800));
     const row = copied(document);
@@ -181,6 +257,14 @@ describe("Extras atomic duplicate-as-new", () => {
     expect(fresh.attachedFootage?.clip.visualOnlyTiming).toEqual(clip.visualOnlyTiming);
     expect(JSON.stringify(result.document.stash)).toBe(before);
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+
+    // A note's exact one-slot mirror cannot account for an additional picture.
+    clip.additionalVisuals = [{
+      payload: { ...structuredClone(clip.payload), payloadId: id(607) },
+      visualOnlyTiming: structuredClone(clip.visualOnlyTiming),
+    }];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    refuseWithoutMutation(document, command([row.id]), "EXTRAS_DUPLICATE_REVIEW_REQUIRED");
   });
 
   it("refuses an attached clip without an exact one-slot visual mirror", () => {

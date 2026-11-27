@@ -283,6 +283,21 @@ export class ProjectAuthorizationService {
     });
   }
 
+  /** Roster is confidential: authorize and read in the same transaction. */
+  async listActiveProjectMembers(projectId: string, principal: PrincipalRef): Promise<Array<{
+    actorId: string; role: ProjectRole; membershipVersion: number;
+  }>> {
+    return await this.withAuthorizedMutation(projectId, principal, "manage_members", async (db) => {
+      const result = await db.query<{ actor_id: string; role: ProjectRole; version: number }>(
+        "SELECT m.actor_id,m.role,m.version FROM vera_project_members m " +
+        "JOIN vera_identity_actors a ON a.id=m.actor_id " +
+        "WHERE m.project_id=$1 AND m.active=true AND a.disabled_at IS NULL ORDER BY m.actor_id",
+        [projectId],
+      );
+      return result.rows.map((m) => ({ actorId: m.actor_id, role: m.role, membershipVersion: Number(m.version) }));
+    });
+  }
+
   // Trusted internal #380 new-project transaction ONLY. Never expose this
   // as an unauthenticated endpoint or use it against an existing project.
   async provisionFirstProducerInProjectTransaction(
