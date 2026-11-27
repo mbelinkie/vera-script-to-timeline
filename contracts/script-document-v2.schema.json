@@ -2280,6 +2280,10 @@
         "durationOverrideMs": {
           "$ref": "#/$defs/PositiveSafeInteger"
         },
+        "systemPreservedDefaultHold": {
+          "description": "The fixed hold was materialized from the prior effective system default to keep wordless playout unchanged. Omitted for custom or unknown-origin fixed holds.",
+          "const": true
+        },
         "matchAudioDuration": {
           "type": "object",
           "description": "Explicit opt-in to match this untimed visual's duration to one saved music cue. The fixed hold remains the fallback if the match is cleared.",
@@ -2306,6 +2310,18 @@
               "$ref": "#/$defs/PositiveSafeInteger"
             }
           }
+        }
+      },
+      "if": {
+        "properties": { "systemPreservedDefaultHold": {} },
+        "required": ["systemPreservedDefaultHold"]
+      },
+      "then": {
+        "properties": { "durationOverrideMs": {} },
+        "required": ["durationOverrideMs"],
+        "not": {
+          "properties": { "selectedSourceRange": {} },
+          "required": ["selectedSourceRange"]
         }
       }
     },

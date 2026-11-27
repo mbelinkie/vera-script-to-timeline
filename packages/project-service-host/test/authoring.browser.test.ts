@@ -3007,6 +3007,79 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#746 reloads an inherited still, moves it to narration, attaches and undoes without losing provenance", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = randomUUID();
+    const seeded = draggableVisualFixture(projectId);
+    const { document: legacy, dependencies } = JSON.parse(readFileSync(VISUAL_ONLY_FIXTURE, "utf8")) as {
+      document: ScriptDocumentV2; dependencies: CompilerDependenciesV2;
+    };
+    const still = legacy.activeDraft.blocks[0];
+    if (still?.type !== "visual_only") throw new Error("missing legacy still");
+    still.id = randomUUID();
+    still.orderKey = "z";
+    still.payload.payloadId = randomUUID();
+    const legacyIndex = seeded.document.activeDraft.blocks.findIndex(block => block.type === "visual_only");
+    if (legacyIndex < 0) throw new Error("missing wordless fixture row");
+    seeded.document.activeDraft.blocks[legacyIndex] = still;
+    await page.goto(origin);
+    const created = await appRequest(page, "/authoring/projects", "POST", {
+      projectId, title: seeded.document.title, clientRequestId: randomUUID(), document: seeded.document,
+      settings: {
+        schemaVersion: "authoring-project-settings/v1", id: randomUUID(), projectId,
+        version: 1, settingsHash: dependencies.authoringDefaults.settingsHash, visualOnlyStillDurationMs: 3200,
+      },
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const source = page.locator(`[data-row-id="${still.id}"]`);
+    const target = page.locator(`[data-row-id="${seeded.targetId}"]`);
+    const card = source.locator(`.visual-card[data-payload-id="${still.payload.payloadId}"]`);
+    const saved = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect(response.status).toBe(200);
+      return (response.body as SavedDocument).document;
+    };
+    const sourceRow = async () => (await saved()).activeDraft.blocks.find(row => row.id === still.id);
+    const marked = { payload: still.payload, visualOnlyTiming: {
+      kind: "visual_only", durationOverrideMs: 3200, systemPreservedDefaultHold: true,
+    } };
+    const waiting = async () => {
+      const row = (await saved()).activeDraft.blocks.find(item => item.id === seeded.targetId);
+      return row?.type === "narration" ? row.unattachedVisuals?.find(item => item.payload.payloadId === still.payload.payloadId) : undefined;
+    };
+    await expect.poll(() => source.locator(".visual-card__hold-input").inputValue()).toBe("3.2");
+    await source.getByRole("button", { name: "+ Visual" }).click();
+    await source.getByRole("menuitem", { name: "Onscreen Placeholder" }).click();
+    await expect.poll(sourceRow).toMatchObject(marked);
+    await page.reload();
+    await expect.poll(() => source.locator(".visual-card__hold-input").count()).toBe(2);
+    expect(await source.locator(".visual-card__hold-input").first().inputValue()).toBe("3.2");
+    await card.dragTo(target.locator(".visuals-cell"), {
+      sourcePosition: { x: 12, y: 12 }, targetPosition: { x: 110, y: 45 },
+    });
+    const payload = { ...still.payload, sourceUsage: null };
+    await expect.poll(waiting).toMatchObject({ payload });
+    await expect.poll(sourceRow).toMatchObject({ visualOnlyTiming: { durationOverrideMs: 4000 } });
+    const slotId = (await waiting())!.slotId;
+    await target.locator(`.visual-card[data-slot-id="${slotId}"] [data-attach-visual]`).click();
+    await selectText(target.locator("[data-narration-editor]"), seeded.targetTokenRange.start, seeded.targetTokenRange.end);
+    await target.getByRole("button", { name: "Attach visual", exact: true }).click();
+    await expect.poll(waiting).toBeUndefined();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.targetId))
+      ?.primaryVisualSequence?.slots.find(item => item.id === slotId)).toMatchObject({ payload });
+    await page.getByRole("button", { name: "Undo Attach visual" }).click();
+    await expect.poll(waiting).toMatchObject({ slotId, payload });
+    await page.getByRole("button", { name: "Undo Move visual" }).click();
+    await expect.poll(sourceRow).toMatchObject(marked);
+    await expect.poll(waiting).toBeUndefined();
+    await page.reload();
+    await expect.poll(sourceRow).toMatchObject(marked);
+    await expect.poll(() => card.count()).toBe(1);
+    await page.close();
+  }, 90_000);
+
   it("#621 promotes a blank row, adds two pictures, reorders, edits Hold and moves a wordless picture", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

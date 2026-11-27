@@ -13,7 +13,7 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
-  appendWordlessV2, defaultWordlessHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
+  appendWordlessV2, defaultWordlessHoldV2, hasNondefaultAuthoredHoldV2, liftWordlessV2, newWordlessPlaceholderV2,
   LEGACY_VISUAL_HOLD_MS, NEW_VISUAL_HOLD_MS, preserveWordlessHoldV2,
   promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
 } from "./authoring-v2-wordless.js";
@@ -105,10 +105,11 @@ function restoreClearedNarration(
   for (const visual of visuals) {
     const slot = slots.get(visual.payload.payloadId);
     const { audioPolicy } = visual.payload;
-    const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
-    // Four seconds is the new source-free default, not an authored nondefault
-    // hold. It can be discarded when the restored visual waits for words.
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== NEW_VISUAL_HOLD_MS) {
+    const { selectedSourceRange } = visual.visualOnlyTiming;
+    // A frozen system default can be discarded when the visual waits for words;
+    // custom timing and active music matching cannot.
+    if (!slot || audioPolicy === "full" || visual.visualOnlyTiming.matchAudioDuration ||
+        hasNondefaultAuthoredHoldV2(visual.visualOnlyTiming)) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {
@@ -2031,7 +2032,10 @@ export function applyRowEditV2(
       for (const visual of visuals) {
         if (visual.visualOnlyTiming.matchAudioDuration?.cueId !== command.cueId) continue;
         const restoredMilliseconds = visual.visualOnlyTiming.durationOverrideMs ?? 4000;
-        visual.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: restoredMilliseconds };
+        visual.visualOnlyTiming = {
+          kind: "visual_only", durationOverrideMs: restoredMilliseconds,
+          ...(visual.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
+        };
         operationDiagnostics.push({
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Removed the music cue; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
           severity: "warning",
@@ -2187,6 +2191,7 @@ export function applyRowEditV2(
         target.visualOnlyTiming = {
           kind: "visual_only",
           durationOverrideMs: restoredMilliseconds,
+          ...(target.visualOnlyTiming.systemPreservedDefaultHold ? { systemPreservedDefaultHold: true } : {}),
         };
         operationDiagnostics = [{
           ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Match audio duration was cleared; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
