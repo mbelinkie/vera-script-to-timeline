@@ -122,18 +122,24 @@ def test_bound_research_use_range_survives_rebinding_without_changing_source(
         "id": "00000000-0000-4000-8000-000000000021",
         "researchClip": snapshot,
         "payload": {"payloadId": "00000000-0000-4000-8000-000000000022"},
-        "visualOnlyTiming": {"kind": "visual_only"},
+        "visualOnlyTiming": {
+            "kind": "visual_only",
+            "durationOverrideMs": 3000,
+            "systemPreservedDefaultHold": True,
+        },
     }
     second = json.loads(json.dumps(first))
+    second["visualOnlyTiming"] = {"kind": "visual_only", "durationOverrideMs": 3100}
     second["id"] = "00000000-0000-4000-8000-000000000031"
     second["payload"]["payloadId"] = "00000000-0000-4000-8000-000000000032"
     binder.bind_research_cut(first, tmp_path, MediaTools())
     binder.bind_research_cut(second, tmp_path, MediaTools())
     assert first["frameBinding"] == second["frameBinding"]
-    assert first["visualOnlyTiming"]["selectedSourceRange"] == {
-        "startFrame": 0,
-        "durationFrames": 96,
+    assert first["visualOnlyTiming"] == {
+        "kind": "visual_only",
+        "selectedSourceRange": {"startFrame": 0, "durationFrames": 96},
     }
+    assert second["visualOnlyTiming"]["durationOverrideMs"] == 3100
     first["visualOnlyTiming"]["selectedSourceRange"] = {
         "startFrame": 24,
         "durationFrames": 36,

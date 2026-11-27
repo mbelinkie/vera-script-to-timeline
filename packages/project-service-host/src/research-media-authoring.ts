@@ -94,6 +94,11 @@ function target(document: ScriptDocumentV2, selector: string, id: string) {
       row.frameBinding = binding;
       row.payload.pictureKind = "clip";
       row.payload.source = { kind: "media_reference", mediaReferenceId: binding.mediaReferenceId };
+      // A system-frozen placeholder hold is superseded by the verified clip range.
+      if (row.visualOnlyTiming.systemPreservedDefaultHold === true) {
+        delete row.visualOnlyTiming.systemPreservedDefaultHold;
+        delete row.visualOnlyTiming.durationOverrideMs;
+      }
       row.visualOnlyTiming.selectedSourceRange = { startFrame: 0, durationFrames: binding.loggedEndFrame };
       row.version++;
       if (attachment && sequence && slot) {

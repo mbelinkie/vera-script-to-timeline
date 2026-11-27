@@ -2010,6 +2010,77 @@ describe("browser authoring over the local project service", () => {
     }
   }, 90_000);
 
+  it("#83 binds a Research clip after a wordless visual append preserves its default hold", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const originalCatalog = researchClips;
+    researchClips = [{ ...loggedClip, selection: { ...loggedClip.selection,
+      exportStartMs: 500, exportEndMs: 834, transcriptStartMs: 542, transcriptEndMs: 792 } }];
+    try {
+      const projectId = await createProject(page, origin, "Bind after preserved wordless hold");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor();
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const findRoot = (head: SavedDocument) => {
+        const row = head.document.activeDraft.blocks.find(item => item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+        if (row?.type !== "visual_only") throw new Error("Research occurrence missing");
+        return row;
+      };
+      const row = seeded.document.activeDraft.blocks.find(item => item.id === seeded.rowId)!;
+      const next = seeded.document.activeDraft.blocks[seeded.document.activeDraft.blocks.indexOf(row) + 1];
+      const picker = { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version };
+      expect(await page.evaluate(({ picker, destination }) => window.__veraVisualTest!.queueResearchClipInsert({
+        ...picker, placement: { kind: "gap", destination },
+      }), { picker, destination: { sectionId: null, afterRowId: row.id, beforeRowId: next?.id ?? null } })).toBe(true);
+      await expect.poll(async () => (await read()).document.activeDraft.blocks.some(item =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id)).toBe(true);
+      const initial = findRoot(await read());
+      expect(initial.frameBinding).toBeUndefined();
+      const wordless = page.locator(`[data-row-id="${initial.id}"]`);
+      await wordless.getByRole("button", { name: "+ Visual" }).click();
+      await wordless.getByRole("menu", { name: "Add wordless visual" }).getByRole("menuitem", { name: "Onscreen Placeholder" }).click();
+      await expect.poll(async () => findRoot(await read()).additionalVisuals?.length).toBe(1);
+      const appended = await read();
+      const before = findRoot(appended);
+      expect(before.visualOnlyTiming.systemPreservedDefaultHold).toBe(true);
+      expect(before.visualOnlyTiming.durationOverrideMs).toBeGreaterThan(0);
+      const mediaRoot = await realpath(await mkdtemp(join(directory, "bind-hold-")));
+      const media = await makeResearchBindingProofMedia(mediaRoot, before.researchClip!, before.id, before.payload.payloadId);
+      const exportRoot = join(mediaRoot, "exports");
+      await mkdir(exportRoot);
+      await cp(dirname(media.path), join(exportRoot, loggedClip.id), { recursive: true });
+      researchMedia = { projectId, mediaRoot, exportRoot,
+        python: process.env.VERA_PROOF_PYTHON ?? join(REPOSITORY_ROOT, ".venv", "bin", "python"), cwd: REPOSITORY_ROOT };
+      await restartHostAndDatabase();
+      const bind = (basis: SavedDocument) => appRequest(page, "/authoring/research-media", "POST", {
+        timelineProjectId: projectId, clipRowId: before.id, action: "bind", expectedRevision: basis.revision,
+        expectedDigest: basis.digest, expectedRowEditRevision: basis.document.rowEditRevision ?? 0,
+      });
+      const result = await bind(appended);
+      expect(result.status, JSON.stringify(result.body)).toBe(200);
+      const bound = await read();
+      const resolved = findRoot(bound);
+      expect(resolved.visualOnlyTiming).toEqual({ kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 8 } });
+      expect(resolved.frameBinding?.loggedEndFrame).toBe(8);
+      expect(resolved.researchClip).toEqual(before.researchClip);
+      expect(resolved.additionalVisuals).toEqual(before.additionalVisuals);
+      expect(resolved.payload.payloadId).toBe(before.payload.payloadId);
+      await page.reload();
+      expect(findRoot(await read())).toEqual(resolved);
+      expect((await bind(bound)).status).toBe(200);
+      expect((await read()).revision).toBe(bound.revision);
+    } finally {
+      researchClips = originalCatalog;
+      researchMedia = undefined;
+      await restartHostAndDatabase();
+      await page.close();
+    }
+  }, 90_000);
+
   it("#83 unconfigured playback leaves the saved occurrence and Library independent", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

@@ -277,6 +277,11 @@ def bind_research_cut(
         pictureKind="clip",
         source={"kind": "media_reference", "mediaReferenceId": media_id},
     )
+    # A system-frozen placeholder hold is superseded by the verified clip range.
+    # Keep existing explicitly authored overrides and the selected trim unchanged.
+    if timing.get("systemPreservedDefaultHold") is True:
+        timing.pop("systemPreservedDefaultHold")
+        timing.pop("durationOverrideMs", None)
     timing["selectedSourceRange"] = selected
     audio = media.audio
     assert audio is not None and media.audio_origin is not None
