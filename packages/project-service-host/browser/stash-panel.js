@@ -70,7 +70,7 @@ function caretRect(editor, offset) {
 
 /** The panel only projects saved state; all writes go through the ordinary editor queue. */
 export function mountStashPanel({ root, script, actions, getDocument, onOpen, readOnly = () => false,
-  getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, loadClip, pickClip = () => {}, sorting = () => false }) {
+  getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, getProjectVisualHoldMs, loadClip, pickClip = () => {}, sorting = () => false }) {
   const doc = root.ownerDocument;
   const toggle = doc.getElementById("open-stash");
   const form = root.querySelector("[data-stash-form]");
@@ -146,7 +146,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   };
   setTextSize();
   if (applyCommand && editorHost) rowEditor = mountStashRowEditor({ host: editorHost, getDocument,
-    applyCommand, fetchProjection, onSave: actions.saveMembers });
+    applyCommand, fetchProjection, getProjectVisualHoldMs, onSave: actions.saveMembers });
   const clearDrag = () => {
     entries.querySelector(".stash-entry--dragging")?.classList.remove("stash-entry--dragging");
     drag = null;
