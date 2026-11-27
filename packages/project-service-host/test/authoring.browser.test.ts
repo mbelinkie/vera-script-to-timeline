@@ -1686,8 +1686,11 @@ describe("browser authoring over the local project service", () => {
         researchVisible = true;
       }
       await page.locator(`[data-footage-placement="${initial.placementId}"] [data-inspect-footage]`).click();
-      const bindingResponse = page.waitForResponse(response => response.url().endsWith("/authoring/research-media") &&
-        response.request().postDataJSON()?.action === "bind");
+      const bindingResponse = page.waitForResponse(response => {
+        if (!response.url().endsWith("/authoring/research-media")) return false;
+        const request = response.request().postDataJSON() as { action?: string } | null;
+        return request?.action === "bind";
+      });
       await panel.getByRole("button", { name: "Bind verified footage" }).click();
       const bindingResult = await bindingResponse;
       expect(bindingResult.ok(), await bindingResult.text()).toBe(true);

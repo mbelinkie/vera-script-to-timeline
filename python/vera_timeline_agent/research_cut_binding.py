@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -90,6 +92,8 @@ def verified_transcript_clock(
     folder: Path, snapshot: Json, media: MediaInspection
 ) -> Json | None:
     """Accept optional timing only for the exact verified cut and cadence."""
+    video_path = folder / f"{cut_identity(snapshot)['clipId']}.mp4"
+    initial = _file_identity(video_path.stat(follow_symlinks=False))
     video, digest, record = _verified_cut(folder, snapshot)
     clock = record.get("transcriptClock")
     if not isinstance(clock, dict) or set(clock) != {
@@ -144,26 +148,34 @@ def verified_transcript_clock(
     duration = clock["frameDuration"]
     if Fraction(duration["numerator"], duration["denominator"]) != 1 / media.rate:
         return None
-    # Clock fields are committed inside the same bytes that establish the
-    # occurrence binding. Editing a retained manifest alone cannot shift them.
-    marker = b"uuid" + bytes.fromhex("8a4266a98b524776bd451c894db33d53")
-    with video.open("rb") as stream:
-        stream.seek(max(0, video.stat().st_size - 8192))
-        tail = stream.read(8192)
-    offset = tail.rfind(marker)
-    if (
-        offset < 4
-        or int.from_bytes(tail[offset - 4 : offset], "big") != len(tail) - offset + 4
-    ):
-        return None
-    try:
-        embedded = json.loads(tail[offset + len(marker) :])
-    except (UnicodeError, ValueError):
-        return None
+    # The media commits the clock's digest without carrying transcript IDs.
     evidence = {key: value for key, value in clock.items() if key != "mediaSha256"}
-    if embedded != evidence:
+    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
+    expected = (
+        (56).to_bytes(4, "big")
+        + b"uuid"
+        + bytes.fromhex("8a4266a98b524776bd451c894db33d53")
+        + hashlib.sha256(canonical).digest()
+    )
+    try:
+        with os.fdopen(
+            os.open(video, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb"
+        ) as stream:
+            if _file_identity(os.fstat(stream.fileno())) != initial:
+                return None
+            stream.seek(-len(expected), os.SEEK_END)
+            if (
+                stream.read(len(expected)) != expected
+                or _file_identity(os.fstat(stream.fileno())) != initial
+            ):
+                return None
+    except OSError:
         return None
     return clock
+
+
+def _file_identity(info: os.stat_result) -> tuple[int, int, int, int, int]:
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
 def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:

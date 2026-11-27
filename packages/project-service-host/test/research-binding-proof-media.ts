@@ -1,4 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
+import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,7 +90,8 @@ export async function makeResearchBindingProofMedia(
     "-vf", "scale=out_color_matrix=bt709,setsar=1", "-shortest", ...encode, path,
   ]);
   if (clock) {
-    const payload = Buffer.from(JSON.stringify(clock));
+    const fields = [...Object.keys(clock), "denominator", "numerator"].sort();
+    const payload = createHash("sha256").update(JSON.stringify(clock, fields)).digest();
     const header = Buffer.alloc(24);
     header.writeUInt32BE(header.length + payload.length);
     header.write("uuid", 4);
