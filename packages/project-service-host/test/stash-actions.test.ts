@@ -366,10 +366,10 @@ describe("#691 private selected Stash transfer", () => {
     expect(snapshot).not.toBeNull();
     const insert = { kind: "insert_stash_visual" as const, stashRowId: id(9003),
       destinationRowId: target.id, destinationSlotId: id(9004) };
-    const applyTransform: Parameters<typeof applySelectedStashTransfer>[3] = async (model, command, _, sequence) =>
-      command.kind === "attach_visual_to_words"
+    const applyTransform: Parameters<typeof applySelectedStashTransfer>[3] = (model, command, _, sequence) =>
+      Promise.resolve(command.kind === "attach_visual_to_words"
         ? applyVisualSequenceEditV2(model, sequence!, command)
-        : applyRowEditV2(model, model.rowEditRevision ?? 0, command as Parameters<typeof applyRowEditV2>[2]);
+        : applyRowEditV2(model, model.rowEditRevision ?? 0, command as Parameters<typeof applyRowEditV2>[2]));
     const calls = vi.fn(applyTransform);
     const result = await applySelectedStashTransfer(parked, insert, snapshot, calls, () => {});
     expect(calls).toHaveBeenCalledTimes(2);
@@ -386,7 +386,7 @@ describe("#691 private selected Stash transfer", () => {
     await expect(applySelectedStashTransfer(parked, insert, snapshot, calls, stale)).rejects.toThrow("stale");
     expect(calls).toHaveBeenCalledTimes(1);
     expect(parked).toEqual(frozen);
-    const queue = vi.fn(async () => true);
+    const queue = vi.fn(() => Promise.resolve(true));
     const actions = createStashActions(queue, () => parked);
     await actions.insertStashVisual(insert.stashRowId, target.id, insert.destinationSlotId, parked, snapshot);
     expect(queue).toHaveBeenCalledTimes(1);

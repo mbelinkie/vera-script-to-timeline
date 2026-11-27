@@ -2936,7 +2936,7 @@ describe("browser authoring over the local project service", () => {
           await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
           expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
         }
-        const observations = JSON.parse(await page.locator("html").getAttribute("data-library-drag-observations") ?? "[]");
+        const observations: unknown = JSON.parse(await page.locator("html").getAttribute("data-library-drag-observations") ?? "[]");
         expect(observations).toContain("available|dashed|");
         expect(observations).toContain("active|solid|Attach to “beta beacon before” · exactly these words");
 
@@ -7019,7 +7019,7 @@ describe("browser authoring over the local project service", () => {
         let secondCalls = 0;
         let intermediate: SavedDocument | undefined;
         await page.route("**/authoring/command", async (route) => {
-          const body = route.request().postDataJSON();
+          const body = route.request().postDataJSON() as { command: { kind: string } };
           if (body.command.kind === "insert_stash_visual") firstCalls++;
           if (body.command.kind !== "attach_visual_to_words") return route.continue();
           secondCalls++;
@@ -7072,7 +7072,7 @@ describe("browser authoring over the local project service", () => {
         expect(after.revision).toBe(before.revision + 1);
         expect(firstCalls).toBe(2);
         expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add Stash visual"]);
-        const observations = JSON.parse(await page.locator("html").getAttribute("data-stash-drag-observations") ?? "[]");
+        const observations: unknown = JSON.parse(await page.locator("html").getAttribute("data-stash-drag-observations") ?? "[]");
         expect(observations).toContain("available|dashed|");
         expect(observations).toContain("active|solid|Attach to “two three four” · exactly these words");
         await expect.poll(() => page.locator("[data-selected-drop-state]").count()).toBe(0);
