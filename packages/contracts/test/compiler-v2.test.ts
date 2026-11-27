@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-core-v2.js";
-import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
+import { editMusicCueV2, validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
 import { compareSecondaryTimingV2 } from "../src/secondary-timing-v2.js";
 import { previewSecondaryTimingReconcileV2 } from "../src/secondary-timing-reconcile-v2.js";
-import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import type { CompilerDependenciesV2, MusicCueTimingV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const fixture = (name: string): string => `${repo}tests/data/authoring_v2/${name}`;
@@ -370,6 +370,61 @@ function threeRowMusicFixture(samples = 48000 * 16, lengths = [4000, 4000, 4000]
   return { doc, deps };
 }
 
+function wordMusicFixture() {
+  const { doc, deps } = threeRowMusicFixture();
+  const template = dependencies().narrationTimingMaps[0]!;
+  const [first, second] = [
+    ["one", "two", "three", "four", "echo", "echo"],
+    ["five", "six", "seven", "eight"],
+  ].map((words, rowIndex): NarrationBlockV2 => {
+    const row = document().activeDraft.blocks[0] as NarrationBlockV2;
+    row.id = doc.activeDraft.blocks[rowIndex]!.id;
+    row.orderKey = `a${rowIndex}`;
+    row.text = words.join(" ");
+    let offset = 0;
+    row.tokens = words.map((value, wordIndex) => {
+      const token = { id: id(210 + rowIndex * 10 + wordIndex), value, startOffset: offset, endOffset: offset + value.length };
+      offset = token.endOffset + 1;
+      return token;
+    });
+    const seq = row.primaryVisualSequence!;
+    seq.id = id(230 + rowIndex);
+    const slot = seq.slots[0]!;
+    if (slot.kind !== "content") throw new Error("fixture requires a picture");
+    slot.id = id(232 + rowIndex);
+    slot.payload = {
+      kind: "visual", payloadId: id(234 + rowIndex), pictureKind: "intentional_placeholder",
+      source: { kind: "intentional_placeholder", text: "Synthetic music test picture" },
+      sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
+    };
+    const marks = row.tokens.map((token, index) => ({
+      tokenId: token.id, quotedText: token.value, startOffset: token.startOffset, endOffset: token.endOffset,
+      startTime: index % 2 === 0 ? { numerator: index / 2, denominator: 1 } : { numerator: index, denominator: 2 },
+      audibleEnd: { numerator: 2 * index + 1, denominator: 4 }, endBasis: "evidenced_audible_end" as const,
+    }));
+    const timingHash = digest(`music-word-timing:${row.id}`);
+    const narrationAssetId = id(236 + rowIndex);
+    const audioHash = digest(`music-word-audio:${row.id}`);
+    deps.narrationTimingMaps.push({
+      ...template, blockId: row.id, blockRevision: row.version, textHash: digest(row.text), timingHash, narrationAssetId, audioHash,
+      precision: "audible_word_marks", tokens: [marks[0]!, ...marks.slice(1)],
+      audio: { ...template.audio!, timingHash, narrationAssetId, audioHash, locator: `Builds/narration/row-${rowIndex}.wav` },
+    });
+    doc.activeDraft.blocks[rowIndex] = row;
+    return row;
+  });
+  const [fifth, third] = [first!.tokens[4]!, second!.tokens[2]!];
+  deps.document.textHash = digest(`${first!.text}\n${second!.text}`);
+  const timing = {
+    sourceInFrame: 12,
+    timelineIn: { kind: "word", anchor: { blockId: first!.id, tokenId: fifth.id, affinity: "before", quotedWord: fifth.value, anchorVersion: first!.version } },
+    timelineOut: { kind: "word", anchor: { blockId: second!.id, tokenId: third.id, affinity: "after", quotedWord: third.value, anchorVersion: second!.version } },
+  } satisfies MusicCueTimingV2;
+  const span = doc.rowAudioSpans![0]!;
+  span.endRowId = second!.id;
+  return { doc, deps, row: first!, timing, span };
+}
+
 describe("#676 exact section markers", () => {
   const section = (n: number, title: string, orderKey: string): SectionBlock => ({ type: "section", id: id(n), orderKey, title, version: 1 });
   const compile = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => {
@@ -510,6 +565,134 @@ describe("#100 verified A5 music compilation", () => {
     if (!result.ok) throw new Error(JSON.stringify(result));
     return result;
   };
+
+  it("places a 12-frame fade on the cue between exact fifth and third words", () => {
+    const { doc, deps, span, timing } = wordMusicFixture();
+    span.timing = timing;
+    span.settings.fadeOutMs = 500;
+    const { manifest, report } = compile(doc, deps);
+    expect(report.status).toBe("ready");
+    expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 48, endFrame: 126 },
+      sourceRange: { startFrame: 12, endFrame: 90 },
+      music: { fadeInFrames: 6, fadeOutFrames: 12, requestedEndFrame: 126, audioHash: span.source.contentHash },
+    });
+    span.timing = { sourceOutFrame: 192, timelineIn: timing.timelineIn, timelineOut: timing.timelineOut };
+    expect(compile(doc, deps).manifest.events.find((event) => event.kind === "music")?.sourceRange)
+      .toEqual({ startFrame: 114, endFrame: 192 });
+  });
+
+  it("covers exactly one 4-second visuals-only row with a 72-frame fade", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const blockId = doc.activeDraft.blocks[1]!.id;
+    const span = doc.rowAudioSpans![0]!;
+    span.timing = {
+      sourceInFrame: 24,
+      timelineIn: { kind: "row_edge", blockId, edge: "start" },
+      timelineOut: { kind: "row_edge", blockId, edge: "end" },
+    };
+    span.settings.fadeOutMs = 3000;
+    const { manifest, report } = compile(doc, deps);
+    const cue = manifest.events.find((event) => event.kind === "music")!;
+    expect(report.status).toBe("ready");
+    expect(cue).toMatchObject({
+      recordRange: { startFrame: 96, endFrame: 192 },
+      sourceRange: { startFrame: 24, endFrame: 120 },
+      music: { fadeInFrames: 6, fadeOutFrames: 72 },
+    });
+    expect(manifest.events.filter((event) => event.kind === "placeholder").map((event) => event.recordRange))
+      .toEqual([{ startFrame: 0, endFrame: 96 }, cue.recordRange, { startFrame: 192, endFrame: 288 }]);
+  });
+
+  it("checks fades against the delivered length and refuses ambiguous legacy settings", () => {
+    const { doc, deps } = threeRowMusicFixture(48000);
+    const span = doc.rowAudioSpans![0]!;
+    for (const [settings, message] of [
+      [{ fadeOutMs: 1001 }, "longer than the cue"],
+      [{ fadeOutMs: 500, fadeOutFrames: 6 }, "legacy fade-out"],
+    ] as const) {
+      span.settings = settings;
+      const { manifest, report } = compile(doc, deps);
+      expect(manifest.events.some((event) => event.kind === "music")).toBe(false);
+      expect(report.status).toBe("blocked");
+      const diagnostic = report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+      expect(diagnostic?.severity).toBe("blocking");
+      expect(diagnostic?.message).toContain(message);
+    }
+    for (const [settings, fadeOutFrames] of [[{ fadeOutMs: 0 }, 0], [{ fadeOutFrames: 6 }, 6]] as const) {
+      span.settings = settings;
+      const { manifest, report } = compile(doc, deps);
+      expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+        recordRange: { startFrame: 0, endFrame: 24 },
+        music: { fadeInFrames: 6, fadeOutFrames },
+      });
+      expect(report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    }
+  });
+
+  it("preserves the deleted word pin and blocks it even when the same word survives", () => {
+    const { doc, deps, row, span, timing } = wordMusicFixture();
+    span.timing = timing;
+    const fifth = row.tokens[4]!;
+    const repeated = row.tokens[5]!;
+    const edit = applyRowEditV2(doc, 0, {
+      kind: "edit_narration_text", rowId: row.id, startOffset: fifth.startOffset,
+      endOffset: repeated.startOffset, insertedText: "", editId: id(240),
+    });
+    expect(edit.ok).toBe(true);
+    const saved = JSON.parse(JSON.stringify(edit.document)) as ScriptDocumentV2;
+    expect(saved.rowAudioSpans![0]).toEqual(span);
+    const validation = validateScriptDocumentV2(saved);
+    expect(validation.valid).toBe(true);
+    expect(validation.diagnostics).toContainEqual(expect.objectContaining({
+      code: "MUSIC_CUE_ANCHOR_REVIEW", severity: "warning", jsonPath: "/rowAudioSpans/0/timing/timelineIn",
+    }));
+    const [current, second] = saved.activeDraft.blocks as NarrationBlockV2[];
+    expect(current!.tokens[4]).toMatchObject({ id: repeated.id, value: fifth.value });
+    const map = deps.narrationTimingMaps[0]!;
+    map.blockRevision = current!.version;
+    map.textHash = digest(current!.text);
+    const marks = current!.tokens.map((token) => ({
+      ...map.tokens.find((mark) => mark.tokenId === token.id)!,
+      startOffset: token.startOffset, endOffset: token.endOffset,
+    }));
+    map.tokens = [marks[0]!, ...marks.slice(1)];
+    deps.document.textHash = digest(`${current!.text}\n${second!.text}`);
+    const { manifest, report } = compile(saved, deps);
+    const diagnostic = report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+    expect(diagnostic?.severity).toBe("blocking");
+    expect(diagnostic?.message).toContain("no longer current");
+    expect(manifest.events.some((event) => event.kind === "music")).toBe(false);
+    expect(report.status).toBe("blocked");
+  });
+
+  it("edits pins and fades in one undo entry while preserving the source and legacy row IDs", () => {
+    const { doc, span, timing } = wordMusicFixture();
+    span.settings.fadeOutFrames = 6;
+    const session = createRowEditSessionV2(doc);
+    const result = session.applyMusicCueEdit({ cueId: span.id, timing, fadeOutMs: 500 });
+    expect(result).toMatchObject({ ok: true, undoLabel: "Edit music cue" });
+    expect(result.document.rowAudioSpans![0]).toEqual({ ...span, timing, settings: { gainDb: -12, fadeOutMs: 500 } });
+    expect(session.undoDepth).toBe(1);
+    expect(session.applyMusicCueEdit({ cueId: span.id, fadeOutMs: 0 }, 0).ok).toBe(false);
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().document.rowAudioSpans).toEqual(doc.rowAudioSpans);
+    expect(session.redo().document.rowAudioSpans).toEqual(result.document.rowAudioSpans);
+
+    const cleared = session.applyMusicCueEdit({ cueId: span.id, fadeOutMs: null });
+    expect(cleared.document.rowAudioSpans![0]!.settings).toEqual({ gainDb: -12 });
+    for (const invalid of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const refusal = editMusicCueV2(doc, 0, { cueId: span.id, fadeOutMs: invalid });
+      expect(refusal.ok).toBe(false);
+      expect(refusal.document).toBe(doc);
+    }
+    const invalidPin = editMusicCueV2(doc, 0, { cueId: span.id, timing: {
+      ...timing, timelineIn: { kind: "row_edge", blockId: id(241), edge: "start" },
+    } });
+    expect(invalidPin.ok).toBe(false);
+    expect(invalidPin.diagnostics).toMatchObject([{ code: "MUSIC_CUE_ANCHOR_INVALID", jsonPath: "/rowAudioSpans/0/timing/timelineIn" }]);
+    expect(invalidPin.document).toBe(doc);
+  });
 
   it("plans A-B-C at 24fps, signs one hash-bound music source/event, and keeps needs independent", () => {
     const { doc, deps } = threeRowMusicFixture();

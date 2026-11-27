@@ -433,6 +433,7 @@ export interface VisualSequenceEditResultV2 {
 }
 
 export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+export { editMusicCueV2, type MusicCueEditV2, type MusicCueEditResultV2 } from "./authoring-v2-music-cues.js";
 export {
   compareSecondaryTimingV2,
   SecondaryTimingComparisonErrorV2,

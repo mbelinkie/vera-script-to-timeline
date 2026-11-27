@@ -65,9 +65,11 @@ def _music_package_case(
     short: bool = False,
     anchored: bool = False,
     matched: bool = False,
+    pin_mode: str | None = None,
+    fade_out: tuple[int, int] | None = None,
     scenario: str = "default",
 ) -> tuple[Any, str, str]:
-    """A real 48 kHz mono PCM bed under a synthetic visual-only program row."""
+    """A real 48 kHz mono PCM bed under a synthetic program row."""
     case = make_package_case(tmp_path, scenario=scenario)
     document = json.loads(case.document_path.read_text())
     dependencies = json.loads(case.dependencies_path.read_text())
@@ -81,7 +83,8 @@ def _music_package_case(
             for track in record["tracks"]:
                 if track["id"] == "source-audio":
                     track["index"] = 2
-    row_id = document["activeDraft"]["blocks"][0]["id"]
+    row = document["activeDraft"]["blocks"][0]
+    row_id = row["id"]
     original_event = manifest["events"][0]
     end_frame = original_event["recordRange"]["endFrame"]
     source = {
@@ -91,7 +94,7 @@ def _music_package_case(
         "contentHash": "sha256:" + "0" * 64,
     }
     wav_path = tmp_path / "media" / "bed.wav"
-    frames = 48000 if short else 48000 * (6 if matched else 3)
+    frames = 48000 if short else 48000 * (6 if matched or pin_mode == "row" else 3)
     if not missing:
         with wave.open(str(wav_path), "wb") as writer:
             writer.setnchannels(1)
@@ -142,7 +145,7 @@ def _music_package_case(
                 "timingMapHash": None,
             }
         )
-        music_event = {
+        music_event: dict[str, Any] = {
             "eventId": event_id,
             "kind": "music",
             "trackId": "music-a5",
@@ -187,6 +190,38 @@ def _music_package_case(
                 "timelineIn": {"kind": "frame", "frame": 5},
             }
             music_event["sourceRange"] = {"startFrame": 12, "endFrame": 12 + end_frame}
+        if pin_mode == "row":
+            document["rowAudioSpans"][0]["timing"] = {
+                "sourceInFrame": 0,
+                "timelineIn": {"kind": "row_edge", "blockId": row_id, "edge": "start"},
+                "timelineOut": {"kind": "row_edge", "blockId": row_id, "edge": "end"},
+            }
+        elif pin_mode == "word":
+            token = row["tokens"][1]  # beta, with onset 1s and evidenced end 2s
+            anchor = {
+                "blockId": row_id,
+                "tokenId": token["id"],
+                "quotedWord": token["value"],
+                "anchorVersion": row["version"],
+            }
+            document["rowAudioSpans"][0]["timing"] = {
+                "sourceInFrame": 10,
+                "timelineIn": {
+                    "kind": "word",
+                    "anchor": {**anchor, "affinity": "before"},
+                },
+                "timelineOut": {
+                    "kind": "word",
+                    "anchor": {**anchor, "affinity": "after"},
+                },
+            }
+            music_event["recordRange"] = {"startFrame": 24, "endFrame": 48}
+            music_event["sourceRange"] = {"startFrame": 10, "endFrame": 34}
+            music_event["music"]["requestedEndFrame"] = 48
+        if fade_out is not None:
+            milliseconds, fade_frames = fade_out
+            document["rowAudioSpans"][0]["settings"]["fadeOutMs"] = milliseconds
+            music_event["music"]["fadeOutFrames"] = fade_frames
         _append_report_event(manifest, report, music_event)
         report["summary"]["sourceCount"] += 1
         case.media_paths[f"source:{source_id}"] = wav_path
@@ -201,6 +236,96 @@ def _music_package_case(
     ):
         path.write_bytes(canonical_json_bytes(value))
     return case, event_id, source_id
+
+
+@pytest.mark.parametrize(
+    "scenario,pin_mode,fade_out,record_range,source_range",
+    [
+        ("root-child-overlay-return", "word", (500, 12), (24, 24), (10, 24)),
+        ("root-child-overlay-return", "row", (3000, 72), (0, 96), (0, 96)),
+        ("intentional-slate", "row", (3000, 75), (0, 75), (0, 75)),
+    ],
+)
+def test_music_package_delivers_exact_pins_and_explicit_fades(
+    tmp_path: Path,
+    scenario: str,
+    pin_mode: str,
+    fade_out: tuple[int, int],
+    record_range: tuple[int, int],
+    source_range: tuple[int, int],
+) -> None:
+    case, _, _ = _music_package_case(
+        tmp_path, scenario=scenario, pin_mode=pin_mode, fade_out=fade_out
+    )
+    built = case.build()
+    verify_v2_package(built.project_root)
+    root = built.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((root / "delivery-view.json").read_text())
+    music = next(event for event in view["events"] if event["kind"] == "music")
+    for key, (start, duration) in (
+        ("recordRange", record_range),
+        ("sourceRange", source_range),
+    ):
+        assert music[key] == {"startFrame": start, "durationFrames": duration}
+    assert music["musicTreatment"]["fadeOutFrames"] == fade_out[1]
+    timeline = otio.adapters.read_from_file(str(root / OTIO_FILENAME))
+    a5 = next(
+        track
+        for track in timeline.tracks
+        if track.metadata["vera"]["track_id"] == "music-a5"
+    )
+    clip = next(item for item in a5 if isinstance(item, otio.schema.Clip))
+    assert clip.metadata["vera"]["music_treatment"] == music["musicTreatment"]
+
+
+@pytest.mark.parametrize(
+    "mutation,message",
+    [
+        ("forged-fade", "fades differ from signed span"),
+        ("overrun", "fade-out is longer than the cue"),
+        ("conflict", "both an explicit and a legacy fade-out"),
+        ("stale-token", "needs a current exact spoken word"),
+        ("unevidenced-end", "lacks evidence for the selected word edge"),
+    ],
+)
+def test_music_package_rejects_rehashed_explicit_fade_or_word_pin_changes(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    word_pin = mutation in {"stale-token", "unevidenced-end"}
+    case, _, _ = _music_package_case(
+        tmp_path,
+        scenario="root-child-overlay-return",
+        pin_mode="word" if word_pin else None,
+        fade_out=(500, 12) if word_pin else (3000, 72),
+    )
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    span = document["rowAudioSpans"][0]
+    if mutation == "forged-fade":
+        event = next(event for event in manifest["events"] if event["kind"] == "music")
+        event["music"]["fadeOutFrames"] = 71
+    elif mutation == "overrun":
+        span["settings"]["fadeOutMs"] = 3001
+    elif mutation == "conflict":
+        span["settings"]["fadeOutFrames"] = 6
+    elif mutation == "stale-token":
+        span["timing"]["timelineOut"]["anchor"]["tokenId"] = _stable_id("deleted beta")
+    else:
+        timing = dependencies["narrationTimingMaps"][0]["tokens"][1]
+        del timing["audibleEnd"]
+        timing["endBasis"] = "next_word_derived"
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    with pytest.raises(V2PackageError, match=message):
+        case.build()
 
 
 @pytest.mark.parametrize("shifted", [False, True])
@@ -432,7 +557,7 @@ def test_music_package_rejects_mutated_data(tmp_path: Path, mutation: str) -> No
 def test_music_otio_verifier_rejects_rehashed_tampering(
     tmp_path: Path, mutation: str
 ) -> None:
-    case, _, _ = _music_package_case(tmp_path)
+    case, _, _ = _music_package_case(tmp_path, fade_out=(3000, 75))
     built = case.build()
     root = built.project_root / BUILD_DIRECTORY / built.build_id
     otio_path = root / OTIO_FILENAME
@@ -460,7 +585,7 @@ def test_music_otio_verifier_rejects_rehashed_tampering(
             otio.opentime.RationalTime(74, 25),
         )
     else:
-        clip.metadata["vera"]["music_treatment"]["fadeInFrames"] = 0
+        clip.metadata["vera"]["music_treatment"]["fadeOutFrames"] = 74
     otio.adapters.write_to_file(timeline, str(otio_path))
     receipt_path = root / VERIFICATION_FILENAME
     receipt = json.loads(receipt_path.read_text())

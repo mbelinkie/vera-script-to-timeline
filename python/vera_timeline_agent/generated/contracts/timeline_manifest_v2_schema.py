@@ -139,7 +139,7 @@ class MusicEventV2(TypedDict):
     audioHash: ContentHash
     gainDb: float
     fadeInFrames: int
-    fadeOutFrames: int
+    fadeOutFrames: compiler_dependencies_v2_schema.NonNegativeSafeInteger
     requestedEndFrame: compiler_dependencies_v2_schema.PositiveSafeInteger
 
 

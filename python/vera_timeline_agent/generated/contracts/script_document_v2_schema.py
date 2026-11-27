@@ -299,6 +299,7 @@ class RowAudioReviewV2(TypedDict):
 
 class Settings(TypedDict):
     gainDb: NotRequired[float]
+    fadeOutMs: NotRequired[NonNegativeSafeInteger]
 
 
 class MusicTimelinePointV21(TypedDict):

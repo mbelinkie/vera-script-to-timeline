@@ -13,6 +13,7 @@ import type {
   ContentSlot,
   NarratedVisualPayloadV2,
   NarrationBlockV2,
+  MusicCueTimingV2,
   ReturnSlot,
   ScriptDocumentV2,
   StashOutlineEntryV2,
@@ -527,6 +528,18 @@ export function validateScriptDocumentV2(
   for (const [index, span] of (document.rowAudioSpans ?? []).entries()) {
     addId(span.id, `/rowAudioSpans/${index}/id`);
     if (!allRows.has(span.startRowId) || !allRows.has(span.endRowId)) referenceProblem(span.id, `/rowAudioSpans/${index}`);
+    for (const endpoint of ["timelineIn", "timelineOut"] as const) {
+      const point = span.timing?.[endpoint];
+      if (point?.kind !== "word" || isMusicCuePointCurrentV2(point, blocksById.get(point.anchor.blockId))) continue;
+      diagnostics.push({
+        code: "MUSIC_CUE_ANCHOR_REVIEW",
+        severity: "warning",
+        message: `The music cue's ${endpoint === "timelineIn" ? "start" : "end"} word “${point.anchor.quotedWord}” is no longer current. Select an exact spoken word or a row edge.`,
+        jsonPath: `/rowAudioSpans/${index}/timing/${endpoint}`,
+        blockId: point.anchor.blockId,
+        entityId: span.id,
+      });
+    }
   }
   for (const [index, reference] of (document.rowReferences ?? []).entries()) {
     addId(reference.id, `/rowReferences/${index}/id`);
@@ -537,6 +550,12 @@ export function validateScriptDocumentV2(
     valid: diagnostics.every((diagnostic) => diagnostic.severity === "warning"),
     diagnostics,
   };
+}
+
+export function isMusicCuePointCurrentV2(point: NonNullable<MusicCueTimingV2["timelineIn"]>, row: DraftBlock | undefined): boolean {
+  if (point.kind === "frame") return true;
+  if (point.kind === "row_edge") return row?.type === "visual_only" || row?.type === "narration" && row.state === "active";
+  return row?.type === "narration" && row.state === "active" && row.plainDirection !== true && isWordAnchorCurrentV2(point.anchor, row);
 }
 
 export function isWordAnchorCurrentV2(

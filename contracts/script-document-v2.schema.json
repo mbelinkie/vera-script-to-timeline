@@ -3287,12 +3287,16 @@
         },
         "settings": {
           "type": "object",
-          "description": "Music build recognizes gainDb (-60 through 0 dB, default -12). Legacy probe settings remain saved for review; unsupported audible effects are rejected by the compiler, not silently applied.",
+          "description": "Per-cue gain and optional fade-out duration. Legacy probe settings can still be saved; the compiler checks which settings it can deliver.",
           "properties": {
             "gainDb": {
               "type": "number",
               "minimum": -60,
               "maximum": 0
+            },
+            "fadeOutMs": {
+              "description": "Explicit fade-out in milliseconds, including zero. Omit for the legacy short fade.",
+              "$ref": "#/$defs/NonNegativeSafeInteger"
             }
           },
           "additionalProperties": true

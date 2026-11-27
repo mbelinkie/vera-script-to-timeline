@@ -1444,6 +1444,39 @@ def _validate_manifest_semantics(
     del visual_source_ids  # kept explicit above for media-input classification.
 
 
+def _music_word_target(
+    anchor: JsonObject, document: JsonObject
+) -> tuple[JsonObject, JsonObject]:
+    block = next(
+        (
+            block
+            for block in document["activeDraft"]["blocks"]
+            if block["id"] == anchor["blockId"]
+            and block["type"] == "narration"
+            and block["state"] == "active"
+            and block.get("plainDirection") is not True
+        ),
+        None,
+    )
+    if block is not None:
+        tokens = [
+            token for token in block["tokens"] if token["id"] == anchor["tokenId"]
+        ]
+        if len(tokens) == 1:
+            token = tokens[0]
+            text = block["text"].encode("utf-16-le", errors="surrogatepass")
+            start, end = 2 * token["startOffset"], 2 * token["endOffset"]
+            if (
+                token.get("spoken") is not False
+                and token["value"] == anchor["quotedWord"]
+                and 0 <= start < end <= len(text)
+                and text[start:end]
+                == token["value"].encode("utf-16-le", errors="surrogatepass")
+            ):
+                return block, token
+    raise _error("music timeline pin needs a current exact spoken word")
+
+
 def _music_pin_frame(
     point: JsonObject,
     document: JsonObject,
@@ -1461,17 +1494,7 @@ def _music_pin_frame(
     if anchor is None:
         return row[2] if point["edge"] == "start" else row[3]
 
-    block = next(
-        block for block in document["activeDraft"]["blocks"] if block["id"] == block_id
-    )
-    token = next(
-        (
-            token
-            for token in block.get("tokens", [])
-            if token["id"] == anchor["tokenId"]
-        ),
-        None,
-    )
+    block, token = _music_word_target(anchor, document)
     maps = [
         timing
         for key in ("narrationTimingMaps", "narrationBoundaryEvidence")
@@ -1479,12 +1502,10 @@ def _music_pin_frame(
         if timing["blockId"] == block_id
     ]
     if (
-        block["type"] != "narration"
-        or token is None
-        or token.get("spoken") is False
-        or token["value"] != anchor["quotedWord"]
-        or len(maps) != 1
+        len(maps) != 1
         or maps[0]["blockRevision"] != block["version"]
+        or maps[0]["textHash"]
+        != "sha256:" + hashlib.sha256(block["text"].encode("utf-8")).hexdigest()
         or maps[0].get("precision") in {"sentence_only", "estimated"}
     ):
         raise _error("music timeline pin lacks current word timing")
@@ -1492,6 +1513,10 @@ def _music_pin_frame(
     word: JsonObject = next(
         (mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {}
     )
+    if any(word.get(key) != token[key] for key in ("startOffset", "endOffset")) or (
+        word.get("quotedText") != token["value"]
+    ):
+        raise _error("music timeline pin lacks current word timing")
     if anchor["affinity"] == "before":
         time = word.get("onset" if "verification" in timing else "startTime")
     else:
@@ -1631,6 +1656,10 @@ def _validate_music_event(
             or not {"sourceInFrame", "sourceOutFrame"}.issubset(timing)
         ):
             raise _error(f"music event {event_id} differs from its signed visual match")
+        for endpoint in ("timelineIn", "timelineOut"):
+            point = timing.get(endpoint)
+            if point is not None and point["kind"] == "word":
+                _music_word_target(point["anchor"], document)
         timing = {
             "sourceInFrame": timing["sourceInFrame"],
             "sourceOutFrame": timing["sourceOutFrame"],
@@ -1683,6 +1712,22 @@ def _validate_music_event(
         ):
             raise _error(f"music event {event_id} duration differs from signed span")
     settings = span.get("settings", {})
+    cue_frames = record_end - record_start
+    default_fade = min(6, cue_frames // 2)
+    fade_out = default_fade
+    if "fadeOutMs" in settings:
+        if "fadeOutFrames" in settings:
+            raise _error("signed music cue has both an explicit and a legacy fade-out")
+        milliseconds = settings["fadeOutMs"]
+        if type(milliseconds) is not int or not 0 <= milliseconds <= _MAX_SAFE:
+            raise _error(
+                "signed music fade-out milliseconds must be a safe nonnegative integer"
+            )
+        units = 1000 * rate.denominator
+        requested_units = milliseconds * rate.numerator
+        if requested_units > cue_frames * units:
+            raise _error("signed music fade-out is longer than the cue")
+        fade_out = (requested_units + units - 1) // units
     supported = all(
         (
             key == "gainDb"
@@ -1694,6 +1739,8 @@ def _validate_music_event(
         or (key == "endpointMode" and value == "row_end")
         or (key == "loop" and value is False)
         or (key in {"fadeInFrames", "fadeOutFrames"} and value == 6)
+        or key
+        == "fadeOutMs"  # independently checked against the delivered duration above
         for key, value in settings.items()
     )
     if (
@@ -1702,8 +1749,8 @@ def _validate_music_event(
         or isinstance(music["gainDb"], bool)
         or not math.isfinite(music["gainDb"])
         or music["gainDb"] != settings.get("gainDb", -12)
-        or music["fadeInFrames"] != min(6, (record_end - record_start) // 2)
-        or music["fadeOutFrames"] != min(6, (record_end - record_start) // 2)
+        or music["fadeInFrames"] != default_fade
+        or _safe_frame(music["fadeOutFrames"], "music fade-out") != fade_out
     ):
         raise _error(
             f"music event {event_id} duration, gain or fades differ from signed span"

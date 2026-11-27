@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
 import type { CompilerDependenciesV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
-import { planMusicSpanFrames, type MusicRowBounds } from "../src/row-audio-music.js";
+import { planMusicSpanFrames, resolveMusicFadeOutFrames, type MusicRowBounds } from "../src/row-audio-music.js";
 
 const rows: MusicRowBounds[] = [
   { id: "A", startFrame: 0, endFrame: 48, sectionId: "first", active: true },
@@ -11,6 +11,27 @@ const rows: MusicRowBounds[] = [
   { id: "C", startFrame: 96, endFrame: 144, sectionId: "first", active: true },
 ];
 const fps = { numerator: 24, denominator: 1 };
+
+describe("explicit music fade-out", () => {
+  it("converts physical durations and accepts the exact cue length and zero", () => {
+    expect(resolveMusicFadeOutFrames(500, 96, fps)).toBe(12);
+    expect(resolveMusicFadeOutFrames(3000, 72, fps)).toBe(72);
+    expect(resolveMusicFadeOutFrames(0, 1, fps)).toBe(0);
+    expect(resolveMusicFadeOutFrames(1, 1, fps)).toBe(1);
+    const ntsc = { numerator: 24000, denominator: 1001 };
+    expect(resolveMusicFadeOutFrames(1001, 24, ntsc)).toBe(24);
+    expect(() => resolveMusicFadeOutFrames(1002, 24, ntsc)).toThrow(/longer than the cue/);
+  });
+
+  it("checks physical bounds exactly even with large integer products", () => {
+    const max = Number.MAX_SAFE_INTEGER;
+    expect(resolveMusicFadeOutFrames(max, max, { numerator: max, denominator: max })).toBe(9_007_199_254_741);
+    expect(() => resolveMusicFadeOutFrames(max, 1, fps)).toThrow(/longer than the cue/);
+    for (const invalid of [-1, 0.5, max + 1]) {
+      expect(() => resolveMusicFadeOutFrames(invalid, 96, fps)).toThrow(/whole number/);
+    }
+  });
+});
 
 describe("music row-span frame placement", () => {
   it("covers three inclusive rows with an exclusive endpoint and fixed fades", () => {
