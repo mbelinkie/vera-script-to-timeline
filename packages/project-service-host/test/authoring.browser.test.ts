@@ -2883,6 +2883,15 @@ describe("browser authoring over the local project service", () => {
       await card.getByRole("button", { name: "Place at selected words or caret" }).click();
       await expect.poll(async () => (await load()).document.stashResearchItems?.length ?? 0).toBe(0);
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Place saved Research item"]);
+      // Like a Library still, a saved still may wait for words on a narration row.
+      await page.getByRole("button", { name: "Undo Place saved Research item" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(1);
+      await card.locator("strong").dragTo(page.locator(`[data-row-id="${seeded.rowId}"] .visuals-cell`));
+      await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals
+        ?.some((slot) => slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId)).toBe(true);
+      expect((await load()).document.stashResearchItems?.length ?? 0).toBe(0);
+      await page.getByRole("button", { name: "Undo Place saved Research item" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length).toBe(1);
     } finally { await page.close(); }
   }, 90_000);
 

@@ -121,7 +121,7 @@ function captureQuoteBox(request) {
 function placeSavedResearch(item, placement, expected) {
   return queueResearchStash((latest) => {
     const target = placement(latest);
-    if (item.kind === "still" && target.kind !== "selected_words") throw new Error("Select spoken words for the saved still.");
+    if (item.kind === "still" && !["selected_words", "unattached"].includes(target.kind)) throw new Error("Choose current narration for the saved still.");
     return { action: "place", itemId: item.id, placement: target };
   }, expected, "Place saved Research item");
 }
@@ -1850,11 +1850,11 @@ function mountResearchDragging(root) {
       return;
     }
     if (draggingQuote(event)) {
-      const next = quoteDestination(event);
       const saved = draggingSavedResearch(event) ? savedSource() : null;
+      const next = saved?.kind === "still" ? stillDestination(event) : quoteDestination(event);
       if (draggingSavedResearch(event)) {
         savedPreview = null;
-        if (!saved || !next || saved.kind === "still" && next.mode !== "attach") { clear(); return; }
+        if (!saved || !next) { clear(); return; }
         try { savedPreview = JSON.stringify(next.placement(editorDocument())); }
         catch { clear(); return; }
       }
@@ -1889,9 +1889,9 @@ function mountResearchDragging(root) {
       return;
     }
     if (draggingQuote(event)) {
-      const next = quoteDestination(event);
+      const source = draggingSavedResearch(event) ? savedSource() : null;
+      const next = source?.kind === "still" ? stillDestination(event) : quoteDestination(event);
       if (draggingSavedResearch(event)) {
-        const source = savedSource();
         const expected = researchStashDrag?.model;
         clear();
         quoteSelection = null;
@@ -1899,8 +1899,7 @@ function mountResearchDragging(root) {
         try { exact = Boolean(next && savedPreview && savedPreview === JSON.stringify(next.placement(editorDocument()))); }
         catch { /* The preview is no longer current. */ }
         savedPreview = null;
-        if (!exact || !source || event.dataTransfer.getData(savedResearchDragType) !== source.id ||
-            source.kind === "still" && next.mode !== "attach") return;
+        if (!exact || !source || event.dataTransfer.getData(savedResearchDragType) !== source.id) return;
         event.preventDefault();
         event.stopPropagation();
         void placeSavedResearch(source, next.placement, expected);
@@ -3363,9 +3362,10 @@ stashPanel = mountStashPanel({
   captureResearch: captureLibraryResearch,
   placeResearch: (item, gap, model) => {
     const selection = selectedNarrationTarget() ?? stashNarrationTarget;
-    const placement = gap ? quoteGapPlacement(gap) : selection ? quotePlacementFromSelection(selection) : null;
-    if (!placement || item.kind === "still" && !selection?.selected) {
-      setSaveStatus("Select current spoken words first.");
+    const placement = item.kind === "still" ? selection && !gap ? stillPlacementFromTarget(selection) : null :
+      gap ? quoteGapPlacement(gap) : selection ? quotePlacementFromSelection(selection) : null;
+    if (!placement) {
+      setSaveStatus("Choose current narration or spoken words first.");
       return Promise.resolve(false);
     }
     return placeSavedResearch(item, placement, model);
