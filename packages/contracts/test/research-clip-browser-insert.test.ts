@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2 } from "../src/research-clip-browser-insert.js";
 import { indexResearchClipUsageV2 } from "../src/research-clip-usage-v2.js";
+import { applyRowEditV2, applyVisualSequenceEditV2 } from "../src/authoring-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import {
-  researchCandidate, researchId, researchNote, researchStashFixture,
+  boundPrimaryFixture, researchCandidate, researchId, researchNote, researchStashFixture,
 } from "./issue-367-fixture.js";
 
 const newIds = (from: number) => {
@@ -200,5 +201,50 @@ describe("Research clip browser insertion: one atomic script edit", () => {
       expect(result.diagnostics[0]?.code).toBe("RESEARCH_INSERT_INVALID");
       expect(result.diagnostics[0]?.message).toContain("unused UUID");
     }
+  });
+});
+
+describe("bound waiting clip checkpoint", () => {
+  it("leaves an ordinary unbound insertion unresolved instead of inventing a trim", () => {
+    const { doc, first } = fixture();
+    const inserted = insertResearchClipBrowserV2(doc, researchCandidate(), request(words(first)), newIds(900600));
+    expect(inserted.ok, JSON.stringify(inserted.diagnostics)).toBe(true);
+    const result = applyRowEditV2(inserted.document, 1, {
+      kind: "trim_research_clip", payloadId: researchId(900601), edge: "reset",
+    });
+    expect(result.diagnostics[0]?.code).toBe("RESEARCH_CLIP_TRIM_INVALID");
+    expect(result.document).toEqual(inserted.document);
+  });
+
+  it("retains the bound selection when attaching a trimmed waiting use to words", () => {
+    const { doc, row, second } = boundPrimaryFixture();
+    const result = applyRowEditV2(doc, 0, { kind: "trim_research_clip", payloadId: second.payload.payloadId,
+      edge: "range", startFrame: 34, endFrame: 48 });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const waitingRow = result.document.activeDraft.blocks[0];
+    if (waitingRow?.type !== "narration") throw new Error("Missing waiting row");
+    const waiting = waitingRow.unattachedVisuals![0]!;
+    const attached = applyVisualSequenceEditV2(result.document, waitingRow.primaryVisualSequence!.version, {
+      kind: "attach_visual_to_words", blockId: row.id, slotId: waiting.slotId,
+      startTokenId: row.tokens[1]!.id, endTokenId: row.tokens[1]!.id,
+    });
+    expect(attached.ok, JSON.stringify(attached.diagnostics)).toBe(true);
+    const placed = attached.document.activeDraft.blocks[0];
+    if (placed?.type !== "narration") throw new Error("Missing placed row");
+    const slot = placed.primaryVisualSequence!.slots.find(item => item.id === waiting.slotId);
+    expect(slot).toMatchObject({ payload: waiting.payload });
+    expect(placed.unattachedVisuals?.some(item => item.slotId === waiting.slotId) ?? false).toBe(false);
+    expect(placed.tokens).toEqual(row.tokens);
+    const trimmedAgain = applyRowEditV2(attached.document, attached.document.rowEditRevision ?? 0, {
+      kind: "trim_research_clip", payloadId: second.payload.payloadId, edge: "range", startFrame: 36, endFrame: 45,
+    });
+    expect(trimmedAgain.ok, JSON.stringify(trimmedAgain.diagnostics)).toBe(true);
+    const edited = trimmedAgain.document.activeDraft.blocks[0];
+    if (edited?.type !== "narration") throw new Error("Missing edited row");
+    expect(edited.primaryVisualSequence!.slots.find(item => item.id === waiting.slotId)).toEqual({
+      ...slot, version: slot!.version + 1, payload: { ...waiting.payload,
+        sourceUsage: { sourceInFrame: 36 }, selectedSourceRange: { startFrame: 36, durationFrames: 9 },
+      },
+    });
   });
 });

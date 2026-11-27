@@ -5,6 +5,102 @@ const WIDGET_ID = 1;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/u;
 const MAX_VIDEO_MS = 24 * 60 * 60 * 1000;
 
+/** Playback responses contain exactly one requested half-open frame interval. */
+export function mountVerifiedFootagePlayer(mount, request, onFrame, onStatus, onPlaying) {
+  const doc = mount.ownerDocument;
+  let operation, objectUrl, video, frameCallback;
+
+  function clear() {
+    operation?.abort();
+    operation = null;
+    if (video) {
+      if (frameCallback !== undefined) video.cancelVideoFrameCallback?.(frameCallback);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    video = null;
+    frameCallback = undefined;
+    mount.replaceChildren();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+    onPlaying(false);
+  }
+
+  async function load(action, bounds, rate, frame) {
+    clear();
+    onFrame(null);
+    const started = new AbortController();
+    operation = started;
+    onStatus(action === "frame" ? "Loading frame…" : "Preparing playback…");
+    try {
+      const blob = await request(action, { signal: started.signal, frame });
+      if (operation !== started) return;
+      objectUrl = URL.createObjectURL(blob);
+      if (action === "frame") {
+        const picture = doc.createElement("img");
+        picture.alt = `Source frame ${frame}`;
+        picture.src = objectUrl;
+        await picture.decode();
+        if (operation !== started) return;
+        mount.replaceChildren(picture);
+        onFrame(frame);
+        onStatus("");
+        return;
+      }
+
+      const element = doc.createElement("video");
+      video = element;
+      element.playsInline = true;
+      element.setAttribute("aria-label", action === "saved" ? "Saved range video" : "Logged cut video");
+      element.addEventListener("error", () => {
+        if (operation !== started) return;
+        clear();
+        onFrame(null);
+        onStatus("The verified clip could not be decoded.");
+      });
+      element.addEventListener("ended", () => {
+        if (operation === started) {
+          onPlaying(false);
+          onStatus("Playback finished.");
+        }
+      });
+      element.addEventListener("play", () => { if (operation === started) { onPlaying(true); onStatus(""); } });
+      element.addEventListener("pause", () => { if (operation === started) onPlaying(false); });
+      element.addEventListener("seeking", () => {
+        if (operation === started) onFrame(null);
+      });
+      const presented = (_now, { mediaTime }) => {
+        if (operation !== started) return;
+        const sourceFrame = bounds.start + Math.round(mediaTime * rate.numerator / rate.denominator);
+        if (sourceFrame >= bounds.start && sourceFrame < bounds.end && !element.seeking) onFrame(sourceFrame);
+        frameCallback = element.requestVideoFrameCallback(presented);
+      };
+      element.src = objectUrl;
+      mount.replaceChildren(element);
+      if (element.requestVideoFrameCallback) frameCallback = element.requestVideoFrameCallback(presented);
+      await element.play().catch(() => {
+        if (operation === started) onStatus("Press Play again to start playback.");
+      });
+      if (operation === started && !element.paused) onStatus("");
+    } catch (error) {
+      if (operation !== started) return;
+      clear();
+      throw error;
+    }
+  }
+
+  function toggle() {
+    if (!video) return false;
+    if (video.ended) return false;
+    if (video.paused) void video.play().catch(() => onStatus("Playback could not start."));
+    else video.pause();
+    return true;
+  }
+
+  return { clear, load, toggle };
+}
+
 export function savedYoutubeRange(clip) {
   const id = clip?.video?.youtubeVideoId;
   const startMs = clip?.selection?.exportStartMs;
@@ -16,15 +112,15 @@ export function savedYoutubeRange(clip) {
 }
 
 /** An iframe exists only between the writer's Play and a close/switch/teardown. */
-export function mountFootagePlayer(root) {
+export function mountFootagePlayer(root, { onClose, prefix = "footage" } = {}) {
   const doc = root.ownerDocument;
-  const title = root.querySelector("[data-footage-preview-title]");
-  const rangeText = root.querySelector("[data-footage-preview-range]");
-  const playerMount = root.querySelector("[data-footage-player-mount]");
-  const status = root.querySelector("[data-footage-player-status]");
-  const play = root.querySelector("[data-footage-play]");
-  const replay = root.querySelector("[data-footage-replay]");
-  const close = root.querySelector("[data-footage-preview-close]");
+  const title = root.querySelector(`[data-${prefix}-preview-title]`);
+  const rangeText = root.querySelector(`[data-${prefix}-preview-range]`);
+  const playerMount = root.querySelector(`[data-${prefix}-player-mount]`);
+  const status = root.querySelector(`[data-${prefix}-player-status]`);
+  const play = root.querySelector(`[data-${prefix}-play]`);
+  const replay = root.querySelector(`[data-${prefix}-replay]`);
+  const close = root.querySelector(`[data-${prefix}-preview-close]`);
   let previewClip = null;
   let range = null;
   let frame = null;
@@ -32,6 +128,7 @@ export function mountFootagePlayer(root) {
   let watchdog = null;
   let playback = "idle";
   let ready = false;
+  let rangeName = "saved range";
 
   const send = (message) => {
     frame?.contentWindow?.postMessage(JSON.stringify({
@@ -70,7 +167,7 @@ export function mountFootagePlayer(root) {
   const playRange = () => {
     // Reload both bounds on replay. YouTube's seekTo drops a queued end time.
     loadRange("loadVideoById");
-    showPlayback("starting", "Pause", "Starting saved range…");
+    showPlayback("starting", "Pause", `Starting ${rangeName}…`);
   };
   function receive(event) {
     if (!frame || event.origin !== YOUTUBE_ORIGIN || event.source !== frame.contentWindow) return;
@@ -87,7 +184,7 @@ export function mountFootagePlayer(root) {
       loadRange("cueVideoById");
       play.disabled = true;
       replay.hidden = true;
-      showPlayback("awaiting-gesture", "Play saved range", "Press Play inside the YouTube player.");
+      showPlayback("awaiting-gesture", `Play ${rangeName}`, "Press Play inside the YouTube player.");
       return;
     }
     if (message.event === "onReady" && !ready) {
@@ -103,11 +200,11 @@ export function mountFootagePlayer(root) {
     if (message.info?.playerState === 1) {
       play.disabled = false;
       replay.hidden = false;
-      showPlayback("playing", "Pause", "Playing saved range…");
+      showPlayback("playing", "Pause", `Playing ${rangeName}…`);
     } else if (message.info?.playerState === 2 && playback === "playing") {
       showPlayback("paused", "Resume", "Paused.");
     } else if (message.info?.playerState === 0 && (playback === "playing" || playback === "paused")) {
-      showPlayback("ended", "Replay saved range", "Saved range finished.");
+      showPlayback("ended", `Replay ${rangeName}`, `${rangeName[0].toUpperCase() + rangeName.slice(1)} finished.`);
     }
   }
   const load = () => {
@@ -152,13 +249,13 @@ export function mountFootagePlayer(root) {
       playRange();
     } else if (playback === "paused") {
       command("playVideo");
-      showPlayback("starting", "Pause", "Starting saved range…");
+      showPlayback("starting", "Pause", `Starting ${rangeName}…`);
     }
   });
   replay.addEventListener("click", () => {
     if (ready) playRange();
   });
-  close.addEventListener("click", () => hide());
+  close.addEventListener("click", () => onClose ? onClose() : hide());
 
   function hide() {
     teardown();
@@ -167,21 +264,22 @@ export function mountFootagePlayer(root) {
     root.hidden = true;
     playerMount.replaceChildren();
   }
-  function show(clip) {
+  function show(clip, { playbackRange = savedYoutubeRange(clip), unavailableReason, logged = false } = {}) {
     if (clip === previewClip) return;
     hide();
     previewClip = clip;
-    range = savedYoutubeRange(clip);
+    range = playbackRange;
+    rangeName = logged ? "logged range" : "saved range";
     title.textContent = `Preview: ${clip.video.title}`;
     root.hidden = false;
     rangeText.textContent = range ?
-      `Saved range: ${(range.startMs / 1000).toFixed(3)}–${(range.endMs / 1000).toFixed(3)} s` :
-      "No supported YouTube video and saved export range.";
+      `${logged ? "Logged" : "Saved"} range: ${(range.startMs / 1000).toFixed(3)}–${(range.endMs / 1000).toFixed(3)} s` :
+      unavailableReason ?? "No supported YouTube video and saved export range.";
     play.disabled = !range;
-    play.textContent = "Play saved range";
+    play.textContent = `Play ${rangeName}`;
     replay.hidden = true;
     status.textContent = range ? "Press Play to load the YouTube player." :
-      "Playback unavailable for this source. You can still place it in your script.";
+      unavailableReason ?? "Playback unavailable for this source. You can still place it in your script.";
   }
   return { show, hide };
 }

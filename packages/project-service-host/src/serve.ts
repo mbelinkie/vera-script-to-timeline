@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import type { Server } from "node:http";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
@@ -15,6 +15,7 @@ import { CollaborationHub, createCollaborationUpgradeHandler,
 import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService,
   SubtitleCopyService } from "@vera/project-documents";
 
+import type { ResearchMediaConfig } from "./research-media-authoring.js";
 import { createAccountAuthoringHandler, type AccountMode } from "./account-session.js";
 import { listenQaHttp } from "./http.js";
 import { loadQaIdentity } from "./qa-identity.js";
@@ -58,6 +59,7 @@ export interface QaHostInfrastructure {
   evidenceInspector?: IndependentEvidenceInspector;
   /** Optional, host-owned Research interface; never exposed as a proxy. */
   researchCatalog?: AuthoringResearchCatalog;
+  researchMedia?: ResearchMediaConfig;
 }
 
 /** Fail before binding if credentials, migrations or database checks fail. */
@@ -160,16 +162,16 @@ export async function startQaServer(
       }
       return response;
     };
+    const authorizeTimelineProject = async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
+      const request = new Request(origin, { headers: { authorization: authorization! } });
+      const principal = await auth.authenticateRequest(request, identity);
+      await auth.authorizeRequest(projectId, principal, action);
+    };
     const research = authorization && infrastructure.researchCatalog ? {
-      catalog: infrastructure.researchCatalog,
-      authorizeTimelineProject: async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
-        const request = new Request(origin, { headers: { authorization } });
-        const principal = await auth.authenticateRequest(request, identity);
-        await auth.authorizeRequest(projectId, principal, action);
-      },
+      catalog: infrastructure.researchCatalog, authorizeTimelineProject,
     } : undefined;
     const authoring = infrastructure.accountMode || authorization === undefined ? undefined :
-      createAuthoringHandler(origin, authorization, handleApi, research);
+      createAuthoringHandler(origin, authorization, handleApi, research, false, authorizeTimelineProject, infrastructure.researchMedia);
     const accountAuthoring = infrastructure.accountMode && createAccountAuthoringHandler(
       origin, infrastructure.accountMode, auth, handleApi,
     );
@@ -230,8 +232,24 @@ export async function serveQaFromEnvironment(
         // An unavailable Research service must not prevent local authoring.
       }
     }
-    return await startQaServer({ ...config, authoringToken },
-      researchCatalog ? { researchCatalog } : {});
+    const projectId = env.VERA_RESEARCH_MEDIA_PROJECT;
+    const mediaRoot = env.VERA_RESEARCH_MEDIA_ROOT;
+    const python = env.VERA_RESEARCH_MEDIA_PYTHON;
+    const exportRoot = env.VERA_RESEARCH_EXPORT_ROOT;
+    let researchMedia: ResearchMediaConfig | undefined;
+    if (projectId || mediaRoot || python) {
+      if (!projectId || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(projectId) ||
+          !mediaRoot || !isAbsolute(mediaRoot) || !python || !isAbsolute(python) ||
+          (exportRoot !== undefined && !isAbsolute(exportRoot))) {
+        throw new QaStartupRefusal();
+      }
+      researchMedia = { projectId, mediaRoot, python, cwd: REPOSITORY_ROOT,
+        ...(exportRoot ? { exportRoot } : {}) };
+    }
+    return await startQaServer({ ...config, authoringToken }, {
+      ...(researchCatalog ? { researchCatalog } : {}),
+      ...(researchMedia ? { researchMedia } : {}),
+    });
   } catch {
     throw new QaStartupRefusal();
   }

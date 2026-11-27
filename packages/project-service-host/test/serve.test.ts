@@ -11,7 +11,7 @@ import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { checkedDocument } from "@vera/project-documents";
-import { researchCandidate, researchId, researchNote, researchStashFixture } from "../../contracts/test/issue-367-fixture.js";
+import { boundPrimaryFixture, researchCandidate, researchId, researchNote, researchStashFixture, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -653,7 +653,8 @@ function fakeResearchCatalog() {
     redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
   const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3, quoteVersion: 7,
     quoteDisplayText: "This is the spoken quotation.", quoteImage: "none",
-    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false };
+    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false,
+    transcriptVersion: 4, transcriptProject: RESEARCH_PROJECT };
   const request: typeof fetch = (input, init) => {
     const { pathname, searchParams } = new URL(input instanceof Request ? input.url : String(input));
     const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
@@ -728,6 +729,21 @@ function fakeResearchCatalog() {
       { headers: { "Content-Type": "image/webp", "Content-Length": String(thumbnailBytes.length) } },
     ));
     const candidate = researchCandidate();
+    if (pathname === `${project}/videos/${candidate.catalogVideoId}/transcript`) {
+      const { selection, video } = candidate;
+      return Promise.resolve(Response.json({
+        schemaVersion: 1, catalogState: "active_verified", projectId: state.transcriptProject,
+        catalogVideoId: candidate.catalogVideoId, youtubeVideoId: video.youtubeVideoId,
+        english: { track: { id: selection.trackId, videoId: video.youtubeVideoId, kind: "english",
+          language: "en", version: state.transcriptVersion, timingPrecision: "cue" },
+          segments: [
+            { id: selection.firstSegmentId, trackId: selection.trackId, startMs: 1000, endMs: 2000,
+              text: "First caption", hiddenBearer: RESEARCH_SECRET },
+            { id: selection.lastSegmentId, trackId: selection.trackId, startMs: 2000, endMs: 4000,
+              text: "Second caption" },
+          ] },
+      }));
+    }
     const clip = { ...candidate, hiddenBearer: RESEARCH_SECRET,
       video: { ...candidate.video, hiddenBearer: RESEARCH_SECRET },
       selection: { ...candidate.selection, hiddenBearer: RESEARCH_SECRET } };
@@ -1807,5 +1823,118 @@ describe("development QA service bootstrap and shutdown", () => {
     h.createPool.mock.calls[0]![1]();
     await vi.waitFor(() => { expect(h.close).toHaveBeenCalledOnce(); });
     expect(app.server.listening).toBe(false);
+  });
+});
+
+describe("saved occurrence trim HTTP boundary", () => {
+  function fixture() {
+    const document = researchStashFixture().doc;
+    document.projectId = TIMELINE_PROJECT;
+    const first = researchOccurrence(880300);
+    const sibling = researchOccurrence(880400);
+    document.activeDraft.blocks = [first, sibling];
+    const saved = checkedDocument(document, TIMELINE_PROJECT);
+    const head = { projectId: TIMELINE_PROJECT, revision: 7, digest: saved.digest, document: saved.document };
+    const body = { timelineProjectId: TIMELINE_PROJECT, expectedRevision: head.revision,
+      expectedDigest: head.digest, expectedRowEditRevision: document.rowEditRevision ?? 0 };
+    const command = { kind: "trim_research_clip", clipRowId: first.id, edge: "range", startFrame: 30, endFrame: 50 };
+    return { head, body, first, sibling, command };
+  }
+
+  it("applies only the exact saved owner, retains immutable source and sibling, and refuses stale or malformed requests", async () => {
+    const h = await researchBrowserRequests();
+    const f = fixture();
+    h.projects.mockImplementation(() => Promise.resolve(Response.json(f.head)));
+    const post = (body: unknown) => h.read("research-trim", { method: "POST", body });
+    const response = await post({ ...f.body, command: f.command });
+    expect(response.status).toBe(200);
+    const result = await response.json() as { ok: boolean; document: ScriptDocumentV2 };
+    expect(result.ok).toBe(true);
+    expect(result.document.rowEditRevision).toBe(f.body.expectedRowEditRevision + 1);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      id: f.first.id, version: f.first.version + 1, researchClip: f.first.researchClip,
+      frameBinding: f.first.frameBinding, visualOnlyTiming: { selectedSourceRange: { startFrame: 30, durationFrames: 20 } },
+    });
+    expect(result.document.activeDraft.blocks[1]).toEqual(f.sibling);
+    expect(h.authorizeTimelineProject).toHaveBeenCalledWith(TIMELINE_PROJECT, "edit_document");
+    expect(h.projects).toHaveBeenCalledTimes(1);
+    expect(h.fake.calls).toEqual([]);
+    expect((await post({ ...f.body, expectedRevision: 6, command: f.command })).status).toBe(409);
+    expect((await post({ ...f.body, expectedRowEditRevision: 19, command: f.command })).status).toBe(409);
+    expect((await post({ ...f.body, command: { ...f.command, startFrame: 1 } })).status).toBe(200);
+    expect(await (await post({ ...f.body, command: { ...f.command, startFrame: 1 } })).json()).toMatchObject({ ok: false });
+    expect((await post({ ...f.body, command: { ...f.command, endFrame: 30 } })).status).toBe(400);
+    expect((await post({ ...f.body, command: { ...f.command, frameBinding: f.first.frameBinding } })).status).toBe(400);
+    expect((await post({ ...f.body, document: f.head.document, command: f.command })).status).toBe(400);
+    expect((await post({ ...f.body, timelineProjectId: randomUUID(), command: f.command })).status).toBe(403);
+    expect((await h.read("command", { method: "POST", body: { document: f.head.document, command: f.command } })).status).toBe(400);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await post({ ...f.body, command: f.command })).status).toBe(403);
+    expect(f.head.document.activeDraft.blocks[0]).toEqual(f.first);
+  });
+
+  it("previews the exact bound primary payload against the saved revision", async () => {
+    const h = await researchBrowserRequests();
+    const { doc, first, row } = boundPrimaryFixture();
+    doc.projectId = TIMELINE_PROJECT;
+    const saved = checkedDocument(doc, TIMELINE_PROJECT);
+    const head = { projectId: TIMELINE_PROJECT, revision: 7, digest: saved.digest, document: saved.document };
+    h.projects.mockImplementation(() => Promise.resolve(Response.json(head)));
+    const body = {
+      timelineProjectId: TIMELINE_PROJECT, expectedRevision: head.revision,
+      expectedDigest: head.digest, expectedRowEditRevision: doc.rowEditRevision ?? 0,
+      command: { kind: "trim_research_clip", payloadId: first.payload.payloadId,
+        edge: "range", startFrame: 30, endFrame: 50 },
+    };
+    const response = await h.read("research-trim", { method: "POST", body });
+    expect(response.status).toBe(200);
+    const result = await response.json() as { ok: boolean; document: ScriptDocumentV2 };
+    expect(result.ok).toBe(true);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      id: row.id, version: row.version + 1, unattachedVisuals: row.unattachedVisuals!,
+      primaryVisualSequence: { slots: [{ payload: { sourceUsage: { sourceInFrame: 30 },
+        selectedSourceRange: { startFrame: 30, durationFrames: 20 } } }] },
+    });
+    expect((await h.read("research-trim", { method: "POST", body: { ...body, expectedRevision: 6 } })).status).toBe(409);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await h.read("research-trim", { method: "POST", body })).status).toBe(403);
+
+  });
+
+  it("reads only matched active published English cues after both authorization checks", async () => {
+    const h = await researchBrowserRequests();
+    const f = fixture();
+    h.projects.mockImplementation(() => Promise.resolve(Response.json(f.head)));
+    const read = () => h.read("research-trim-timing", { method: "POST", body: { ...f.body, clipRowId: f.first.id } });
+    const response = await read();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ cues: [
+      { startMs: 1000, endMs: 2000, text: "First caption" },
+      { startMs: 2000, endMs: 4000, text: "Second caption" },
+    ] });
+    expect(h.authorizeTimelineProject).toHaveBeenCalledWith(TIMELINE_PROJECT, "view_document");
+    expect(h.projects).toHaveBeenCalledTimes(2);
+    expect(h.fake.calls.map(c => c.pathname)).toEqual([
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/videos/${f.first.researchClip!.catalogVideoId}/transcript`,
+    ]);
+    h.projects.mockResolvedValueOnce(Response.json(f.head))
+      .mockResolvedValueOnce(Response.json({ ...f.head, revision: 8 }));
+    expect((await read()).status).toBe(409);
+    h.projects.mockResolvedValueOnce(Response.json(f.head))
+      .mockResolvedValueOnce(Response.json({ error: "action_not_allowed" }, { status: 403 }));
+    expect((await read()).status).toBe(403);
+    h.fake.state.transcriptVersion = 5;
+    expect(await (await read()).json()).toEqual({ cues: null });
+    h.fake.state.transcriptVersion = 4;
+    h.fake.state.transcriptProject = randomUUID();
+    expect(await (await read()).json()).toEqual({ cues: null });
+    h.fake.state.visible = false;
+    expect((await read()).status).toBe(403);
+    h.fake.state.visible = true;
+    h.fake.state.failStatus = 404;
+    expect(await (await read()).json()).toEqual({ cues: null });
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await read()).status).toBe(403);
   });
 });

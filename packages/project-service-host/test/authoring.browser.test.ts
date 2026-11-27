@@ -1,18 +1,20 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
+import { matchingResearchCutTranscript, ResearchReadError } from "@vera/contracts/research-clip-client";
+import { resolveMediaRequirementsV2 } from "@vera/contracts/compiler-core-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { compileTimelineV2 } from "@vera/contracts/compiler-core-v2";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate, researchId, researchNestedNote, researchNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { boundPrimaryFixture, researchCandidate, researchId, researchNestedNote, researchNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -31,6 +33,8 @@ import type { QaConfig } from "../src/qa-config.js";
 import type { QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, type QaHostInfrastructure, type QaRunningServer } from "../src/serve.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
+import type { ResearchMediaConfig } from "../src/research-media-authoring.js";
+import { makeResearchBindingProofMedia } from "./research-binding-proof-media.js";
 import { pasteParagraphBlocks } from "../browser/narration-editor.js";
 
 const execFile = promisify(execFileCallback);
@@ -74,6 +78,9 @@ interface BrowserVisualTestApi {
   queueResearchStillInsert(request: { researchProjectId: string; itemId: string; itemVersion: number;
     placement: unknown }): Promise<boolean>;
   researchCatalogGet(researchProjectId?: string, clipId?: string): Promise<unknown>;
+  researchTrimBasis(): unknown;
+  queueResearchTrim(basis: unknown, command: unknown): Promise<boolean>;
+  openScript(projectId: string): Promise<void>;
   researchStillCatalogGet(researchProjectId: string, offset?: number): Promise<unknown>;
   projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }>; cards?: Array<{
     kind: string; startTokenIndex?: number; endTokenIndexExclusive?: number; slotId?: string;
@@ -92,7 +99,7 @@ declare global {
 async function exposeVisualTestApi(page: Page): Promise<void> {
   await page.route("**/app.js", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, projectedPrimaryRow, renderEditor, invalidateProjection };` });
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, researchTrimBasis, queueResearchTrim, openScript, projectedPrimaryRow, renderEditor, invalidateProjection };` });
   });
 }
 
@@ -587,6 +594,8 @@ describe("browser authoring over the local project service", () => {
   let researchVisible = true;
   let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
   let researchClips = [loggedClip];
+  let researchMedia: ResearchMediaConfig | undefined;
+  let transcriptWorkspace: unknown;
   let directory: string;
   let databaseDirectory: string;
   let browser: Browser;
@@ -601,6 +610,7 @@ describe("browser authoring over the local project service", () => {
     await database.waitReady;
     const pool = pglitePool(database);
     host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite,
+      ...(researchMedia ? { researchMedia } : {}),
       researchCatalog: {
         projects: () => Promise.resolve(researchVisible ? researchProjects : []),
         clips: (projectId) => Promise.resolve(researchVisible ? researchClips.filter((clip) =>
@@ -609,10 +619,11 @@ describe("browser authoring over the local project service", () => {
           const clip = researchClips.find((candidate) => candidate.projectId.toLowerCase() === projectId.toLowerCase() &&
             candidate.id.toLowerCase() === clipId.toLowerCase());
           if (!researchVisible || !clip) {
-            return Promise.reject(new Error("The Research clip is no longer accessible."));
+            return Promise.reject(new ResearchReadError(403, "The Research clip is no longer accessible."));
           }
           return Promise.resolve(structuredClone(clip));
         },
+        matchedCutTranscript: (pin, clock) => Promise.resolve(matchingResearchCutTranscript(transcriptWorkspace, pin, clock)),
         stills: (projectId) => {
           if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
             return Promise.reject(new Error("The Research still project is no longer accessible."));
@@ -1632,6 +1643,591 @@ describe("browser authoring over the local project service", () => {
       block.type === "visual_only" && block.researchClip?.clipId === loggedClip.id)).toBe(true);
     await page.close();
   });
+
+  it("#83 configured media binds ordinary placements and plays exact generated frames", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const originalCatalog = researchClips;
+    researchClips = [{ ...loggedClip, selection: { ...loggedClip.selection,
+      exportStartMs: 500, exportEndMs: 834, transcriptStartMs: 542, transcriptEndMs: 792 } }];
+    try {
+      const projectId = await createProject(page, origin, "Generated cut binding proof");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor();
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const status = (action: string, occurrenceId: string, basis: SavedDocument) =>
+        appRequest(page, "/authoring/research-media", "POST", {
+          timelineProjectId: projectId, ...(occurrenceId === rootId ? { clipRowId: occurrenceId } : { payloadId: occurrenceId }),
+          action, expectedRevision: basis.revision, expectedDigest: basis.digest,
+          expectedRowEditRevision: basis.document.rowEditRevision ?? 0,
+        });
+      const loadOwners = async () => {
+        const head = await read();
+        const root = head.document.activeDraft.blocks.find(item =>
+          item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+        const narration = head.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
+        const candidate = narration?.type === "narration" ? narration.primaryVisualSequence?.slots.find(item =>
+          item.kind === "content" && item.payload.kind === "visual" && item.payload.researchClip?.clipId === loggedClip.id) : undefined;
+        const slot = candidate?.kind === "content" ? candidate : undefined;
+        return {
+          head,
+          root: root?.type === "visual_only" ? root : undefined,
+          slot: slot?.payload.kind === "visual" ? slot.payload : undefined,
+          placementId: slot?.id,
+          anchor: slot?.boundaryBefore,
+        };
+      };
+      const row = seeded.document.activeDraft.blocks.find(item => item.id === seeded.rowId);
+      if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("Missing seeded narration");
+      const picker = { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version };
+      const token = row.tokens[1]!.id;
+      const insert = (placement: unknown) => page.evaluate(({ picker, placement }) =>
+        window.__veraVisualTest!.queueResearchClipInsert({ ...picker, placement }), { picker, placement });
+      expect(await insert({ kind: "selected_words", rowId: row.id, expectedRowVersion: row.version,
+        expectedSequenceVersion: row.primaryVisualSequence.version, startTokenId: token, endTokenId: token })).toBe(true);
+      await expect.poll(async () => !!(await loadOwners()).slot).toBe(true);
+      const next = seeded.document.activeDraft.blocks[seeded.document.activeDraft.blocks.indexOf(row) + 1];
+      expect(await insert({ kind: "gap", destination: { sectionId: null, afterRowId: row.id,
+        beforeRowId: next?.id ?? null } })).toBe(true);
+      await expect.poll(async () => !!(await loadOwners()).root).toBe(true);
+      const initial = await loadOwners();
+      expect(initial.root?.frameBinding).toBeUndefined();
+      expect(initial.slot?.frameBinding).toBeUndefined();
+      const rootId = initial.root!.id;
+      const slotId = initial.slot!.payloadId;
+      const selection = initial.root!.researchClip!.loggedSelection;
+      const transcriptVersionId = randomUUID();
+      const transcriptClock = {
+        schemaVersion: 1 as const, transcriptVersionId,
+        trackId: selection.trackId, trackVersion: selection.transcriptVersion,
+        trackContentSha256: "a".repeat(64), alignmentFingerprint: "b".repeat(64),
+        alignmentAudioSha256: `sha256:${"c".repeat(64)}`,
+        firstFrame: { numerator: 12004, denominator: 24000 },
+        frameDuration: { numerator: 1001, denominator: 24000 }, frameCount: 8,
+      };
+
+      const python = process.env.VERA_PROOF_PYTHON ?? join(REPOSITORY_ROOT, ".venv", "bin", "python");
+      const media = await makeResearchBindingProofMedia(
+        directory, initial.root!.researchClip!, rootId, initial.root!.payload.payloadId, transcriptClock,
+      );
+      const mediaRoot = await realpath(directory);
+      const exportRoot = join(mediaRoot, "exports");
+      researchMedia = { projectId, mediaRoot, exportRoot, python, cwd: REPOSITORY_ROOT };
+      await restartHostAndDatabase();
+      expect((await status("bind", rootId, initial.head)).status).toBe(404);
+      const cutParent = join(mediaRoot, "Research Clips", loggedClip.id, String(loggedClip.version));
+      await mkdir(exportRoot);
+      const exported = join(exportRoot, loggedClip.id);
+      await cp(dirname(media.path), exported, { recursive: true });
+      const panel = page.locator("#occurrence-footage");
+      const rootCard = page.locator(`[data-row-id="${rootId}"] [data-inspect-footage]`);
+      await rootCard.click();
+      await panel.getByRole("button", { name: "Bind verified footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.frameBinding?.loggedEndFrame).toBe(8);
+      expect((await status("bind", slotId, initial.head)).status).toBe(409);
+      const latest = await read();
+      researchVisible = false;
+      try {
+        expect((await status("bind", slotId, latest)).status).toBe(403);
+      } finally {
+        researchVisible = true;
+      }
+      await page.locator(`[data-footage-placement="${initial.placementId}"] [data-inspect-footage]`).click();
+      const bindingResponse = page.waitForResponse(response => {
+        if (!response.url().endsWith("/authoring/research-media")) return false;
+        const request = response.request().postDataJSON() as { action?: string } | null;
+        return request?.action === "bind";
+      });
+      await panel.getByRole("button", { name: "Bind verified footage" }).click();
+      const bindingResult = await bindingResponse;
+      expect(bindingResult.ok(), await bindingResult.text()).toBe(true);
+      await expect.poll(async () => (await loadOwners()).slot?.frameBinding?.loggedEndFrame).toBe(8);
+      await page.reload();
+      await page.locator(`[data-row-id="${rootId}"]`).waitFor();
+      const bound = await loadOwners();
+      expect(bound.root!.frameBinding).toMatchObject({ loggedStartFrame: 0, loggedEndFrame: 8 });
+      expect(bound.slot!.frameBinding).toEqual(bound.root!.frameBinding);
+      expect(bound.anchor).toEqual(initial.anchor);
+      expect(bound.root!.researchClip).toEqual(initial.root!.researchClip);
+      expect(bound.slot!.researchClip).toEqual(initial.slot!.researchClip);
+      expect(bound.slot!.selectedSourceRange).toEqual({ startFrame: 0, durationFrames: 8 });
+
+      await rootCard.click();
+      const play = panel.locator("[data-occurrence-play]");
+      const toggle = panel.locator("[data-occurrence-toggle]");
+      const waitForPlayback = () => expect.poll(async () => ({
+        ready: await play.isEnabled(),
+        status: await panel.locator("[data-occurrence-player-status]").textContent(),
+      }), { timeout: 12_000 }).toEqual({ ready: true, status: "" });
+      await waitForPlayback();
+      expect(await panel.locator("video").count()).toBe(0);
+      await toggle.click();
+      expect(await panel.locator("[data-occurrence-timing]").textContent()).toContain("full transcript");
+      const scrub = panel.locator("[data-occurrence-scrub]");
+      const scrubTo = (frame: number) => scrub.evaluate((element, frame) => {
+        (element as HTMLInputElement).value = String(frame);
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      }, frame);
+      const assertFrame = async (expected: number) => {
+        await expect.poll(async () => ({
+          frame: await panel.locator("[data-occurrence-playhead]").textContent(),
+          status: await panel.locator("[data-occurrence-player-status]").textContent(),
+        }), { timeout: 12_000 }).toEqual({ frame: `Frame ${expected}`, status: "" });
+        const actual = await panel.locator("img").evaluate(image => {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d")!;
+          context.drawImage(image as HTMLImageElement, 0, 0);
+          return [4, 12, 20].reduce((value, x, bit) =>
+            value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << bit : 0), 0);
+        });
+        expect(actual).toBe(expected);
+      };
+      await scrubTo(2);
+      await assertFrame(2);
+      await panel.getByRole("button", { name: "Next source frame" }).click();
+      await assertFrame(3);
+      await panel.getByRole("button", { name: "Previous source frame" }).click();
+      await assertFrame(2);
+      await toggle.press("i");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await waitForPlayback();
+      await scrubTo(5);
+      await assertFrame(5);
+      await panel.getByRole("button", { name: "Set out (O)" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await waitForPlayback();
+      await scrubTo(5);
+      await assertFrame(5);
+      await toggle.press("o");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await waitForPlayback();
+      await panel.getByRole("button", { name: "Clear out" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 6 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await toggle.press("Escape");
+      expect(await panel.isHidden()).toBe(true);
+      expect(await rootCard.evaluate(node => document.activeElement === node)).toBe(true);
+      await page.reload();
+      await page.locator(`[data-row-id="${rootId}"]`).waitFor();
+      const refined = await loadOwners();
+      expect(refined.slot).toEqual(bound.slot);
+      expect(refined.root!.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 2, durationFrames: 3 });
+      expect((await status("bind", rootId, refined.head)).status).toBe(200);
+      expect((await read()).revision).toBe(refined.head.revision);
+      const descriptor = await media.rebind(refined.root!);
+      expect(descriptor.sourceSnapshot.contentHash).toBe(media.digest);
+      expect(descriptor).toMatchObject({
+        owner: { kind: "visual_only_block", blockId: rootId },
+        occurrenceSourceInFrame: 2, selectedSourceRange: { startFrame: 2, endFrame: 5 },
+      });
+      const dependencyTemplate = JSON.parse(await readFile(new URL(
+        "../../../tests/data/authoring_v2/compiler-dependencies-v2.json", import.meta.url,
+      ), "utf8")) as CompilerDependenciesV2;
+      const standaloneDocument = {
+        ...refined.head.document,
+        activeDraft: { blocks: [refined.root!], supportingItems: [] },
+      };
+      const needs = resolveMediaRequirementsV2(standaloneDocument, {
+        timing: [], defaults: dependencyTemplate.authoringDefaults,
+        sourceDescriptors: [descriptor], frameRate: descriptor.logicalSourceBounds.frameRate,
+      });
+      expect(needs.ok, JSON.stringify(needs)).toBe(true);
+      if (!needs.ok) throw new Error("Compiler rejected the measured media descriptor");
+      expect(needs.requirements.map(item => item.requiredSourceRange)).toEqual([{ startFrame: 2, endFrame: 5 }]);
+      await rootCard.click();
+      await waitForPlayback();
+      const playAndReadFrames = async (): Promise<number[]> => {
+        const video = panel.locator("video");
+        // Attach before decoding starts, then sample every presented picture.
+        await panel.locator("[data-occurrence-player-mount]").evaluate(mount => {
+          const observer = new MutationObserver(() => {
+            const video = mount.querySelector("video");
+            if (!video) return;
+            observer.disconnect();
+            video.playbackRate = 0.125;
+            const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+            const frames: number[] = [];
+            const sample = () => {
+              context.drawImage(video, 0, 0);
+              const frame = [4, 12, 20].reduce((value, x, bit) =>
+                value + (context.getImageData(x, 4, 1, 1).data[0]! > 128 ? 1 << bit : 0), 0);
+              if (frames.at(-1) !== frame) frames.push(frame);
+              if (!video.ended) video.requestVideoFrameCallback(sample);
+            };
+            video.requestVideoFrameCallback(sample);
+            video.addEventListener("ended", () => {
+              sample();
+              video.dataset.frames = JSON.stringify(frames);
+            }, { once: true });
+          });
+          observer.observe(mount, { childList: true });
+        });
+        await play.click();
+        await expect.poll(async () => ({
+          captured: Boolean(await video.getAttribute("data-frames", { timeout: 1500 }).catch(() => null)),
+          status: await panel.locator("[data-occurrence-player-status]").textContent(),
+        }), { timeout: 12_000 }).toEqual({ captured: true, status: "Playback finished." });
+        return JSON.parse((await video.getAttribute("data-frames"))!) as number[];
+      };
+      expect(await playAndReadFrames()).toEqual([2, 3, 4]);
+      await toggle.click();
+      expect(await panel.locator("video").count()).toBe(0);
+      expect(await playAndReadFrames()).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+      expect(await loadOwners()).toEqual(refined);
+      const input = panel.locator("[data-occurrence-in]");
+      await input.scrollIntoViewIfNeeded();
+      const handle = (await input.boundingBox())!;
+      await page.mouse.move(handle.x + 6 + (handle.width - 12) * 2 / 8, handle.y + handle.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width - 10, handle.y + handle.height / 2);
+      expect(await input.inputValue()).not.toBe("2");
+      await input.press("Escape");
+      await page.mouse.up();
+      expect(await input.inputValue()).toBe("2");
+      expect(await loadOwners()).toEqual(refined);
+      for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
+        await page.setViewportSize(viewport);
+        await expect.poll(async () => {
+          const bounds = await panel.boundingBox();
+          return Boolean(bounds && bounds.x + bounds.width <= viewport.width && bounds.y + bounds.height <= viewport.height);
+        }).toBe(true);
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.width).toBe(viewport.width === 1280 ? 520 : 440);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+        if (process.env.VERA_DESIGN_EVIDENCE_DIR) {
+          await panel.evaluate(node => { node.scrollTop = 0; });
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}.png`) });
+          await panel.evaluate(node => { node.scrollTop = node.scrollHeight; });
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timeline-${viewport.width}-lower.png`) });
+        }
+      }
+      const cached = join(cutParent, media.digest.slice("sha256:".length));
+      transcriptWorkspace = {
+        schemaVersion: 1, catalogState: "active_verified", transcriptVersionId,
+        projectId: loggedClip.projectId, catalogVideoId: loggedClip.catalogVideoId,
+        youtubeVideoId: loggedClip.video.youtubeVideoId,
+        english: {
+          track: { id: selection.trackId, version: selection.transcriptVersion,
+            videoId: loggedClip.video.youtubeVideoId, contentSha256: transcriptClock.trackContentSha256,
+            alignment: { fingerprint: transcriptClock.alignmentFingerprint, audio: {
+              hash: transcriptClock.alignmentAudioSha256, sampleRate: 16000, durationSamples: 16000,
+            } } },
+          segments: [
+            { id: selection.firstSegmentId, trackId: selection.trackId, startMs: 542, endMs: 650, text: "Alpha beta" },
+            { id: selection.lastSegmentId, trackId: selection.trackId, startMs: 650, endMs: 792, text: "Gamma delta final" },
+          ],
+          tokens: [
+            ["Alpha", 550, 566], ["brief", 566, 581], ["beta", 587, 619], ["gamma", 630, 661],
+            ["delta", 667, 698], ["final", 714, 740],
+          ].map(([text, startMs, endMs], index) => ({
+            id: randomUUID(), segmentId: index < 3 ? selection.firstSegmentId : selection.lastSegmentId,
+            text, startMs, endMs, alignmentStatus: "acoustic",
+          })),
+        },
+      };
+      const timedDescribe = await status("describe", rootId, (await loadOwners()).head);
+      expect(timedDescribe.body).toMatchObject({ transcriptTiming: { precision: "word" } });
+      await page.reload();
+      const rootExcerpt = page.locator(`[data-row-id="${rootId}"] .visual-card__source-transcript`);
+      const siblingExcerpt = page.locator(`[data-footage-placement="${initial.placementId}"] .visual-card__source-transcript`);
+      await rootExcerpt.scrollIntoViewIfNeeded();
+      await expect.poll(() => rootExcerpt.textContent(), { timeout: 12_000 }).toBe("beta gamma delta");
+      await siblingExcerpt.scrollIntoViewIfNeeded();
+      await expect.poll(() => siblingExcerpt.textContent(), { timeout: 12_000 }).toBe("Alpha brief beta gamma delta final");
+      await rootCard.click();
+      const transcriptText = panel.locator("[data-occurrence-transcript]");
+      await expect.poll(async () => (await transcriptText.textContent())?.trim()).toBe("beta gamma delta");
+      await toggle.click();
+      expect(await panel.locator("[data-occurrence-timing]").textContent())
+        .toBe("Words on the same source frame share a trim boundary.");
+      const wordIn = panel.getByRole("button", { name: "Transcript in bracket" });
+      const wordOut = panel.getByRole("button", { name: "Transcript out bracket" });
+      await wordIn.press("ArrowRight");
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 3, durationFrames: 2 });
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      await wordOut.scrollIntoViewIfNeeded();
+      const outBounds = (await wordOut.boundingBox())!;
+      const finalWord = transcriptText.getByText("final", { exact: true });
+      const finalBounds = (await finalWord.boundingBox())!;
+      await page.mouse.move(outBounds.x + outBounds.width / 2, outBounds.y + outBounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(finalBounds.x + finalBounds.width / 2, finalBounds.y + finalBounds.height / 2);
+      expect(await finalWord.getAttribute("data-occurrence-proposed-out")).toBe("");
+      await page.mouse.up();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 4 });
+      await waitForPlayback();
+      await transcriptText.getByRole("button", { name: "delta", exact: true }).click();
+      await assertFrame(4);
+      expect(await panel.locator("[data-occurrence-playing-word]").textContent()).toBe("delta");
+      if (process.env.VERA_DESIGN_EVIDENCE_DIR) {
+        for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }]) {
+          await page.setViewportSize(viewport);
+          await transcriptText.scrollIntoViewIfNeeded();
+          await page.screenshot({ path: join(process.env.VERA_DESIGN_EVIDENCE_DIR, `timed-${viewport.width}.png`) });
+        }
+      }
+      await page.getByRole("button", { name: "Undo Trim footage" }).click();
+      await expect.poll(async () => (await loadOwners()).root?.visualOnlyTiming.selectedSourceRange)
+        .toEqual({ startFrame: 2, durationFrames: 3 });
+      expect((await loadOwners()).slot).toEqual(refined.slot);
+      const afterWordTests = await loadOwners();
+      const otherProject = await createProject(page, origin, "Preview teardown");
+      await page.evaluate(id => window.__veraVisualTest!.openScript(id), otherProject);
+      expect(await panel.isHidden()).toBe(true);
+      expect(await panel.locator("video,img").count()).toBe(0);
+      await page.evaluate(id => window.__veraVisualTest!.openScript(id), projectId);
+      await rm(exported, { recursive: true });
+      await rm(cached, { recursive: true });
+      expect((await status("describe", rootId, afterWordTests.head)).status).toBe(404);
+      await rootCard.click();
+      await expect.poll(() => panel.locator("[data-occurrence-player-status]").textContent()).toContain("Verified media is missing");
+      expect(await play.isDisabled()).toBe(true);
+      expect(await loadOwners()).toEqual(afterWordTests);
+    } finally {
+      researchClips = originalCatalog;
+      transcriptWorkspace = undefined;
+      researchMedia = undefined;
+      await restartHostAndDatabase();
+      await page.close();
+    }
+  }, 90_000);
+
+  it("#83 binds a Research clip after a wordless visual append preserves its default hold", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const originalCatalog = researchClips;
+    researchClips = [{ ...loggedClip, selection: { ...loggedClip.selection,
+      exportStartMs: 500, exportEndMs: 834, transcriptStartMs: 542, transcriptEndMs: 792 } }];
+    try {
+      const projectId = await createProject(page, origin, "Bind after preserved wordless hold");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor();
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const findRoot = (head: SavedDocument) => {
+        const row = head.document.activeDraft.blocks.find(item => item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+        if (row?.type !== "visual_only") throw new Error("Research occurrence missing");
+        return row;
+      };
+      const row = seeded.document.activeDraft.blocks.find(item => item.id === seeded.rowId)!;
+      const next = seeded.document.activeDraft.blocks[seeded.document.activeDraft.blocks.indexOf(row) + 1];
+      const picker = { researchProjectId: loggedClip.projectId, clipId: loggedClip.id, clipVersion: loggedClip.version };
+      expect(await page.evaluate(({ picker, destination }) => window.__veraVisualTest!.queueResearchClipInsert({
+        ...picker, placement: { kind: "gap", destination },
+      }), { picker, destination: { sectionId: null, afterRowId: row.id, beforeRowId: next?.id ?? null } })).toBe(true);
+      await expect.poll(async () => (await read()).document.activeDraft.blocks.some(item =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id)).toBe(true);
+      const initial = findRoot(await read());
+      expect(initial.frameBinding).toBeUndefined();
+      const wordless = page.locator(`[data-row-id="${initial.id}"]`);
+      await wordless.getByRole("button", { name: "+ Visual" }).click();
+      await wordless.getByRole("menu", { name: "Add wordless visual" }).getByRole("menuitem", { name: "Onscreen Placeholder" }).click();
+      await expect.poll(async () => findRoot(await read()).additionalVisuals?.length).toBe(1);
+      const appended = await read();
+      const before = findRoot(appended);
+      expect(before.visualOnlyTiming.systemPreservedDefaultHold).toBe(true);
+      expect(before.visualOnlyTiming.durationOverrideMs).toBeGreaterThan(0);
+      const mediaRoot = await realpath(await mkdtemp(join(directory, "bind-hold-")));
+      const media = await makeResearchBindingProofMedia(mediaRoot, before.researchClip!, before.id, before.payload.payloadId);
+      const exportRoot = join(mediaRoot, "exports");
+      await mkdir(exportRoot);
+      await cp(dirname(media.path), join(exportRoot, loggedClip.id), { recursive: true });
+      researchMedia = { projectId, mediaRoot, exportRoot,
+        python: process.env.VERA_PROOF_PYTHON ?? join(REPOSITORY_ROOT, ".venv", "bin", "python"), cwd: REPOSITORY_ROOT };
+      await restartHostAndDatabase();
+      const bind = (basis: SavedDocument) => appRequest(page, "/authoring/research-media", "POST", {
+        timelineProjectId: projectId, clipRowId: before.id, action: "bind", expectedRevision: basis.revision,
+        expectedDigest: basis.digest, expectedRowEditRevision: basis.document.rowEditRevision ?? 0,
+      });
+      const result = await bind(appended);
+      expect(result.status, JSON.stringify(result.body)).toBe(200);
+      const bound = await read();
+      const resolved = findRoot(bound);
+      expect(resolved.visualOnlyTiming).toEqual({ kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 8 } });
+      expect(resolved.frameBinding?.loggedEndFrame).toBe(8);
+      expect(resolved.researchClip).toEqual(before.researchClip);
+      expect(resolved.additionalVisuals).toEqual(before.additionalVisuals);
+      expect(resolved.payload.payloadId).toBe(before.payload.payloadId);
+      await page.reload();
+      expect(findRoot(await read())).toEqual(resolved);
+      expect((await bind(bound)).status).toBe(200);
+      expect((await read()).revision).toBe(bound.revision);
+    } finally {
+      researchClips = originalCatalog;
+      researchMedia = undefined;
+      await restartHostAndDatabase();
+      await page.close();
+    }
+  }, 90_000);
+
+  it("#83 unconfigured playback leaves the saved occurrence and Library independent", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Occurrence inspector");
+    const model = editableDocumentFixture(projectId, "alpha beta").document;
+    const first = researchOccurrence(880500);
+    const second = researchOccurrence(880600);
+    second.visualOnlyTiming.selectedSourceRange = { startFrame: 12, durationFrames: 96 };
+    model.activeDraft = { blocks: [first, second], supportingItems: [] };
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const before = (await appRequest(page, path)).body;
+    const panel = page.locator("#occurrence-footage");
+    const card = (id: string) => page.locator(`[data-row-id="${id}"] [data-inspect-footage]`);
+    try {
+      await page.goto(`${origin}/?project=${projectId}`);
+      await card(first.id).click();
+      expect(await panel.locator("[data-occurrence-range]").textContent()).toContain("24–60");
+      await expect.poll(() => panel.locator("[data-occurrence-player-status]").textContent()).toContain("unavailable");
+      expect(await panel.locator("[data-occurrence-play]").isDisabled()).toBe(true);
+      await card(second.id).click();
+      expect(await panel.locator("[data-occurrence-range]").textContent()).toContain("12–108");
+      expect(await panel.locator("[data-occurrence-transcript]").textContent()).toBe("Frozen English text");
+      const playable = { ...loggedClip, video: { ...loggedClip.video, youtubeVideoId: "p0W_cxbbTQA" } };
+      await page.route("**/authoring/research/**/clips", route => route.fulfill({
+        contentType: "application/json", body: JSON.stringify({ clips: [playable] }),
+      }));
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      expect(await panel.isHidden()).toBe(true);
+      await page.getByLabel("Show used").check();
+      await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
+      expect(await page.locator("#footage-panel [data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      expect(await page.locator("iframe").count()).toBe(0);
+      expect((await appRequest(page, path)).body).toEqual(before);
+    } finally { await page.close(); }
+  }, 30_000);
+
+  it("#83 primary checkpoint saves, resets, undoes and reloads a bound narrated use", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Bound primary trim checkpoint");
+      const { doc, row, first } = boundPrimaryFixture();
+      const model = editableDocumentFixture(projectId, "alpha beta").document;
+      model.activeDraft = doc.activeDraft;
+      await saveDocumentFixture(page, projectId, model);
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const before = await read();
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const apply = async (command: unknown) => page.evaluate(async (intent) => {
+        const app = window.__veraVisualTest!;
+        return await app.queueResearchTrim(app.researchTrimBasis(), intent);
+      }, command);
+      const selector = { kind: "trim_research_clip", payloadId: first.payload.payloadId };
+      expect(await apply({ ...selector, edge: "range", startFrame: 30, endFrame: 50 })).toBe(true);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const trimmed = await read();
+      expect(trimmed.revision).toBe(before.revision + 1);
+      expect(trimmed.document.activeDraft.blocks[0]).toMatchObject({
+        id: row.id, version: row.version + 1, tokens: row.tokens, unattachedVisuals: row.unattachedVisuals!,
+        primaryVisualSequence: { slots: [{ payload: {
+          selectedSourceRange: { startFrame: 30, durationFrames: 20 }, sourceUsage: { sourceInFrame: 30 },
+          frameBinding: first.frameBinding, researchClip: first.researchClip,
+        } }] },
+      });
+      expect(await apply({ ...selector, edge: "reset" })).toBe(true);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const reset = await read();
+      expect(reset.revision).toBe(trimmed.revision + 1);
+      expect(reset.document.activeDraft.blocks[0]).toMatchObject({ primaryVisualSequence: { slots: [{ payload: {
+        sourceUsage: { sourceInFrame: 12 }, selectedSourceRange: { startFrame: 12, durationFrames: 96 },
+      } }] } });
+      await page.getByRole("button", { name: "Undo Trim footage" }).first().click();
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      expect((await read()).document).toEqual(trimmed.document);
+      await page.reload();
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      expect((await read()).document).toEqual(trimmed.document);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  it("#83 commits one verified occurrence trim/Undo and discards a response after a project switch", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const otherProject = await createProject(page, origin, "Other trim project");
+    const projectId = await createProject(page, origin, "Verified trim queue");
+    const model = editableDocumentFixture(projectId, "alpha beta").document;
+    const first = researchOccurrence(880300);
+    const sibling = researchOccurrence(880400);
+    model.activeDraft = { blocks: [first, sibling], supportingItems: [] };
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const before = await read();
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const command = { kind: "trim_research_clip", clipRowId: first.id, edge: "range", startFrame: 30, endFrame: 50 };
+    const trim = async () => page.evaluate(async (command) => {
+      const app = window.__veraVisualTest!;
+      return await app.queueResearchTrim(app.researchTrimBasis(), command);
+    }, command);
+    expect(await trim()).toBe(true);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const saved = await read();
+    expect(saved.revision).toBe(before.revision + 1);
+    expect(saved.document.activeDraft.blocks[0]).toMatchObject({
+      researchClip: first.researchClip, frameBinding: first.frameBinding,
+      visualOnlyTiming: { selectedSourceRange: { startFrame: 30, durationFrames: 20 } },
+    });
+    expect(saved.document.activeDraft.blocks[1]).toEqual(sibling);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Trim footage"]);
+    expect(await trim()).toBe(false);
+    expect(await read()).toEqual(saved);
+    await page.getByRole("button", { name: "Undo Trim footage" }).click();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const undone = await read();
+    expect(undone.revision).toBe(saved.revision + 1);
+    expect(undone.document).toEqual(before.document);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+
+    // Hold the real host result after it is calculated, then open a different
+    // project in this same page before the trim response reaches the queue.
+    let release!: () => void;
+    let received!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const reached = new Promise<void>((resolve) => { received = resolve; });
+    await page.route("**/authoring/research-trim", async (route) => {
+      const response = await route.fetch();
+      received();
+      await held;
+      await route.fulfill({ response });
+    });
+    const pending = trim();
+    await reached;
+    try {
+      await page.evaluate(async (id) => window.__veraVisualTest!.openScript(id), otherProject);
+      expect(new URL(page.url()).searchParams.get("project")).toBe(otherProject);
+    } finally { release(); }
+    expect(await pending).toBe(false);
+    expect(await read()).toEqual(undone);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await page.close();
+  }, 90_000);
 
   it("does not add Undo or save when Research membership is revoked or a choice is stale", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

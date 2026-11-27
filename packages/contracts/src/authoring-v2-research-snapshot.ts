@@ -3,6 +3,9 @@
  * No Research API, frame-rate conversion, media discovery, or readiness claim lives here.
  */
 import type {
+  NarratedVisualPayloadV2,
+  NarrationBlockV2,
+  ScriptDocumentV2,
   ResearchClipSnapshotV2,
   ResearchFrameBindingV2,
   VisualOnlyBlockV2,
@@ -209,12 +212,26 @@ export function withResearchClipUseRangeV2(
   return copy;
 }
 
+/** Restore both ends in one edit, never infer a range from logged milliseconds. */
+export function resetResearchClipOccurrenceV2(row: VisualOnlyBlockV2): VisualOnlyBlockV2 {
+  const binding = row.frameBinding;
+  if (!binding) throw new RangeError("A verified Research frame binding is required for trimming");
+  return withResearchClipUseRangeV2(row, {
+    startFrame: binding.loggedStartFrame, endFrame: binding.loggedEndFrame,
+  });
+}
+
+export type ResearchClipTrimChangeV2 =
+  | { edge: "in" | "out"; frame: number }
+  | { edge: "clear_out" | "reset" }
+  | ({ edge: "range" } & FrameIntervalV2);
+
 /** Change just one occurrence's in/out. The source candidate and frame mapping are immutable. */
 export function trimResearchClipOccurrenceV2(
   row: VisualOnlyBlockV2,
-  change: { edge: "in" | "out"; frame: number } | { edge: "clear_out" },
+  change: ResearchClipTrimChangeV2,
 ): VisualOnlyBlockV2 {
-  if (!change || !(change.edge === "clear_out" ||
+  if (!change || !(change.edge === "clear_out" || change.edge === "reset" || change.edge === "range" ||
     ((change.edge === "in" || change.edge === "out") && Number.isSafeInteger(change.frame)))) {
     throw new RangeError("An exact source-frame trim is required");
   }
@@ -222,9 +239,50 @@ export function trimResearchClipOccurrenceV2(
   if (!selected || !Number.isSafeInteger(selected.startFrame + selected.durationFrames)) {
     throw new RangeError("An existing valid source-frame selection is required");
   }
+  if (change.edge === "reset") return resetResearchClipOccurrenceV2(row);
+  if (change.edge === "range") return withResearchClipUseRangeV2(row, {
+    startFrame: change.startFrame, endFrame: change.endFrame,
+  });
   const startFrame = change.edge === "in" ? change.frame : selected.startFrame;
   const endFrame = change.edge === "out" ? change.frame :
     change.edge === "clear_out" ? row.frameBinding?.loggedEndFrame : selected.startFrame + selected.durationFrames;
   if (endFrame === undefined) throw new RangeError("An evidenced logged end is required");
   return withResearchClipUseRangeV2(row, { startFrame, endFrame });
+}
+
+/** Primary and waiting payloads are independent; an attached note's base
+ * mirror is edited through the authoritative clip row. */
+export function findPrimaryResearchOwnerV2(document: ScriptDocumentV2, payloadId: string) {
+  const owners: { row: NarrationBlockV2; item: { version: number }; payload: NarratedVisualPayloadV2 }[] = [];
+  const visit = (row: ScriptDocumentV2["activeDraft"]["blocks"][number], stashed: boolean) => {
+    if (row.type !== "narration") return;
+    for (const slot of row.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual" || slot.payload.payloadId !== payloadId) continue;
+      if (!stashed && row.attachedFootage && row.stashOrigin?.kind === "note" && row.stashOrigin.returnEligible &&
+          row.primaryVisualSequence?.slots.length === 1 && slot.relation.kind === "base" &&
+          slot.boundaryBefore.kind === "row_start") continue;
+      owners.push({ row, item: slot, payload: slot.payload });
+    }
+    for (const waiting of row.unattachedVisuals ?? []) {
+      if (waiting.payload.payloadId === payloadId) owners.push({ row, item: waiting, payload: waiting.payload });
+    }
+  };
+  for (const row of document.activeDraft.blocks) visit(row, false);
+  for (const bundle of document.stash ?? []) for (const row of bundle.rows) visit(row, true);
+  return owners.length === 1 ? owners[0] : undefined;
+}
+
+/** Reuse existing bound-occurrence frame arithmetic for narrated payloads. */
+export function trimNarratedResearchPayloadV2(payload: NarratedVisualPayloadV2, change: ResearchClipTrimChangeV2) {
+  if (!payload.selectedSourceRange || payload.sourceUsage?.sourceInFrame !== payload.selectedSourceRange.startFrame) {
+    throw new RangeError("A matching narrated source selection is required");
+  }
+  const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...visual } = payload;
+  const row: VisualOnlyBlockV2 = {
+    type: "visual_only", id: payload.payloadId, orderKey: "trim", version: 1,
+    payload: visual, visualOnlyTiming: { kind: "visual_only", selectedSourceRange },
+    ...(researchClip ? { researchClip } : {}), ...(frameBinding ? { frameBinding } : {}),
+  };
+  const trimmed = trimResearchClipOccurrenceV2(row, change).visualOnlyTiming.selectedSourceRange!;
+  return { selectedSourceRange: trimmed, sourceUsage: { ...sourceUsage, sourceInFrame: trimmed.startFrame } };
 }

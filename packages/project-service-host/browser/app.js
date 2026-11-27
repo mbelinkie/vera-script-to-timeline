@@ -3,10 +3,11 @@ import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel } from "./rows-editor.js";
 import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
-import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
+import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
 import { captureWholeRowStash, createStashActions } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
+import { cueExcerpt } from "./footage-trim-timing.js";
 import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
@@ -85,6 +86,7 @@ let prompterGeneration = 0;
 let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
+let occurrenceFootage;
 let researchStillPanel;
 let sortingTrial = null;
 let stashPanel;
@@ -417,6 +419,7 @@ async function showScript(projectId) {
   structuralFocus = null;
   activeReselect = null;
   activeAttach = null;
+  occurrenceFootage?.close(false);
   researchPanel?.close();
   researchStillPanel?.close();
   stashPanel?.close(false, true);
@@ -542,6 +545,8 @@ function renderEditor() {
     flashIds: flashVisualIds,
   });
   if (!sortingTrial) renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard });
+  occurrenceFootage?.observeCards(root);
+  occurrenceFootage?.update();
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root,
     (command, label, focus) => queueCommand(command, label, { structural: true, cardFocus: focus }),
@@ -1242,6 +1247,68 @@ export async function researchStillThumbnailGet(researchProjectId, itemId, itemV
   };
 }
 
+// Freeze the gesture's saved head rather than silently rebasing it to another
+// row, project, or pending edit. Only a committed gesture calls this function.
+function trimBasis() {
+  return prompterReady() ? {
+    projectId: activeProjectId, document: scriptDocument, revision: documentRevision, digest: documentDigest,
+  } : null;
+}
+
+function trimBasisCurrent(basis) {
+  return !opening && activeProjectId === basis.projectId && scriptDocument === basis.document &&
+    documentRevision === basis.revision && documentDigest === basis.digest &&
+    !conflicted && !editRefused && !sortingTrial && !documentSaving && !documentDirty && !pendingDocument && !pendingExtras;
+}
+
+function trimEnvelope(basis) {
+  return { timelineProjectId: basis.projectId, expectedRevision: basis.revision,
+    expectedDigest: basis.digest, expectedRowEditRevision: basis.document.rowEditRevision ?? 0 };
+}
+
+// Phase 3 captures this at gesture start and passes it back on commit.
+export function researchTrimBasis() { return trimBasis(); }
+
+export function queueResearchTrim(basis, command) {
+  if (!basis || !prompterReady() || !trimBasisCurrent(basis)) {
+    setSaveStatus("The saved script changed. Choose the footage again after saving.");
+    return Promise.resolve(false);
+  }
+  return queueCommand(structuredClone(command), "Trim footage", { structural: true, trim: basis });
+}
+
+async function researchMediaRequest(basis, owner, action, { signal, frame } = {}) {
+  if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Reopen this footage.");
+  const response = await fetch("/authoring/research-media", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...researchStillRequestHeaders() },
+    body: JSON.stringify({ ...trimEnvelope(basis), ...owner, action,
+      ...(frame === undefined ? {} : { frame }) }),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(125_000)]) : AbortSignal.timeout(125_000),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new ResearchStillApiError(response.status, body);
+  }
+  const result = await (action === "describe" || action === "bind" ? response.json() : response.blob());
+  if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Reopen this footage.");
+  return result;
+}
+
+function queueResearchBinding(basis, owner) {
+  if (!basis || !prompterReady() || !trimBasisCurrent(basis)) return Promise.resolve(false);
+  return queueCommand(owner, "Bind verified footage", { structural: true, bindResearch: basis });
+}
+
+export async function researchTrimTiming(owner) {
+  const basis = trimBasis();
+  if (!basis) return null;
+  try {
+    const result = await authoringVisualPost("research-trim-timing", { ...trimEnvelope(basis), ...owner });
+    return trimBasisCurrent(basis) && !commandsPending ? result.cues : null;
+  } catch { return null; }
+  }
+
 /** Fetches a kept quote thumbnail through the same-origin Authoring session. */
 export async function researchQuoteThumbnailGet(quote) {
   const timelineId = activeProjectId;
@@ -1552,6 +1619,7 @@ function placeLibraryStill(still, destination) {
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
+  occurrenceFootage?.close(false);
   stashPanel.close(false);
   void researchStillPanel.open({ from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
@@ -2339,6 +2407,7 @@ element("open-sorting").addEventListener("click", () => {
     return;
   }
   if (!beginSortingTrial()) return;
+  occurrenceFootage?.close(false);
   researchPanel?.close();
   researchStillPanel?.close();
   activeAttach = null;
@@ -2564,6 +2633,64 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.bindResearch) {
+      const basis = options.bindResearch;
+      let receipt, saved;
+      try {
+        receipt = await researchMediaRequest(basis, resolved, "bind");
+        if (receipt.bound && receipt.revision === basis.revision && receipt.digest === basis.digest) return true;
+        saved = await api(`/${basis.projectId}/document`);
+      } catch (error) {
+        // A lost response can follow a successful commit. Stop editing this
+        // local head until the user opens the authoritative saved script.
+        const definitelyRefused = error instanceof ResearchStillApiError && [400, 403, 404, 422].includes(error.status);
+        if (trimBasisCurrent(basis) && (receipt || !definitelyRefused)) {
+          conflicted = true;
+          documentSaveFailure = { message: "The binding could not be confirmed. Open the saved script to continue.", action: "conflict" };
+        }
+        throw error;
+      }
+      // The binding endpoint uses the saved-document CAS directly. Adopt that
+      // exact receipt before releasing the queue to any editor command.
+      if (!trimBasisCurrent(basis)) return false;
+      if (saved.document?.projectId !== basis.projectId || saved.document.id !== basis.document.id ||
+          saved.revision !== receipt.revision || saved.digest !== receipt.digest) {
+        conflicted = true;
+        documentSaveFailure = { message: "The saved script changed. Open the saved script to continue.", action: "conflict" };
+        return false;
+      }
+      typingGroup = null;
+      lastSplit = null;
+      undoStack.push({ document: basis.document, label });
+      const previousProjection = visualProjection;
+      scriptDocument = saved.document;
+      documentRevision = saved.revision;
+      documentDigest = saved.digest;
+      updateUndo();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      void refreshMusicWarnings();
+      return true;
+    }
+    if (options.trim) {
+      const basis = options.trim;
+      if (!trimBasisCurrent(basis)) throw new Error("The saved script changed. Choose the footage again.");
+      const result = await authoringVisualPost("research-trim", { ...trimEnvelope(basis), command: resolved });
+      if (!trimBasisCurrent(basis) || result.document?.projectId !== basis.projectId ||
+          JSON.stringify(result.document) === JSON.stringify(basis.document)) {
+        throw new Error("The saved script changed or the trim did not change the footage.");
+      }
+      typingGroup = null;
+      undoStack.push({ document: basis.document, label });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      updateUndo();
+      documentDirty = true;
+      // saveDocument uses the same expectedRevision, never a refreshed head.
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      return true;
+    }
     if (options.research || options.researchStill || options.researchQuote) {
       typingGroup = null;
       const prior = scriptDocument;
@@ -2736,7 +2863,8 @@ function queueCommand(command, label, options = {}) {
       element("discard-edit").hidden = false;
       element("discard-edit").disabled = true;
     }
-    commandError = refusedMessage || error.message || "Edit could not be applied.";
+    commandError = refusedMessage || (options.bindResearch ? "Could not confirm the media binding." : error.message) || "Edit could not be applied.";
+    if (options.bindResearch) options.bindError = error;
     return false;
   }).finally(() => {
     commandsPending -= 1;
@@ -2744,7 +2872,10 @@ function queueCommand(command, label, options = {}) {
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
-  return commandQueue;
+  return options.bindResearch ? commandQueue.then(ok => {
+    if (options.bindError) throw options.bindError;
+    return ok;
+  }) : commandQueue;
 }
 
 function updateUndo() {
@@ -2902,10 +3033,16 @@ function showOpenError(error) {
 
 async function openScript(projectId) {
   if (opening || pendingExtras || sortingTrial?.acceptance) return;
+  occurrenceFootage?.close(false);
   opening = true;
+  occurrenceFootage?.update();
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
-  finally { opening = false; updatePrompterControls(); }
+  finally {
+    opening = false;
+    updatePrompterControls();
+    occurrenceFootage?.update();
+  }
 }
 
 function newScript(title) {
@@ -2975,6 +3112,7 @@ function setSaveStatus(message = "Saved") {
   retrySave.hidden = action !== "retry" || !canEditAccount();
   openSaved.hidden = action !== "conflict";
   updatePrompterControls();
+  occurrenceFootage?.update();
 }
 
 element("discard-edit").addEventListener("click", () => {
@@ -3104,13 +3242,29 @@ stashPanel = mountStashPanel({
   },
   getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
   onOpen: () => {
+    occurrenceFootage?.close(false);
     if (!element("footage-panel").hidden) researchPanel.close();
     if (!element("research-still-panel").hidden) researchStillPanel.close();
   },
 });
 element("open-footage").addEventListener("click", () => stashPanel.close(false));
+occurrenceFootage = mountOccurrenceFootage({
+  root: element("occurrence-footage"), getDocument: () => scriptDocument,
+  getBasis: researchTrimBasis, commit: queueResearchTrim, excerpt: cueExcerpt,
+  mediaRequest: researchMediaRequest, bind: queueResearchBinding,
+});
+element("script-rows").addEventListener("click", event => {
+  const card = event.target.closest("[data-footage-placement]");
+  if (!card || (event.target.closest("button,input,a") && !event.target.closest("[data-inspect-footage]"))) return;
+  if (sortingTrial || pendingExtras) return;
+  researchPanel?.close();
+  researchStillPanel?.close();
+  stashPanel?.close(false);
+  occurrenceFootage.show(card.closest("[data-row-id]").dataset.rowId, card.dataset.footagePlacement);
+});
 researchPanel = mountResearchPanel({
   root: element("footage-panel"),
+  onOpen: () => occurrenceFootage.close(false),
   catalog: researchCatalogGet,
   quotesCatalog: researchQuoteCatalogGet,
   quoteThumbnail: researchQuoteThumbnailGet,
