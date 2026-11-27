@@ -1,0 +1,12 @@
+.account-panel { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 16px; background:#15181c; color:#e7e4dd; border-bottom:1px solid #333a44; font:13px/1.5 system-ui,sans-serif; }
+.account-panel[hidden] { display:none; }
+.account-panel > span:nth-child(2) { overflow-wrap:anywhere; margin-right:auto; color:#adb4be; }
+.account-panel button, .account-panel select, .account-panel input { font:inherit; padding:6px 10px; border:1px solid #58616f; border-radius:5px; background:#20252d; color:#f2efe8; }
+.account-panel button { cursor:pointer; }
+.account-panel :focus-visible { outline:2px solid #e1bf7b; outline-offset:3px; }
+.account-panel__dialog { background:#171a20; color:#f2efe8; width:min(760px,90vw); max-height:80vh; overflow:auto; border:1px solid #697382; border-radius:10px; }
+.account-panel__dialog::backdrop { background:#000a; }
+.account-panel__dialog ul { list-style:none; padding:0; }
+.account-panel__dialog li, .account-panel__dialog form { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; align-items:center; }
+.account-panel__dialog code { flex:1; overflow-wrap:anywhere; }
+.account-notice { padding:16px; border:1px solid #c49b50; background:#292319; color:#f2efe8; }

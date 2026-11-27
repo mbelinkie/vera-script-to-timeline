@@ -262,10 +262,11 @@ export class ProjectCommentService {
     const mutationId = requireUuid(input.clientMutationId);
     const expected = requireRevision(input.expectedCommentRevision);
     if (principal.principalKind !== "user") throw new ProjectDocumentInputError("Expected suite user actor.");
+    const kind = trustedCommentOperation(principal.principalId, mutationId, input.operation).kind;
     // Parse untrusted payload before any database work, but only stamp the actor
     // from the authorization callback within the committing transaction.
     return await retry(async () => await this.auth.withAuthorizedMutation(
-      projectId, principal, "comment", async (db, actor) => {
+      projectId, principal, ["create", "reply"].includes(kind) ? "comment" : "edit_document", async (db, actor) => {
         const operation = trustedCommentOperation(actor, mutationId, input.operation);
         const requestDigest = fingerprint({ expectedCommentRevision: expected, operation });
         try {

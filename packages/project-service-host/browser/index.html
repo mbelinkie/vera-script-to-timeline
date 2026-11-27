@@ -6,12 +6,23 @@
     <meta name="theme-color" content="#17191f">
     <title>VERA Script to Timeline</title>
     <link rel="stylesheet" href="/authoring.css">
+    <link rel="stylesheet" href="/account-panel.css">
     <link rel="stylesheet" href="/rows-editor.css">
     <link rel="stylesheet" href="/narration-editor.css">
     <link rel="stylesheet" href="/stash-row-editor.css">
     <script type="module" src="/app.js"></script>
   </head>
   <body>
+    <div id="account-panel" hidden></div>
+    <section id="account-notice" class="account-notice" role="alertdialog" aria-labelledby="account-notice-title" tabindex="-1" hidden>
+      <h2 id="account-notice-title">You’re now a Viewer</h2>
+      <p id="account-notice-text">Editing has stopped. Your unsaved text is still here to copy. Discard it to return to the saved script.</p>
+      <button id="account-discard" type="button">Discard unsaved edits</button>
+    </section>
+    <main id="account-access-ended" class="home-view" hidden>
+      <div class="home-card"><h1 tabindex="-1">Your access to this project has ended</h1>
+      <p>Ask a Producer to add you again. A script link does not grant access.</p><a href="/">Back to home</a></div>
+    </main>
     <main id="home-view" class="home-view">
       <div class="home-card">
         <p class="eyebrow">VERA · SCRIPT TO TIMELINE</p>
