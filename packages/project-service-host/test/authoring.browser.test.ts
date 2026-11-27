@@ -2846,6 +2846,22 @@ describe("browser authoring over the local project service", () => {
       await page.locator("#stash-note").fill("Still note");
       await page.locator("[data-stash-form]").getByRole("button", { name: "Add note", exact: true }).click();
       await expect.poll(async () => (await load()).document.stashOutline?.length).toBe(1);
+      // The merged unified Library also exposes the same kept still, independently of the dedicated picker.
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      const libraryStill = page.getByRole("button", { name: `Place still ${loggedStill.title} in script` });
+      await libraryStill.dragTo(page.locator("[data-stash-research-note]"));
+      const noteId = (await load()).document.stashOutline![0]!.rowId;
+      await expect.poll(async () => (await load()).document.stashResearchItems?.[0])
+        .toMatchObject({ kind: "still", noteRowId: noteId, still: loggedStill });
+      await page.getByRole("button", { name: "Undo Add Research item to Stash" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length ?? 0).toBe(0);
+      await page.locator(".footage-item--still").filter({ hasText: loggedStill.title })
+        .getByRole("button", { name: "Add still to Stash" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.[0])
+        .toMatchObject({ kind: "still", noteRowId: null, still: loggedStill });
+      await page.getByRole("button", { name: "Undo Add Research item to Stash" }).click();
+      await expect.poll(async () => (await load()).document.stashResearchItems?.length ?? 0).toBe(0);
+      await page.getByRole("button", { name: "Close Library" }).click();
       await page.locator("[data-stash-research-note]").getByRole("button", { name: "Add kept still" }).click();
       const stillChoice = page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` });
       await stillChoice.dragTo(page.locator("[data-stash-research-note]"));
@@ -6710,6 +6726,10 @@ describe("browser authoring over the local project service", () => {
       await page.getByRole("button", { name: "Stash", exact: true }).click();
       await page.locator("[data-stash-add-clip]").click();
       await page.getByRole("heading", { name: "Choose logged footage for Stash" }).waitFor();
+      expect(await page.getByRole("button", { name: "Quotes", exact: true }).isDisabled()).toBe(true);
+      expect(await page.getByRole("button", { name: "Stills", exact: true }).isDisabled()).toBe(true);
+      expect(await page.getByRole("button", { name: "Add quote to Stash" }).count()).toBe(0);
+      expect(await page.getByRole("button", { name: "Add still to Stash" }).count()).toBe(0);
       await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
       const clip = page.locator('[data-stash-kind="clip"]').filter({ hasText: "Frozen research source" });
       await clip.waitFor();
