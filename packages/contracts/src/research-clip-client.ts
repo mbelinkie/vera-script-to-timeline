@@ -12,7 +12,7 @@ import {
 import { readResearchLibraryItem, readResearchLibrarySource, type ResearchLibraryItemKind } from "./research-library-records.js";
 import { describeResearchQuote, readResearchQuote, type ResearchQuoteRecord } from "./research-quote-records.js";
 import {
-  readKeptOriginalAsset, readKeptStillManifest, readStillItem,
+  readKeptOriginalAsset, readKeptStillManifest, readStillItem, readStillChoice,
   UnsupportedKeptStillError, type ResearchStillChoice,
 } from "./research-still-records.js";
 
@@ -438,16 +438,41 @@ export function createResearchClient(options: {
       }
       const items = await get(`/api/projects/${projectId}/items?kind=still&limit=${STILL_PAGE_SIZE + 1}&offset=${offset}`);
       if (!Array.isArray(items) || items.length > STILL_PAGE_SIZE + 1) throw new Error("Invalid Research still page.");
+      const sourceTitles = new Map<string, Promise<string | undefined>>();
+      function sourceTitle(sourceId: string) {
+        let pending = sourceTitles.get(sourceId);
+        if (!pending) {
+          pending = source(projectId, sourceId).then((record) => record.bibliography.title?.value).catch((error: unknown) => {
+            if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+            return undefined;
+          });
+          sourceTitles.set(sourceId, pending);
+        }
+        return pending;
+      }
       const choices = await Promise.all(items.slice(0, STILL_PAGE_SIZE).map(async (entry: unknown) => {
-        const item = readStillItem(entry, projectId);
+        let item: ReturnType<typeof readStillItem>;
+        let choice: ResearchStillChoice;
         try {
-          await manifest(projectId, item.itemId);
-          const { itemId, itemVersion, title, credit } = item;
-          return { itemId, itemVersion, title, ...(credit === undefined ? {} : { credit }) };
+          item = readStillItem(entry, projectId);
+          choice = readStillChoice(entry, projectId);
+        } catch {
+          return null;
+        }
+        let rawManifest: unknown;
+        try {
+          rawManifest = await get(`${libraryPath(projectId, "stills", item.itemId)}/assets`);
         } catch (error) {
-          if (error instanceof UnsupportedKeptStillError || error instanceof ResearchReadError && error.status === 404) return null;
+          if (error instanceof ResearchReadError && error.status === 404) return null;
           throw error;
         }
+        try {
+          readKeptStillManifest(rawManifest);
+        } catch {
+          return null;
+        }
+        const title = await sourceTitle(item.sourceId);
+        return { ...choice, ...(title === undefined ? {} : { sourceTitle: title }) };
       }));
       const more = offset + STILL_PAGE_SIZE;
       return { stills: choices.filter((choice) => choice !== null),

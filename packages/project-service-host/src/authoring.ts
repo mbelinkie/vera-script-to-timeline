@@ -26,6 +26,8 @@ export const DEFAULT_AUTHORING_PORT = "38429";
 const ASSETS = new Map<string, readonly [string, string]>([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
+  ["/account-panel.js", ["account-panel.js", "text/javascript; charset=utf-8"]],
+  ["/account-panel.css", ["account-panel.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/stash-actions.js", ["stash-actions.js", "text/javascript; charset=utf-8"]],
   ["/stash-panel.js", ["stash-panel.js", "text/javascript; charset=utf-8"]],
@@ -61,7 +63,7 @@ const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
 // pictures. Other visual operations belong to separate browser stories.
 const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
-  "set_visual_range", "swap_ranges", "set_on_camera_framing",
+  "set_visual_range", "swap_ranges", "set_on_camera_framing", "set_research_still_credit",
 ]);
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -260,8 +262,11 @@ function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
     (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
     !record(value.placement)) return null;
   const p = value.placement;
-  if (!exact(p, ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
-      p.kind !== "selected_words" || !uuid(p.rowId) || !uuid(p.startTokenId) || !uuid(p.endTokenId) ||
+  const keys = ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"];
+  if (p.kind === "selected_words") {
+    if (!exact(p, [...keys, "startTokenId", "endTokenId"]) || !uuid(p.startTokenId) || !uuid(p.endTokenId)) return null;
+  } else if (p.kind !== "unattached" || !exact(p, keys)) return null;
+  if (!uuid(p.rowId) ||
       !Number.isSafeInteger(p.expectedRowVersion) || (p.expectedRowVersion as number) < 0 ||
       !Number.isSafeInteger(p.expectedSequenceVersion) || (p.expectedSequenceVersion as number) < 0) return null;
   return value as unknown as NonNullable<ReturnType<typeof stillInsertRequest>>;
@@ -269,7 +274,7 @@ function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
 
 const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
+  "set_visual_range", "set_on_camera_framing", "set_research_still_credit", "move_visual_to_row", "attach_visual_to_words",
 ]);
 const REVISIONED_ROW_KINDS = new Set([
   "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
@@ -303,6 +308,11 @@ function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
     case "set_visual_range":
       if (!exact(value, ["kind", "blockId", "slotId", "startTokenId", "endTokenId"]) ||
           !id(value.startTokenId) || !id(value.endTokenId)) return null;
+      break;
+    case "set_research_still_credit":
+      if (!exact(value, ["kind", "blockId", "slotId", "payloadId", "show"]) ||
+          !uuid(value.blockId) || !uuid(value.slotId) || !uuid(value.payloadId) ||
+          typeof value.show !== "boolean") return null;
       break;
     case "set_on_camera_framing":
       if (!exact(value, ["kind", "blockId", "slotId", "framing"]) ||
@@ -495,6 +505,8 @@ export function createAuthoringHandler(
   authorization: string,
   projects: (request: Request) => Promise<Response>,
   research?: AuthoringResearchAccess,
+  // Only the account gateway may use this after per-request identity/CSRF verification.
+  trustedAccountBrowser = false,
   authorizeTimelineProject = research?.authorizeTimelineProject.bind(research),
   researchMedia?: ResearchMediaConfig,
 ) {
@@ -540,6 +552,11 @@ export function createAuthoringHandler(
     }
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
+    if (path === "/account" && request.method === "GET" && !trustedAccountBrowser) {
+      return Response.json({ mode: "local" }, { status: 404 });
+    }
+    const accountRoute = /^\/projects\/[0-9a-f-]{36}\/(?:access|write-session|members(?:\/[0-9a-f-]{36})?)$/iu.test(path);
+
     const route = PROJECT.exec(path);
     const visualHoldDefault = request.method === "GET" ? VISUAL_HOLD_DEFAULT.exec(path) : null;
     const stillRoute = RESEARCH_STILLS.exec(path);
@@ -568,7 +585,7 @@ export function createAuthoringHandler(
     const isQuoteInsert = path === "/research-quote-insert" && request.method === "POST";
     const isQuoteBoxEdit = path === "/research-quote-box-edit" && request.method === "POST";
     const isQuoteDisplayDefault = path === "/research-quote-display-default" && request.method === "POST";
-    const allowed = path === "/projects" ? request.method === "POST" :
+    const allowed = accountRoute ? ["GET", "PATCH", "POST"].includes(request.method) : path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       visualHoldDefault || (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
@@ -593,9 +610,25 @@ export function createAuthoringHandler(
     if (startsSession && matchesProof(request.headers.get("x-vera-launch"), launchProof)) {
       return Response.json({ sessionProof: browserProof.toString("hex") });
     }
-    if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
+    if (!trustedAccountBrowser && (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof))) {
       return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
         Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (trustedAccountBrowser) {
+      // Even pure command previews must check current membership before computing edits.
+      const mutates = request.method !== "GET" && !isProjection && !isPrompterExport && !isVisualPreview;
+      if (startsSession) return Response.json({ error: "not_found" }, { status: 404 });
+      if (mutates && (isCommand || isVisualCommand || isExtrasOperation || isSortingTrial ||
+          isResearchInsert || isStillInsert || isQuoteInsert || isQuoteBoxEdit || isQuoteDisplayDefault)) {
+        const body = await request.clone().json().catch(() => null) as { document?: { projectId?: string }; timelineProjectId?: string } | null;
+        const projectId = sortingRoute?.[1] ?? /\/projects\/([^/]+)/u.exec(path)?.[1] ??
+          body?.document?.projectId ?? body?.timelineProjectId;
+        if (!uuid(projectId)) return Response.json({ error: "invalid_request" }, { status: 400 });
+        const access = await projects(new Request(`${origin}/v1/projects/${projectId}/access`, { headers: { authorization } }));
+        if (!access.ok) return access;
+        const { role } = await access.json() as { role: string };
+        if (role !== "producer" && role !== "editor") return Response.json({ error: "action_not_allowed" }, { status: 403 });
+      }
     }
     if (visualHoldDefault) {
       try {
@@ -1259,6 +1292,7 @@ export function createAuthoringHandler(
         if (!record(body) || !exact(body, ["document", "command", "expectedSequenceVersion"]) ||
             !document || !validateScriptDocumentV2(document).valid || !record(command) ||
             !AUTHORING_VISUAL_KINDS.has(command.kind) ||
+            (command.kind === "set_research_still_credit" && !visualCommand(command)) ||
             !Number.isSafeInteger(expectedSequenceVersion) || expectedSequenceVersion! < 0) {
           return Response.json({ error: "invalid_visual_command" }, { status: 400 });
         }

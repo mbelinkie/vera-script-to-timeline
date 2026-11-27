@@ -704,6 +704,10 @@ function fakeResearchCatalog() {
       return Promise.resolve(new Response(state.quoteImage === "valid" ? thumbnailBytes : Buffer.alloc(thumbnailBytes.length),
         { headers: { "Content-Type": "image/webp" } }));
     }
+    if (pathname === `${project}/sources/${RESEARCH_STILL_SOURCE}`) return Promise.resolve(Response.json({
+      id: RESEARCH_STILL_SOURCE, projectId: RESEARCH_PROJECT, kind: "image", details: {},
+      bibliography: { title: { value: "Synthetic photo source" } },
+    }));
     const still = { kind: "still", id: RESEARCH_STILL, projectId: state.stillProject,
       sourceId: RESEARCH_STILL_SOURCE, version: state.stillVersion, content: { title: "Saved photo",
         credit: "Test photographer", licence: "Test permission", hiddenBearer: RESEARCH_SECRET } };
@@ -982,7 +986,8 @@ describe("protected kept Research stills", () => {
     const list = await h.read(`${base}?offset=0`);
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({ stills: [{ itemId: RESEARCH_STILL, itemVersion: 3,
-      title: "Saved photo", credit: "Test photographer" }], nextOffset: null });
+      researchProjectId: RESEARCH_PROJECT, title: "Saved photo", credit: "Test photographer",
+      licence: "Test permission", topics: [], sourceTitle: "Synthetic photo source" }], nextOffset: null });
     const thumbnail = await h.read(preview);
     expect(thumbnail.headers.get("Content-Type")).toBe("image/webp");
     expect(thumbnail.headers.get("Cache-Control")).toBe("no-store");

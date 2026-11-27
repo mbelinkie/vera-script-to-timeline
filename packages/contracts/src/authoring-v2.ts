@@ -287,6 +287,13 @@ export type VisualSequenceEditCommandV2 =
       endTokenId: string;
     }
   | {
+      kind: "set_research_still_credit";
+      blockId: string;
+      slotId: string;
+      payloadId: string;
+      show: boolean;
+    }
+  | {
       /** The only authored On Camera choice: Wide or Tight for one passage. */
       kind: "set_on_camera_framing";
       blockId: string;

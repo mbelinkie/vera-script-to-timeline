@@ -453,6 +453,44 @@ function authoredVisualPayloads(document: ScriptDocumentV2): Map<string, Authore
   return payloads;
 }
 
+/** Generated credit graphics follow the topmost picture, not the underlying held source. */
+function stillCreditEvents(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, pictures: TimelineEventV2[], diagnostics: BuildDiagnosticV2[]): TimelineEventV2[] {
+  const payloads = authoredVisualPayloads(document);
+  const trackIndex = new Map(dependencies.tracks.filter((track) => track.kind === "video").map((track) => [track.id, track.index]));
+  const visualEvents = pictures.filter((event) => ["primary_visual", "overlay_visual", "placeholder"].includes(event.kind));
+  const output: TimelineEventV2[] = [];
+  for (const picture of visualEvents) {
+    const payload = payloads.get(picture.provenance.payloadId ?? "");
+    const text = payload && "showResearchStillCredit" in payload && payload.showResearchStillCredit === true
+      ? (payload as NarratedVisualPayloadV2).researchStill?.credit?.trim() : undefined;
+    if (!text) continue;
+    const creditTrack = dependencies.tracks.find((track) => track.id === "still-credit" && track.kind === "video");
+    if (!creditTrack || !dependencies.roles.overlayTrackIds.includes(creditTrack.id) ||
+        [...trackIndex.values()].some((index) => index > creditTrack.index) ||
+        pictures.some((event) => event.trackId === creditTrack.id)) {
+      diagnostics.push(diagnostic("TRACK_ROLE_COLLISION", "Still credit needs a dedicated topmost graphic track. Prepare the build again.", entity("slot", picture.provenance.slotId, "roles.overlayTrackIds")));
+      continue;
+    }
+    let ranges = [picture.recordRange];
+    for (const above of visualEvents) {
+      if ((trackIndex.get(above.trackId) ?? 0) <= (trackIndex.get(picture.trackId) ?? 0)) continue;
+      const cut = above.recordRange;
+      ranges = ranges.flatMap((range) => cut.endFrame <= range.startFrame || cut.startFrame >= range.endFrame ? [range] : [
+        ...(range.startFrame < cut.startFrame ? [{ startFrame: range.startFrame, endFrame: cut.startFrame }] : []),
+        ...(cut.endFrame < range.endFrame ? [{ startFrame: cut.endFrame, endFrame: range.endFrame }] : []),
+      ]);
+    }
+    for (const range of ranges) output.push({
+      eventId: stableId(`still-credit:${picture.eventId}:${range.startFrame}:${range.endFrame}`),
+      kind: "still_credit", trackId: creditTrack.id, trackRole: "overlay", recordRange: range,
+      provenance: { ...picture.provenance, payloadId: null, sourceId: null, originalSourceHash: null, deliveredSourceHash: null },
+      sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null, pictureTreatment: null,
+      stillCredit: { pictureEventId: picture.eventId, text },
+    });
+  }
+  return output;
+}
+
 function quoteBoxTrack(dependencies: CompilerDependenciesV2): CompilerDependenciesV2["tracks"][number] | null {
   const candidates = dependencies.roles.overlayTrackIds
     .map((id) => dependencies.tracks.find((track) => track.id === id))
@@ -2286,6 +2324,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     const frozenTransitions = freezeRowTransitions(document, dependencies);
     const resolved = resolvePlan(document, dependencies, true, frozenTransitions.handles);
     resolved.diagnostics.push(...quoteBoxTemplateDiagnostics(document, dependencies));
+    resolved.events.push(...stillCreditEvents(document, dependencies, resolved.events, resolved.diagnostics));
     const invalidTopology = resolved.diagnostics.find((item) => item.code === "TRACK_ROLE_COLLISION");
     if (invalidTopology) return fail({ code: invalidTopology.code, message: invalidTopology.message, ...(invalidTopology.entity.id ? { entityId: invalidTopology.entity.id } : {}) });
     const sourcesById = new Map<string, TimelineManifestV2["sources"][number]>();

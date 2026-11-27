@@ -80,6 +80,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         Path("python/vera_timeline_agent/workflow_package.py"),
         Path("python/vera_timeline_agent/narration/models.py"),
         Path("python/vera_timeline_agent/placeholder_slate.py"),
+        Path("python/vera_timeline_agent/still_credit.py"),
         Path("packages/contracts/src/compiler-core.ts"),
         Path("packages/contracts/src/compiler-core-v2.ts"),
         Path("pyproject.toml"),

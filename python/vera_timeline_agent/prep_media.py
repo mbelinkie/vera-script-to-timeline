@@ -45,6 +45,7 @@ from .research_cut_binding import (
     find_cached_research_cut,
     research_clip_folder,
 )
+from .still_credit import freeze_still_credit_inputs
 from .v2_package import _compiler_hash
 
 Json = dict[str, Any]
@@ -365,6 +366,7 @@ def prepare_project(
             raise ValueError("Compiler inputs belong to a different frozen script")
     authored_digest = _compiler_hash(raw_document)
     freeze_quote_box_inputs(raw_document, dependencies)
+    freeze_still_credit_inputs(raw_document, dependencies)
 
     def validated_document() -> Json:
         document, diagnostics = _validate_script(script)

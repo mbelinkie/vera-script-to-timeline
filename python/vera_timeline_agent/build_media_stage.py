@@ -41,6 +41,7 @@ from .media_preparation import (
 )
 from .prep_media_inputs import prepare_still_media
 from .quote_box_inputs import freeze_quote_box_inputs
+from .still_credit import freeze_still_credit_inputs
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,9 @@ class MediaStagePort:
             raise BuildJobError("frozen compiler dependencies have unknown schema")
         result = copy.deepcopy(original)
         freeze_quote_box_inputs(
+            json.loads(snapshot.file("document").read_bytes()), result
+        )
+        freeze_still_credit_inputs(
             json.loads(snapshot.file("document").read_bytes()), result
         )
         result["narrationTimingMaps"] = self._narration_maps(context, snapshot)

@@ -892,6 +892,10 @@
           "$ref": "#/$defs/ResearchStillSnapshotV2",
           "description": "Immutable Research kept-still identity and original asset pin for this image occurrence. Display and thumbnail assets are acquired later and are never persisted here."
         },
+        "showResearchStillCredit": {
+          "type": "boolean",
+          "description": "Per-occurrence on-screen credit; absent is off."
+        },
         "researchQuotePicture": {
           "$ref": "#/$defs/ResearchQuotePictureV2",
           "description": "Immutable original image pin selected for a Research quote background."
@@ -1134,6 +1138,10 @@
               }
             }
           }
+        },
+        {
+          "if": { "properties": { "showResearchStillCredit": {} }, "required": ["showResearchStillCredit"] },
+          "then": { "properties": { "researchStill": {} }, "required": ["researchStill"] }
         },
         {
           "if": {

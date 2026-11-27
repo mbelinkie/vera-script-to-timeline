@@ -1,4 +1,5 @@
 import { filterResearchLibraryItems, libraryFilterOptions } from "./research-search.js";
+import { normalizeResearchStillPage } from "./research-still-panel.js";
 import { mountFootagePlayer, mountVerifiedFootagePlayer } from "./footage-player.js";
 
 const make = (doc, tag, className, content) => {
@@ -157,9 +158,43 @@ export function researchQuoteUsage(model, fallbackProjectId = "") {
   return [...entries.values()];
 }
 
+/** Count saved Draft image occurrences, not quote pictures or parked rows. */
+export function researchStillUsage(model) {
+  const entries = new Map();
+  const seen = new Set();
+  function add(rowId, placementId, payload) {
+    const still = payload?.researchStill;
+    if (payload?.kind !== "visual" || !still?.researchProjectId ||
+        !still.itemId || !payload.payloadId) return;
+    const project = still.researchProjectId.toLowerCase();
+    const item = still.itemId.toLowerCase();
+    const key = JSON.stringify([project, item]);
+    const occurrence = JSON.stringify([project, item, payload.payloadId.toLowerCase()]);
+    if (seen.has(occurrence)) return;
+    seen.add(occurrence);
+    if (!entries.has(key)) entries.set(key, {
+      kind: "still", researchProjectId: project, itemId: item,
+      scriptCount: 0, scriptUses: [],
+    });
+    const entry = entries.get(key);
+    entry.scriptUses.push({ rowId, placementId });
+    entry.scriptCount = entry.scriptUses.length;
+  }
+  for (const row of model?.activeDraft?.blocks ?? []) {
+    if (row.type !== "narration") continue;
+    for (const slot of row.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind === "content") add(row.id, slot.id, slot.payload);
+    }
+    for (const loose of row.unattachedVisuals ?? []) add(row.id, loose.slotId, loose.payload);
+    for (const overlay of row.overlayEvents ?? []) add(row.id, overlay.id, overlay.payload);
+  }
+  return [...entries.values()];
+}
+
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
 export function mountResearchPanel({ root, catalog, quotesCatalog = async () => ({ quotes: [], nextOffset: null }),
-  quoteThumbnail, getDocument, insert, insertQuote, onPlaceQuote, gapChoices, rowChoices, onStatus, onOpen }) {
+  quoteThumbnail, stillsCatalog = async () => ({ stills: [], nextOffset: null }), stillThumbnail,
+  getDocument, insert, insertQuote, onPlaceQuote, insertStill, onPlaceStill, gapChoices, rowChoices, onStatus, onOpen }) {
   const doc = root.ownerDocument;
   const openButton = doc.getElementById("open-footage");
   const closeButton = root.querySelector("[data-footage-close]");
@@ -173,6 +208,10 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const results = root.querySelector("[data-footage-results]");
   const status = root.querySelector("[data-footage-status]");
   const loadMore = root.querySelector("[data-footage-load-more]");
+  const stillMore = root.querySelector("[data-still-load-more]");
+  const stillChooser = root.querySelector("[data-still-placement]");
+  const stillRows = root.querySelector("[data-still-rows]");
+  const stillPlace = root.querySelector("[data-still-place]");
   const chooser = root.querySelector("[data-footage-placement]");
   const gaps = root.querySelector("[data-footage-gaps]");
   const rows = root.querySelector("[data-footage-rows]");
@@ -186,6 +225,12 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const player = mountFootagePlayer(root.querySelector("[data-footage-preview]"));
   let visible = false;
   let generation = 0;
+  let stills = [];
+  let stillsNextOffset = null;
+  let stillLoading = false;
+  let stillError = false;
+  let chosenStill = null;
+  const stillPreviews = new Map();
   let clips = [];
   let quotes = [];
   let quotesNextOffset = null;
@@ -232,8 +277,24 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       (button?.isConnected ? button : search).focus();
     }
   };
+  const clearStillChoice = () => {
+    chosenStill = null;
+    stillChooser.hidden = true;
+    stillRows.replaceChildren();
+  };
+  const resetStills = () => {
+    stills = [];
+    stillsNextOffset = null;
+    stillLoading = false;
+    stillError = false;
+    clearStillChoice();
+    stillMore.hidden = true;
+    for (const preview of stillPreviews.values()) if (preview.url) URL.revokeObjectURL(preview.url);
+    stillPreviews.clear();
+  };
   const denyResearchAccess = () => {
     ++generation;
+    resetStills();
     ++quoteSearchGeneration;
     quoteLoading = false;
     quoteSearchPages = 0;
@@ -255,6 +316,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
 
   const close = () => {
     ++generation;
+    resetStills();
     releaseQuotePreview();
     player.hide();
     visible = false;
@@ -286,11 +348,12 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const currentUsage = () => [
     ...footageUsage(getDocument()).map((item) => ({ ...item, kind: "footage", itemId: item.clipId })),
     ...researchQuoteUsage(getDocument(), projects.value),
+    ...researchStillUsage(getDocument()),
   ];
   const usageOf = (kind, item) => currentUsage().find((entry) =>
     entry.kind === kind && entry.researchProjectId.toLowerCase() ===
-      String(kind === "quote" ? item.researchProjectId : item.projectId).toLowerCase() &&
-    entry.itemId.toLowerCase() === String(kind === "quote" ? item.itemId : item.id).toLowerCase());
+      String(kind === "footage" ? item.projectId : item.researchProjectId).toLowerCase() &&
+    entry.itemId.toLowerCase() === String(kind === "footage" ? item.id : item.itemId).toLowerCase());
   const renderUsageJumps = (card, usage) => {
     const count = usage?.scriptCount ?? 0;
     card.append(make(doc, "span", "footage-item__usage", count ? `Used ${count}×` : "Unused"));
@@ -445,6 +508,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     results.append(card);
   };
   const pickClip = (clip) => {
+    clearStillChoice();
     clearQuoteChoice();
     player.show(clip);
     chosen = clip;
@@ -488,6 +552,9 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     }
   };
   const chooseQuoteRow = (quote) => {
+    clearStillChoice();
+    chosen = null;
+    chooser.hidden = true;
     chosenQuote = quote;
     quoteSelected.textContent = `Place “${String(quote.displayText || quote.text || "").slice(0, 70)}”`;
     quoteRows.replaceChildren();
@@ -546,12 +613,118 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     if (committing || !insertQuote) return;
     void finishQuoteAttempt(Promise.resolve().then(() => insertQuote(quote, placement)), quick);
   };
+  const stillDragKey = (still) => JSON.stringify([generation, projects.value, still.itemId, still.itemVersion]);
+  const dropStill = (key) => visible && !accessDenied && !committing &&
+    selection?.placement?.kind !== "stash" ? stills.find((still) => stillDragKey(still) === key) ?? null : null;
+  const renderStill = (still) => {
+    const card = make(doc, "article", "footage-item footage-item--still");
+    const media = make(doc, "div", "footage-item__thumbnail");
+    const cue = make(doc, "span", "footage-item__type-cue", "▧");
+    media.append(cue);
+    const key = stillDragKey(still);
+    const attach = (url) => {
+      if (!media.isConnected || !url) return;
+      const image = make(doc, "img");
+      image.alt = "";
+      image.src = url;
+      image.loading = "lazy";
+      image.addEventListener("load", () => { cue.hidden = true; }, { once: true });
+      image.addEventListener("error", () => image.remove(), { once: true });
+      media.append(image);
+    };
+    const copy = make(doc, "div", "footage-item__copy");
+    copy.append(make(doc, "h3", "footage-item__title", still.title));
+    if (still.credit) copy.append(make(doc, "p", "footage-item__source", still.credit));
+    const action = make(doc, "button", "footage-item__quote-place", "Place in script…");
+    action.type = "button";
+    action.disabled = committing;
+    action.draggable = true;
+    action.dataset.stillPlaceId = still.itemId;
+    action.setAttribute("aria-label", "Place still " + still.title + " in script");
+    action.addEventListener("dragstart", (event) => {
+      event.dataTransfer?.setData("application/x-vera-research-still", key);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+    });
+    action.addEventListener("click", () => {
+      clearStillChoice();
+      if (mode === "quick" && selection) void commitStill(still, selection.stillPlacement ?? selection.placement, true);
+      else {
+        const attempt = onPlaceStill?.(still);
+        if (attempt != null) void finishStill(attempt, false);
+        else {
+          chosen = null;
+          chooser.hidden = true;
+          clearQuoteChoice();
+          chosenStill = still;
+          stillChooser.hidden = false;
+          root.querySelector("[data-still-selected]").textContent = "Place " + still.title;
+          stillRows.replaceChildren();
+          for (const { label, rowId } of rowChoices()) {
+            const option = make(doc, "option", "", label);
+            option.value = rowId;
+            stillRows.append(option);
+          }
+          stillPlace.disabled = !stillRows.options.length;
+          stillRows.focus();
+        }
+      }
+    });
+    card.append(media, copy);
+    renderUsageJumps(card, usageOf("still", still));
+    card.append(action);
+    results.append(card);
+    if (!stillThumbnail || Number(doc.documentElement.dataset.thumbnailScale ?? 22) === 0) return;
+    let preview = stillPreviews.get(key);
+    if (!preview) {
+      const request = generation;
+      preview = { url: null, promise: null };
+      stillPreviews.set(key, preview);
+      preview.promise = Promise.resolve().then(() => stillThumbnail(still.researchProjectId, still.itemId, still.itemVersion))
+        .then((asset) => {
+          if (request !== generation || !visible || !/^image\/(?:png|jpeg|webp)$/u.test(asset?.mimeType)) return null;
+          preview.url = URL.createObjectURL(new Blob([asset.bytes], { type: asset.mimeType }));
+          return preview.url;
+        }).catch((error) => {
+          if (request === generation && visible && isDenied(error)) denyResearchAccess();
+          return null;
+        });
+    }
+    if (preview.url) attach(preview.url);
+    else void preview.promise.then(attach);
+  };
+  const finishStill = async (attempt, quick) => {
+    if (committing) return;
+    committing = true;
+    const started = generation;
+    render();
+    try {
+      if (await attempt) {
+        onStatus("Still added to script.");
+        if (started === generation) {
+          clearStillChoice();
+          if (quick) close();
+          else search.focus();
+        }
+      } else onStatus("Still was not added. The source or script may have changed.");
+    } catch {
+      onStatus("Still was not added. The source or script may have changed.");
+    } finally {
+      committing = false;
+      render();
+    }
+  };
+  const commitStill = (still, placement, quick = false) => {
+    if (committing || !insertStill) return;
+    void finishStill(Promise.resolve().then(() => insertStill(still, placement)), quick);
+  };
   const render = () => {
     if (!visible) return;
     releaseQuotePreview();
     results.replaceChildren();
     chooser.hidden = !chosen;
     quoteChooser.hidden = !chosenQuote;
+    stillChooser.hidden = !chosenStill;
+    stillPlace.disabled = committing || !stillRows.options.length;
     if (accessDenied) {
       status.textContent = "Research access is unavailable. Choose a project to retry.";
       loadMore.hidden = true;
@@ -568,53 +741,64 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       seed: mode === "quick" ? selection?.seed : "",
     };
     const usage = currentUsage();
-    const found = filterResearchLibraryItems(clips, quotes, usage, filters);
+    const found = filterResearchLibraryItems(clips, quotes, usage, filters, stills);
     const footageCount = found.filter((entry) => entry.kind === "footage").length;
     const quoteCount = found.filter((entry) => entry.kind === "quote").length;
+    const stillCount = found.filter((entry) => entry.kind === "still").length;
     if (currentKind() === "all") {
-      status.textContent = `${found.length} Library item${found.length === 1 ? "" : "s"} · ${footageCount} footage · ${quoteCount} quotes`;
+      status.textContent = `${found.length} Library item${found.length === 1 ? "" : "s"} · ${footageCount} footage · ${quoteCount} quotes · ${stillCount} stills`;
     } else {
-      const label = currentKind() === "quotes" ? "quote" : "footage";
+      const label = currentKind() === "quotes" ? "quote" : currentKind() === "stills" ? "still" : "footage";
       status.textContent = `${found.length} ${label}${found.length === 1 ? "" : "s"}`;
     }
     if (found.length) {
-      for (const entry of found) entry.kind === "quote" ? renderQuote(entry.item) : renderClip(entry.item);
+      for (const entry of found) entry.kind === "quote" ? renderQuote(entry.item) : entry.kind === "still" ? renderStill(entry.item) : renderClip(entry.item);
     } else {
       const all = filterResearchLibraryItems(clips, quotes, usage, {
         ...filters, query: "", logger: "", topic: "", seed: "", showUsed: true,
-      });
-      if (currentKind() === "footage" && clipLoadError) {
+      }, stills);
+      if (currentKind() === "stills" && stillError) {
+        status.textContent = "Saved stills are temporarily unavailable.";
+      } else if (currentKind() === "stills" && stillsNextOffset !== null) {
+        status.textContent = "No matches in loaded stills. Search more stills to include older items.";
+      } else if (currentKind() === "footage" && clipLoadError) {
         status.textContent = "Saved footage is unavailable. Quotes may still be available.";
       } else if (currentKind() === "quotes" && quoteLoadError) {
         status.textContent = "Saved quotes are temporarily unavailable. Footage can still be used.";
-      } else if (currentKind() === "all" && quoteLoadError && clipLoadError) {
+      } else if (currentKind() === "all" && quoteLoadError && clipLoadError && stillError) {
         status.textContent = "The footage and quote catalogs are temporarily unavailable.";
       } else if (currentKind() === "all" && quoteLoadError) {
         status.textContent = "Quotes are temporarily unavailable. Saved footage remains available when present.";
-      } else if (clips.length === 0 && quotes.length === 0) {
+      } else if (clips.length === 0 && quotes.length === 0 && stills.length === 0) {
         status.textContent = currentKind() === "quotes" ? "No saved quotes in this Research project."
           : currentKind() === "footage" ? "No saved footage in this Research project."
-            : "No saved footage or quotes in this Research project.";
-      } else if (quoteLoadKey === quoteSearchKey() && quoteLoading) {
+            : currentKind() === "stills" ? "No saved stills in this Research project." : "No saved Library items in this Research project.";
+      } else if (["all", "quotes"].includes(currentKind()) && quoteLoadKey === quoteSearchKey() && quoteLoading) {
         status.textContent = `Searching older quotes after ${quotes.length} loaded…`;
-      } else if (hasQuoteSearch() && quotesNextOffset !== null && quoteCount === 0) {
+      } else if (["all", "quotes"].includes(currentKind()) && hasQuoteSearch() && quotesNextOffset !== null && quoteCount === 0) {
         status.textContent = `No matches in the ${quotes.length} loaded quotes. Search more quotes to include older items.`;
       } else if (all.length && !search.value.trim() && !logger.value && !topic.value && !showUsed.checked) {
         status.textContent = "No unused items. Show used to see all Library items.";
       } else status.textContent = "No Library items match these filters.";
     }
-    loadMore.hidden = quotesNextOffset === null || quoteLoadError || currentKind() === "footage";
+    loadMore.hidden = quotesNextOffset === null || quoteLoadError || !["all", "quotes"].includes(currentKind());
     const loadingQuotes = quoteLoading && (!quoteLoadKey || quoteLoadKey === quoteSearchKey());
     loadMore.disabled = committing || loadingQuotes;
     loadMore.textContent = loadingQuotes
       ? quoteLoadKey ? "Searching quotes…" : "Loading quotes…"
       : hasQuoteSearch() ? "Search more quotes" : "Load more quotes";
-    if (quoteLoadError && currentKind() !== "quotes" && currentKind() !== "footage") {
+    if (quoteLoadError && currentKind() === "all") {
       status.textContent += " · Quotes temporarily unavailable";
-    } else if (hasQuoteSearch() && quotesNextOffset !== null && !loadingQuotes && found.length) {
+    } else if (["all", "quotes"].includes(currentKind()) && hasQuoteSearch() && quotesNextOffset !== null && !loadingQuotes && found.length) {
       status.textContent += " · More quotes are available";
     }
-    if (clipLoadError && currentKind() !== "footage") status.textContent += " · Footage temporarily unavailable";
+    const showStills = ["all", "stills"].includes(currentKind()) && selection?.placement?.kind !== "stash";
+    stillMore.hidden = !showStills || stillsNextOffset === null;
+    stillMore.disabled = committing || stillLoading;
+    stillMore.textContent = stillLoading ? "Loading stills…" : hasQuoteSearch() ? "Search more stills" : "Load more stills";
+    if (showStills && stillsNextOffset !== null) status.textContent += " · More stills are available";
+    if (showStills && stillError && currentKind() !== "stills") status.textContent += " · Stills temporarily unavailable";
+    if (clipLoadError && currentKind() === "all") status.textContent += " · Footage temporarily unavailable";
     for (const button of kindButtons) {
       const selected = button.dataset.footageKind === currentKind();
       button.setAttribute("aria-pressed", String(selected));
@@ -624,7 +808,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   const populateFilters = () => {
     const previousLogger = logger.value;
     const previousTopic = topic.value;
-    const options = libraryFilterOptions(clips, quotes);
+    const options = libraryFilterOptions(clips, quotes, stills);
     logger.replaceChildren(make(doc, "option", "", "Any logger"));
     logger.firstChild.value = "";
     for (const [id, label] of options.loggers) {
@@ -694,8 +878,41 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       }, 180);
     }
   };
+  const addStillPage = (response, projectId, offset) => {
+    const page = normalizeResearchStillPage(response);
+    const seen = new Set(stills.map((still) => still.itemId.toLowerCase()));
+    for (const still of page.stills) {
+      if (still.researchProjectId && still.researchProjectId.toLowerCase() !== projectId.toLowerCase()) continue;
+      if (seen.has(still.itemId.toLowerCase())) continue;
+      seen.add(still.itemId.toLowerCase());
+      stills.push({ ...still, researchProjectId: projectId });
+    }
+    stillsNextOffset = page.nextOffset > offset ? page.nextOffset : null;
+  };
+  const loadMoreStills = async () => {
+    if (stillLoading || stillsNextOffset === null) return;
+    const request = generation;
+    const projectId = projects.value;
+    stillLoading = true;
+    render();
+    try {
+      const offset = stillsNextOffset;
+      const response = await stillsCatalog(projectId, offset);
+      if (request !== generation || !visible || projectId !== projects.value) return;
+      addStillPage(response, projectId, offset);
+      stillError = false;
+      populateFilters();
+    } catch (error) {
+      if (request !== generation || !visible) return;
+      if (isDenied(error)) denyResearchAccess();
+      else stillError = true;
+    } finally {
+      if (request === generation) { stillLoading = false; render(); }
+    }
+  };
   const loadProject = async () => {
     const request = ++generation;
+    resetStills();
     ++quoteSearchGeneration;
     quoteLoading = false;
     quoteSearchPages = 0;
@@ -716,11 +933,12 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     results.replaceChildren();
     status.textContent = "Loading authorized Library items…";
     if (!projectId) { render(); return; }
-    const [clipResult, quoteResult] = await Promise.allSettled([
+    const [clipResult, quoteResult, stillResult] = await Promise.allSettled([
       catalog(projectId), quotesCatalog(projectId, 0),
+      selection?.placement?.kind === "stash" ? Promise.resolve({ stills: [], nextOffset: null }) : stillsCatalog(projectId, 0),
     ]);
     if (request !== generation || !visible || projectId !== projects.value) return;
-    const errors = [clipResult, quoteResult].filter((result) => result.status === "rejected")
+    const errors = [clipResult, quoteResult, stillResult].filter((result) => result.status === "rejected")
       .map((result) => result.reason);
     if (errors.some(isDenied)) { denyResearchAccess(); return; }
     if (clipResult.status === "fulfilled") {
@@ -731,6 +949,8 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       quotesNextOffset = Number.isSafeInteger(quoteResult.value.nextOffset) && quoteResult.value.nextOffset > 0
         ? quoteResult.value.nextOffset : null;
     } else quoteLoadError = true;
+    if (stillResult.status === "fulfilled") addStillPage(stillResult.value, projectId, 0);
+    else stillError = true;
     populateFilters();
     render();
   };
@@ -741,18 +961,19 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     quoteLoadKey = null;
     clearTimeout(searchTimer);
     render();
-    if (!hasQuoteSearch() || currentKind() === "footage" || quoteLoadError || quotesNextOffset === null) return;
+    if (!hasQuoteSearch() || !["all", "quotes"].includes(currentKind()) || quoteLoadError || quotesNextOffset === null) return;
     searchTimer = setTimeout(() => {
       if (visible && quotesNextOffset !== null) void loadMoreQuotes({ auto: true, searchRequest: quoteSearchGeneration });
     }, 180);
   };
-  const open = async ({ quick = false, placement = null, seed = "", from = openButton, onClose = null } = {}) => {
+  const open = async ({ quick = false, placement = null, stillPlacement = null, seed = "", from = openButton, onClose = null } = {}) => {
     onOpen?.();
     player.hide();
     opener = from;
     returnToStash = onClose;
     mode = quick ? "quick" : "browse";
-    selection = quick ? { placement, seed } : null;
+    selection = quick ? { placement, stillPlacement, seed } : null;
+    kindButtons.forEach((button) => { button.disabled = placement?.kind === "stash" && button.dataset.footageKind !== "footage"; });
     if (placement?.kind === "stash") {
       setKind("footage");
       search.value = "";
@@ -788,7 +1009,7 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
       else if (request === generation && visible) status.textContent = "Research projects could not be loaded. Close and retry.";
     }
   };
-  const refresh = () => projects.value ? loadProject() : Promise.resolve();
+  const refresh = () => visible && projects.value ? loadProject() : Promise.resolve();
   const dropClip = (clipId) => clips.find((clip) => clip.id === clipId &&
     clip.projectId.toLowerCase() === projects.value.toLowerCase()) ?? null;
   const dropQuote = (quoteId) => quotes.find((quote) =>
@@ -805,9 +1026,17 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
   topic.addEventListener("change", scheduleQuoteSearch);
   showUsed.addEventListener("change", scheduleQuoteSearch);
   kindButtons.forEach((button) => button.addEventListener("click", () => {
+    if (selection?.placement?.kind === "stash" && button.dataset.footageKind !== "footage") return;
     setKind(button.dataset.footageKind);
     scheduleQuoteSearch();
   }));
+  stillMore.addEventListener("click", () => { void loadMoreStills(); });
+  root.querySelector("[data-still-cancel]").addEventListener("click", () => { clearStillChoice(); search.focus(); });
+  stillPlace.addEventListener("click", () => {
+    if (!chosenStill || !stillRows.value || committing) return;
+    const attempt = onPlaceStill?.(chosenStill, { rowId: stillRows.value });
+    if (attempt != null) void finishStill(attempt, false);
+  });
   loadMore.addEventListener("click", () => { void loadMoreQuotes(); });
   root.querySelectorAll('[name="footage-destination"]').forEach((radio) => radio.addEventListener("change", () => {
     const gap = root.querySelector("[data-footage-gap-choice]").checked;
@@ -847,12 +1076,13 @@ export function mountResearchPanel({ root, catalog, quotesCatalog = async () => 
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
+      if (!stillChooser.hidden) { clearStillChoice(); search.focus(); return; }
       if (!quoteChooser.hidden) { clearQuoteChoice(true); return; }
       if (!chooser.hidden) { chosen = null; chooser.hidden = true; player.hide(); search.focus(); return; }
       close();
     }
   });
-  return { open, close, update: render, refresh, dropClip, dropQuote, currentProject: () => projects.value };
+  return { open, close, update: render, refresh, dropClip, dropQuote, dropStill, currentProject: () => projects.value };
 }
 
 // Resolve the rendered card against the current document, never against a

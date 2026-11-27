@@ -441,3 +441,22 @@ describe("notification and session revocation", () => {
     expect(Number(open.rows[0]?.total)).toBe(0);
   });
 });
+
+
+describe("account membership roster", () => {
+  it("requires current Producer authority, omits claims, and excludes removed members", async () => {
+    const { auth, admin, editor, viewer } = await harness();
+    await auth.changeMembership(PROJECT, admin, editor.principalId, "editor");
+    await auth.changeMembership(PROJECT, admin, viewer.principalId, "viewer");
+    const members = await auth.listActiveProjectMembers(PROJECT, admin);
+    expect(members).toHaveLength(3);
+    expect(members).toContainEqual({ actorId: viewer.principalId, role: "viewer", membershipVersion: 1 });
+    expect(JSON.stringify(members)).not.toMatch(/issuer|subject|suite.example/);
+    await expect(auth.listActiveProjectMembers(PROJECT, editor)).rejects.toMatchObject({ status: 403 });
+    await expect(auth.listActiveProjectMembers(OTHER_PROJECT, admin)).rejects.toMatchObject({ status: 403 });
+    await auth.changeMembership(PROJECT, admin, viewer.principalId, null);
+    expect(await auth.listActiveProjectMembers(PROJECT, admin)).toHaveLength(2);
+    expect(canPerformProjectAction("viewer", "comment")).toBe(true);
+    expect(canPerformProjectAction("viewer", "edit_document")).toBe(false);
+  });
+});

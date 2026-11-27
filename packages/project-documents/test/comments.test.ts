@@ -139,11 +139,11 @@ describe("durable anchored comments", () => {
     expect((await h.comments.getComments(h.projectId, h.owner)).commentRevision).toBe(2);
   });
 
-  it("refuses Viewer writes and cross-project reads/writes, and rechecks revoked actors before replay", async () => {
+  it("refuses Viewer resolution and cross-project reads/writes, and rechecks revoked actors before replay", async () => {
     const h = await setup();
     const saved = create(h.anchors[0]!);
     const clientMutationId = id();
-    await expect(operation(h, h.viewer, 0, saved)).rejects.toMatchObject({ status: 403 });
+    await expect(operation(h, h.viewer, 0, { kind: "resolve", threadId: saved.threadId })).rejects.toMatchObject({ status: 403 });
     await expect(h.comments.getComments(id(), h.owner)).rejects.toMatchObject({ status: 403 });
     const other = await setup();
     await expect(h.comments.getComments(other.projectId, h.editor)).rejects.toMatchObject({ status: 403 });
@@ -328,4 +328,20 @@ describe("durable anchored comments", () => {
     await operation(h, h.owner, 1, reply(first.threadId));
     expect((await h.comments.getComments(h.projectId, h.owner)).commentRevision).toBe(2);
   });
+});
+
+
+it("lets a Viewer create and reply, but only editing roles resolve/reopen/reattach", async () => {
+  const h = await setup();
+  const comment = create(h.anchors[0]!);
+  await operation(h, h.viewer, 0, comment);
+  await operation(h, h.viewer, 1, reply(comment.threadId));
+  for (const op of [{ kind: "resolve", threadId: comment.threadId },
+    { kind: "reopen", threadId: comment.threadId },
+    { kind: "reattach", threadId: comment.threadId, anchor: h.anchors[1] }]) {
+    await expect(operation(h, h.viewer, 2, op)).rejects.toMatchObject({ status: 403 });
+  }
+  const current = await h.comments.getComments(h.projectId, h.owner);
+  expect(current.commentRevision).toBe(2);
+  expect(current.threads[0]?.messages.map((m) => m.actorId)).toEqual([h.viewer.principalId, h.viewer.principalId]);
 });

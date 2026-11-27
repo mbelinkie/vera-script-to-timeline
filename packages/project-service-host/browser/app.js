@@ -1,3 +1,4 @@
+import { mountAccountPanel } from "./account-panel.js";
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel } from "./rows-editor.js";
 import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
@@ -27,7 +28,7 @@ const prompterStatus = element("prompter-status");
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing",
+  "set_visual_range", "set_on_camera_framing", "set_research_still_credit",
   "move_visual_to_row", "attach_visual_to_words",
 ]);
 const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
@@ -91,6 +92,86 @@ let sortingTrial = null;
 let stashPanel;
 let stashScriptDrag = null;
 
+let accountRole = null;
+let accountWriteSession = "";
+let accountHold = false;
+let accountEnded = false;
+let accountGeneration = 0;
+const canEditAccount = () => !accountPanel.accountMode() ||
+  !accountHold && !accountEnded && (accountRole === "producer" || accountRole === "editor");
+const accountPanel = mountAccountPanel({
+  root: element("account-panel"), request: api,
+  onAccess: updateAccountAccess,
+  onSessionEnded: () => updateAccountAccess({ denied: true, role: null }),
+  beforeSignOut: () => !hasPendingDraft() ||
+    window.confirm("Sign out and leave unsaved changes? They will not be sent under another account."),
+});
+function updateAccountAccess(access) {
+  const previous = accountRole;
+  accountRole = access.role;
+  if (access.denied && !accountEnded) {
+    accountEnded = true; accountHold = true; accountGeneration += 1;
+    clearTimeout(saveTimer); clearTimeout(renderTimer);
+    home.hidden = true; authoring.hidden = true;
+    element("account-notice").hidden = true;
+    element("account-access-ended").hidden = false;
+    element("account-access-ended").querySelector("h1").focus();
+  } else if (access.unavailable || access.changed || accountRole === "viewer" && previous && previous !== "viewer") {
+    if (!accountHold) accountGeneration += 1;
+    accountHold = true;
+    clearTimeout(saveTimer); clearTimeout(renderTimer);
+    const notice = element("account-notice");
+    element("account-notice-title").textContent = access.unavailable ? "Access could not be verified" : "You’re now a Viewer";
+    if (notice.hidden) { notice.hidden = false; notice.focus(); }
+  }
+  if (accountHold) {
+    narrationCleanup.forEach((cleanup) => cleanup()); narrationCleanup = [];
+    rowsCleanup?.(); rowsCleanup = undefined;
+    for (const editable of element("script-rows").querySelectorAll('[contenteditable="true"]')) editable.contentEditable = "false";
+    for (const control of element("script-rows").querySelectorAll("button, input, select, textarea")) control.disabled = true;
+    researchPanel?.close(); researchStillPanel?.close(); stashPanel?.close(false, true);
+  } else if (previous !== accountRole && scriptDocument) renderEditor();
+  projectTitle.readOnly = accountRole !== "producer" || accountHold;
+  for (const id of ["undo", "open-sorting", "open-stash", "open-footage"]) element(id).hidden = !canEditAccount();
+  element("undo-history").closest("details").hidden = !canEditAccount();
+  if (!canEditAccount()) retrySave.hidden = true;
+}
+element("account-discard").addEventListener("click", async () => {
+  const button = element("account-discard");
+  if (commandsPending || documentSaving || saving || extrasRunning || sortingTrial?.pending) return;
+  button.disabled = true;
+  try {
+    // Explicitly discard every refused mutation and Undo basis before a fresh read.
+    accountGeneration += 1;
+    pendingDocument = pendingName = pendingExtras = undefined;
+    documentSaveFailure = nameSaveFailure = extrasFailure = undefined;
+    documentDirty = false; editRefused = false; refusedMessage = "";
+    composingRows.clear(); undoStack.length = 0;
+    element("discard-edit").hidden = true;
+    accountHold = false;
+    await showScript(activeProjectId);
+    element("account-notice").hidden = true;
+  } catch { accountHold = true; element("account-notice-title").textContent = "Couldn’t load the saved script. Try again."; }
+  finally { button.disabled = false; }
+});
+async function accountFetch(path, options = {}) {
+  if (accountPanel.accountMode() && options.method && options.method !== "GET" &&
+      !path.endsWith("/projection") && !path.endsWith("/prompter-export") &&
+      !path.endsWith("/visual-preview") && !path.endsWith("/write-session") && path !== "/authoring/projects" && !canEditAccount()) {
+    throw new ApiError(403, { error: "action_not_allowed" });
+  }
+  const generation = accountGeneration;
+  const response = await fetch(path, { ...options, headers: { ...options.headers, ...accountPanel.headers(), "X-VERA-Write-Session": accountWriteSession } });
+  if (accountPanel.accountMode() && !path.endsWith("/access") && [401, 403].includes(response.status)) {
+    if (options.method && options.method !== "GET") updateAccountAccess({ role: accountRole, unavailable: true });
+    void accountPanel.refresh();
+  }
+  if (options.method && options.method !== "GET" && generation !== accountGeneration) {
+    throw new ApiError(403, { error: "access_changed" });
+  }
+  return response;
+}
+
 const editorDocument = () => sortingTrial?.document ?? scriptDocument;
 const editorProjection = () => sortingTrial ? sortingTrial.projection : visualProjection;
 
@@ -99,8 +180,11 @@ async function api(path, method = "GET", data) {
   try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep the current proof. */ }
   const headers = { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
   if (data) headers["Content-Type"] = "application/json";
-  const response = await fetch(`/authoring/projects${path}`, {
-    method, headers, body: data && JSON.stringify(data),
+  const response = await accountFetch(`/authoring/projects${path}`, {
+    method, headers, body: data && JSON.stringify(accountPanel.accountMode() &&
+      (method === "PUT" && path.endsWith("/document") || method === "POST" && path.endsWith("/extras-operations") ||
+       method === "PATCH" && /^\/[a-f0-9-]{36}$/iu.test(path))
+      ? { ...data, writeSessionId: accountWriteSession } : data),
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => null));
@@ -241,7 +325,9 @@ element("open-prompter").addEventListener("click", () => {
 element("close-prompter").addEventListener("click", () => prompterDialog.close());
 prompterDialog.addEventListener("close", () => {
   clearPreparedPrompter();
-  element("open-prompter").focus();
+  // Native close is queued. Preserve focus if the user has already moved it.
+  const active = document.activeElement;
+  if (!active || active === document.body || prompterDialog.contains(active)) element("open-prompter").focus();
 });
 for (const name of ["prompter-sections", "prompter-beats"]) {
   element(name).addEventListener("change", () => clearPreparedPrompter("Settings changed. Prepare again to download the new files."));
@@ -291,6 +377,14 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  await connecting;
+  activeProjectId = projectId;
+  await accountPanel.setProject(projectId);
+  if (accountEnded || accountHold) throw new ApiError(403, { error: "access_changed" });
+  accountWriteSession = "";
+  if (accountPanel.accountMode() && canEditAccount()) {
+    ({ writeSessionId: accountWriteSession } = await api(`/${projectId}/write-session`, "POST", {}));
+  }
   sortingTrial = null;
   setSortingMode(false);
   clearPreparedPrompter();
@@ -341,6 +435,7 @@ async function showScript(projectId) {
   home.hidden = true;
   authoring.hidden = false;
   setSaveStatus("Saved");
+  if (accountPanel.accountMode()) updateAccountAccess({ role: accountRole });
   element("script-title").focus();
   void refreshMusicWarnings();
 }
@@ -397,7 +492,7 @@ function renderEditor() {
   stashPanel?.update();
   const root = element("script-rows");
   const model = editorDocument();
-  if (sortingTrial?.preview) {
+  if (sortingTrial?.preview || !canEditAccount()) {
     narrationCleanup.forEach((cleanup) => cleanup());
     narrationCleanup = [];
     rowsCleanup?.();
@@ -964,7 +1059,7 @@ document.addEventListener("selectionchange", () => {
 
 function saveDocument() {
   if (documentSaveTask) return documentSaveTask;
-  if (!project || pendingExtras || conflicted || (!documentDirty && !pendingDocument)) return;
+  if (!canEditAccount() || !project || pendingExtras || conflicted || (!documentDirty && !pendingDocument)) return;
   clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
@@ -1024,7 +1119,7 @@ async function updateQuoteDisplayDefaultAfterSave({ projectId, rowId, overlayId,
 }
 
 async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
-  const response = await fetch("/authoring/command", {
+  const response = await accountFetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
       ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }),
@@ -1039,7 +1134,7 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
 async function authoringVisualPost(path, body) {
   await connecting;
   try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep enrolled proof. */ }
-  const response = await fetch(`/authoring/${path}`, {
+  const response = await accountFetch(`/authoring/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify(body),
@@ -1063,7 +1158,7 @@ export async function researchCatalogGet(researchProjectId, clipId) {
   await connecting;
   const path = `/authoring/research/${timelineId}/projects` +
     (researchProjectId ? `/${researchProjectId}/clips${clipId ? `/${clipId}` : ""}` : "");
-  const response = await fetch(path, {
+  const response = await accountFetch(path, {
     headers: { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     signal: AbortSignal.timeout(12_000),
   });
@@ -1108,7 +1203,7 @@ function researchStillRequestHeaders() {
 
 async function researchStillRequest(path) {
   await connecting;
-  const response = await fetch(path, {
+  const response = await accountFetch(path, {
     headers: researchStillRequestHeaders(),
     signal: AbortSignal.timeout(12_000),
   });
@@ -1358,7 +1453,8 @@ function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
 
 function openLibraryAtCaret(snapshot, from) {
   stashPanel.close(false);
-  void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot) });
+  void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot),
+    stillPlacement: stillPlacementFromTarget(snapshot) });
 }
 
 function selectedNarrationTarget() {
@@ -1492,6 +1588,36 @@ function placeLibraryQuote(quote, destination) {
   return queueResearchQuoteInsert({ quote, placement });
 }
 
+function stillPlacementFromTarget(snapshot) {
+  return (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === snapshot.rowId);
+    if (row?.type !== "narration" || row.text !== snapshot.text || row.version !== snapshot.rowVersion ||
+        row.primaryVisualSequence?.version !== snapshot.sequenceVersion) {
+      throw new Error("The destination narration changed. Choose it again.");
+    }
+    const base = { rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version };
+    if (!snapshot.selected) return { kind: "unattached", ...base };
+    const words = selectedSpokenWords(row, snapshot.selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", ...base, startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  };
+}
+
+function stillRowTarget(row) {
+  return { rowId: row.id, text: row.text, rowVersion: row.version,
+    sequenceVersion: row.primaryVisualSequence?.version, selected: false };
+}
+
+function placeLibraryStill(still, destination) {
+  const row = destination && scriptDocument?.activeDraft?.blocks.find((item) => item.id === destination.rowId);
+  const target = destination ? row?.type === "narration" ? stillRowTarget(row) : null :
+    selectedNarrationTarget() ?? lastQuoteTarget;
+  if (!target || (!destination && !target.selected)) return null;
+  lastQuoteTarget = null;
+  return queueResearchStillInsert({ ...still, placement: stillPlacementFromTarget(target) });
+}
+
 function openStillForWords({ rowId, text, selection, from }) {
   occurrenceFootage?.close(false);
   stashPanel.close(false);
@@ -1553,6 +1679,7 @@ function mountResearchDragging(root) {
   };
   const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
   const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
+  const draggingStill = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-still");
   const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote");
   const quoteDestination = (event) => {
     const gap = event.target.closest?.("[data-row-gap]");
@@ -1584,21 +1711,40 @@ function mountResearchDragging(root) {
       selection: { start: offset, end: offset }, selected: false,
     }) };
   };
-  const showCue = (next, mode) => {
+  const stillDestination = (event) => {
+    const rowNode = event.target.closest?.(".script-row[data-row-kind='narration']");
+    if (!rowNode) return null;
+    const row = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowNode.dataset.rowId);
+    if (row?.type !== "narration") return null;
+    if (quoteSelection?.rowId === row.id && quoteSelection.selected &&
+        pointInQuoteRects(quoteSelection.rects, event.clientX, event.clientY)) {
+      return { target: rowNode, mode: "attach", placement: stillPlacementFromTarget(quoteSelection) };
+    }
+    const editor = rowNode.querySelector("[data-narration-editor]");
+    const token = editor && narrationTokenAtPoint(row, editor, event.clientX, event.clientY);
+    const snapshot = stillRowTarget(row);
+    if (token) {
+      snapshot.selected = true;
+      snapshot.selection = { start: token.startOffset, end: token.endOffset };
+    }
+    return { target: rowNode, mode: token ? "attach" : "waiting", placement: stillPlacementFromTarget(snapshot) };
+  };
+  const showCue = (next, mode, still = false) => {
     clear();
     target = next;
     target.classList.add(target.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
     cue = ownerDocument.createElement("span");
     cue.className = "research-quote-drop-cue";
     cue.dataset.quoteDropMode = mode;
-    cue.textContent = mode === "attach" ? "Attach quote · narration unchanged" :
+    cue.textContent = still ? (mode === "attach" ? "Attach still · narration unchanged" : "Add still waiting for words") :
+      mode === "attach" ? "Attach quote · narration unchanged" :
       target.matches("[data-row-gap]") ? "Insert quote as new row" : "Insert quote";
     cue.setAttribute("role", "status");
     cue.setAttribute("aria-live", "polite");
     (target.matches("[data-row-gap]") ? target : target.querySelector(".narration-cell"))?.append(cue);
   };
   const captureQuoteSelection = (event) => {
-    quoteSelection = draggingQuote(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+    quoteSelection = draggingQuote(event) || draggingStill(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
   };
   const rememberQuoteTarget = (event) => {
     const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
@@ -1607,12 +1753,21 @@ function mountResearchDragging(root) {
     if (target?.matches("#open-footage")) {
       lastQuoteTarget = selectedNarrationTarget();
     } else if (target?.matches("#footage-panel")) {
-      lastQuoteTarget = targetNode.closest("[data-quote-place-id]")
+      lastQuoteTarget = targetNode.closest("[data-quote-place-id], [data-still-place-id]")
         ? selectedNarrationTarget() ?? lastQuoteTarget : null;
     } else lastQuoteTarget = null;
   };
   const endDrag = () => { clear(); quoteSelection = null; };
   const over = (event) => {
+    if (draggingStill(event)) {
+      const next = stillDestination(event);
+      if (!next) { clear(); return; }
+      event.preventDefault();
+      event.stopPropagation();
+      showCue(next.target, next.mode, true);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      return;
+    }
     if (draggingQuote(event)) {
       const next = quoteDestination(event);
       if (!next) { clear(); return; }
@@ -1633,6 +1788,18 @@ function mountResearchDragging(root) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
   };
   const drop = (event) => {
+    if (draggingStill(event)) {
+      const next = stillDestination(event);
+      const still = researchPanel.dropStill(event.dataTransfer?.getData("application/x-vera-research-still"));
+      clear();
+      quoteSelection = null;
+      if (!next || !still) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void queueResearchStillInsert({ ...still, placement: next.placement })
+        .then((success) => { if (success) researchPanel.update(); });
+      return;
+    }
     if (draggingQuote(event)) {
       const next = quoteDestination(event);
       const quote = researchPanel.dropQuote(event.dataTransfer?.getData("application/x-vera-research-quote"));
@@ -1896,6 +2063,7 @@ async function updateSortingDocument(trial, operations, result) {
 }
 
 function queueSortingCommand(command, label, options) {
+  if (!canEditAccount()) return Promise.resolve(false);
   const trial = sortingTrial;
   if (editRefused || trial.preview || trial.busy || trial.acceptance || options.structural && composingRows.size) return Promise.resolve(false);
   trial.pending++;
@@ -1997,6 +2165,7 @@ export function discardSortingTrial() {
 }
 
 export async function acceptSortingTrial(outcome = "all") {
+  if (!canEditAccount()) return false;
   const trial = sortingTrial;
   if (!trial || trial.busy || trial.pending || !sortingBaselineCurrent(trial)) return false;
   trial.busy = true;
@@ -2290,7 +2459,7 @@ function lockExtrasEditor(locked) {
   for (const id of ["script-rows", "stash-panel", "footage-panel", "research-still-panel"]) {
     element(id).inert = locked;
   }
-  projectTitle.readOnly = locked;
+  projectTitle.readOnly = locked || accountPanel.accountMode() && (accountRole !== "producer" || !canEditAccount());
   for (const id of ["open-footage", "open-stash"]) element(id).disabled = locked;
   updateUndo();
 }
@@ -2300,6 +2469,7 @@ element("project-home").addEventListener("click", (event) => {
 });
 
 export function queueExtrasOperation(resolve, label) {
+  if (!canEditAccount()) return Promise.resolve(false);
   if (sortingTrial) return queueSortingCommand(resolve, label, { structural: true });
   return startExtrasWrite(resolve, label, false);
 }
@@ -2427,6 +2597,7 @@ function retryExtrasWrite() {
 }
 
 function queueCommand(command, label, options = {}) {
+  if (!canEditAccount()) return Promise.resolve(false);
   if (sortingTrial) return queueSortingCommand(command, label, options);
   if (pendingExtras || options.structural && composingRows.size) return Promise.resolve(false);
   if (extrasFailure && !extrasFailure.action) extrasFailure = undefined;
@@ -2436,7 +2607,7 @@ function queueCommand(command, label, options = {}) {
   setSaveStatus();
   let commandError;
   commandQueue = commandQueue.then(async () => {
-    if (conflicted || editRefused) return false;
+    if (!canEditAccount() || conflicted || editRefused) return false;
     // Input arriving during a Tab split occupies its normal place in this
     // queue, but must be resolved against the accepted destination row.
     if (options.prepareSplitInput) {
@@ -2727,6 +2898,7 @@ function updateUndo() {
 }
 
 function undo() {
+  if (!canEditAccount()) return;
   if (pendingExtras || sortingTrial || prompterDialog.open || composingRows.size) return;
   const entry = undoStack.at(-1);
   if (entry?.durable) {
@@ -2937,7 +3109,7 @@ function setSaveStatus(message = "Saved") {
     else if (visualFeedback) message = `Saved · ${visualFeedback}`;
   }
   saveStatus.textContent = message;
-  retrySave.hidden = action !== "retry";
+  retrySave.hidden = action !== "retry" || !canEditAccount();
   openSaved.hidden = action !== "conflict";
   updatePrompterControls();
   occurrenceFootage?.update();
@@ -2945,6 +3117,7 @@ function setSaveStatus(message = "Saved") {
 
 element("discard-edit").addEventListener("click", () => {
   if (!editRefused || commandsPending || sortingTrial?.pending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
+  if (accountPanel.accountMode()) { element("account-discard").click(); return; }
   editRefused = false;
   refusedMessage = "";
   element("discard-edit").hidden = true;
@@ -2956,6 +3129,7 @@ element("discard-edit").addEventListener("click", () => {
 
 async function saveName() {
   clearTimeout(saveTimer);
+  if (accountPanel.accountMode() && (accountRole !== "producer" || !canEditAccount())) return;
   if (!project || pendingExtras || saving || conflicted) return;
   const title = projectTitle.value.trim();
   if (!pendingName) {
@@ -3018,21 +3192,26 @@ retrySave.addEventListener("click", () => {
   else if (nameSaveFailure) void saveName();
 });
 
+function hasPendingDraft() {
+  return Boolean(sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy ||
+    sortingTrial?.acceptance || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty ||
+    documentSaving || commandsPending || editRefused || accountHold || composingRows.size ||
+    project && projectTitle.value.trim() !== project.title);
+}
 function protectDraft(event) {
-  if (sortingTrial?.operations.length || sortingTrial?.pending || sortingTrial?.busy || pendingExtras || pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
-    event.preventDefault();
-    event.returnValue = true;
-  }
+  if (hasPendingDraft()) { event.preventDefault(); event.returnValue = ""; }
 }
 
 window.addEventListener("beforeunload", protectDraft);
 async function connectBrowser() {
+  await accountPanel.connect();
+  if (accountPanel.accountMode()) return;
   try { sessionProof = localStorage.getItem(sessionKey) ?? ""; } catch { /* The current page can still connect. */ }
   const launchCode = new URLSearchParams(location.hash.slice(1)).get("launch");
   if (!launchCode) return;
   history.replaceState(null, "", location.pathname + location.search);
   try {
-    const response = await fetch("/authoring/session", {
+    const response = await accountFetch("/authoring/session", {
       method: "POST", headers: { "X-VERA-Authoring": "1", "X-VERA-Launch": launchCode },
       signal: AbortSignal.timeout(12_000),
     });
@@ -3055,7 +3234,7 @@ const stashActions = createStashActions((command, label, options) => {
 }, editorDocument, undefined, queueExtrasOperation);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused),
+  getDocument: editorDocument, sorting: () => Boolean(sortingTrial), readOnly: () => Boolean(sortingTrial?.preview || sortingTrial?.acceptance || pendingExtras || editRefused || !canEditAccount()),
   applyCommand: applyBrowserCommand, fetchProjection, pickClip: openStashClipPicker,
   loadClip: async ({ researchProjectId, clipId, clipVersion }) => {
     const { clip } = await researchCatalogGet(researchProjectId, clipId);
@@ -3089,6 +3268,10 @@ researchPanel = mountResearchPanel({
   catalog: researchCatalogGet,
   quotesCatalog: researchQuoteCatalogGet,
   quoteThumbnail: researchQuoteThumbnailGet,
+  stillsCatalog: researchStillCatalogGet,
+  stillThumbnail: researchStillThumbnailGet,
+  insertStill: (still, placement) => queueResearchStillInsert({ ...still, placement }),
+  onPlaceStill: placeLibraryStill,
   getDocument: editorDocument,
   insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
     clipId: clip.id, clipVersion: clip.version, placement }),

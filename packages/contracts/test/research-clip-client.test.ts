@@ -401,3 +401,81 @@ describe("digest-bound Research cut transcript", () => {
     ]) expect(matchingResearchCutTranscript(workspace(), pin, different)).toBeNull();
   });
 });
+
+describe("kept still catalog metadata", () => {
+  const sourceId = researchId(750000);
+  const still = { id: researchId(750001), projectId: PROJECT, sourceId, kind: "still", version: 3,
+    createdAt: "2026-11-15T12:00:00Z", createdBy: researchId(750002), topics: ["Transport"],
+    content: { title: " Harbor still ", credit: "Archive collection", licence: "Test licence", hidden: SECRET } };
+  const asset = { versionId: "synthetic-kept", sha256: "a".repeat(64), byteCount: 12,
+    width: 8, height: 8, mimeType: "image/png" };
+  const manifest = { assets: { original: asset, thumbnail: asset }, provenance: { kind: "file", inputSha256: asset.sha256 } };
+  const source = { id: sourceId, projectId: PROJECT, kind: "image", details: {},
+    bibliography: { title: { value: "Coastal photographs" } } };
+
+  it("returns validated list metadata and caches shared source titles within the raw page", async () => {
+    const entries = Array.from({ length: 13 }, (_, i) => ({ ...still, id: researchId(751000 + i) }));
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) {
+        expect([...url.searchParams]).toEqual([["kind", "still"], ["limit", "13"], ["offset", "24"]]);
+        return Response.json(entries);
+      }
+      if (url.pathname.endsWith("/assets")) {
+        if (url.pathname.includes(entries[0]!.id)) return serviceError(404);
+        return Response.json(manifest);
+      }
+      expect(url.pathname).toBe(`/api/projects/${PROJECT}/sources/${sourceId}`);
+      return Response.json(source);
+    });
+    const page = await client(fake.request).stills(PROJECT, 24);
+    expect(page.nextOffset).toBe(36);
+    expect(page.stills).toHaveLength(11);
+    expect(page.stills[0]).toEqual({ researchProjectId: PROJECT, itemId: entries[1]!.id, itemVersion: 3,
+      title: "Harbor still", credit: "Archive collection", licence: "Test licence",
+      createdAt: still.createdAt, logger: still.createdBy, topics: ["Transport"], sourceTitle: "Coastal photographs" });
+    expect(fake.calls.filter(({ url }) => url.pathname.includes("/sources/"))).toHaveLength(1);
+    expect(JSON.stringify(page)).not.toContain(SECRET);
+  });
+
+  it("keeps list-only metadata out of the saved snapshot and tolerates a missing source title", async () => {
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) return Response.json([still]);
+      if (url.pathname.endsWith("/assets")) return Response.json(manifest);
+      if (url.pathname.includes("/sources/")) return serviceError(404);
+      return Response.json(still);
+    });
+    const api = client(fake.request);
+    expect((await api.stills(PROJECT, 0)).stills[0]).not.toHaveProperty("sourceTitle");
+    const saved = await api.still(PROJECT, still.id, 3);
+    expect(saved).toEqual({ researchProjectId: PROJECT, itemId: still.id, itemVersion: 3, sourceId,
+      title: "Harbor still", credit: "Archive collection", licence: "Test licence",
+      original: asset, provenance: manifest.provenance });
+  });
+
+  it("keeps valid stills on a page with malformed records and refuses authorization failures", async () => {
+    const badAssets = { ...still, id: researchId(752000) };
+    const entries = [
+      { ...still, id: researchId(752001), createdBy: "invalid" },
+      { ...still, id: researchId(752002), createdAt: "invalid" },
+      { ...still, id: researchId(752003), topics: [123] },
+      badAssets,
+      still,
+    ];
+    const fake = fakeService((url) => {
+      if (url.pathname.endsWith("/items")) return Response.json(entries);
+      if (url.pathname.includes("/sources/")) return serviceError(503);
+      if (url.pathname.includes(badAssets.id)) return Response.json({ assets: {} });
+      return Response.json(manifest);
+    });
+    const page = await client(fake.request).stills(PROJECT, 0);
+    expect(page.stills.map(({ itemId }) => itemId)).toEqual([still.id]);
+    expect(page.stills[0]).not.toHaveProperty("sourceTitle");
+    for (const status of [403, 429, 503]) {
+      const unavailable = fakeService((url) => url.pathname.endsWith("/items")
+        ? Response.json([still]) : serviceError(status));
+      const page = client(unavailable.request).stills(PROJECT, 0);
+      if (status === 403) await expect(page).rejects.toMatchObject({ status });
+      else await expect(page).rejects.toThrow("Research could not complete this read-only request.");
+    }
+  });
+});
