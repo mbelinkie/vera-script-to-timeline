@@ -6574,6 +6574,34 @@ describe("browser authoring over the local project service", () => {
     } finally { await page.close(); }
   }, 50_000);
 
+  it("#749 keeps the Stash clip picker open across unrelated Draft typing", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Stash picker with Draft edit");
+      const fixture = editableDocumentFixture(projectId, "Spoken scene");
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const saved = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+      await page.reload();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      await page.locator("[data-stash-add-clip]").click();
+      const choice = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+      await choice.waitFor();
+      await page.locator(`[data-row-id="${fixture.rowId}"] [data-narration-editor]`).fill("Spoken scene corrected");
+      await expect.poll(async () => (await saved()).document.activeDraft.blocks.find((row) => row.id === fixture.rowId)).toMatchObject({ text: "Spoken scene corrected" });
+      const before = await saved();
+      await choice.click();
+      await expect.poll(async () => (await saved()).document.stash?.flatMap((bundle) => bundle.rows).filter((row) =>
+        row.type === "visual_only" && row.researchClip?.clipId === loggedClip.id).length ?? 0).toBe(1);
+      const after = await saved();
+      expect(after.revision).toBe(before.revision + 1);
+      expect(after.document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+      await page.getByRole("button", { name: "Undo Add footage to Stash" }).click();
+      await expect.poll(async () => (await saved()).document.stash ?? []).toEqual(before.document.stash ?? []);
+      expect((await saved()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+    } finally { await page.close(); }
+  }, 50_000);
+
   it("#616 adds logged footage to Stash during Sorting and checks the saved result", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
