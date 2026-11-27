@@ -351,9 +351,9 @@ describe("compact Research Stash actions", () => {
   it("queues one exact move or deletion and refuses an obsolete model", async () => {
     const { document } = fixture();
     let current = document;
-    const queue = vi.fn(async (command: (model: ScriptDocumentV2) => unknown) => {
+    const queue = vi.fn((command: (model: ScriptDocumentV2) => unknown) => {
       command(current);
-      return true;
+      return Promise.resolve(true);
     });
     const actions = createStashActions(queue, () => current);
     const location = { sectionId: null, noteRowId: null, afterItemId: null };
