@@ -6967,6 +6967,137 @@ describe("browser authoring over the local project service", () => {
     } finally { await page.close(); }
   }, 50_000);
 
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#691 moves a Stash visual onto exact words atomically at $width x $height", async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, "Exact Stash drop");
+        const fixture = draggableVisualFixture(projectId);
+        await saveDocumentFixture(page, projectId, fixture.document);
+        await page.reload();
+        const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+        const source = page.locator(`[data-slot-id="${fixture.movedSlotId}"].visual-card`);
+        await source.waitFor();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        await source.dragTo(page.locator('[data-stash-drop-section=""]'));
+        const stashed = page.locator('#stash-panel [data-stash-kind="clip"]');
+        await stashed.waitFor();
+        await expect.poll(async () => (await load()).document.stash?.flatMap((bundle) => bundle.rows).length).toBe(1);
+        // Start from the persisted Stash state, not a preceding operation's
+        // asynchronous projection redraw or Undo history.
+        await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/^Saved/);
+        await page.reload();
+        await page.locator(`[data-row-id="${fixture.targetId}"] [data-narration-editor]`).waitFor();
+        if (!await stashed.isVisible()) await page.getByRole("button", { name: "Stash", exact: true }).click();
+        await stashed.waitFor();
+        const before = await load();
+        const row = page.locator(`[data-row-id="${fixture.targetId}"]`);
+        const editor = row.locator("[data-narration-editor]");
+        const initial = before.document.activeDraft.blocks.find((item) => item.id === fixture.targetId);
+        if (initial?.type !== "narration") throw new Error("missing receiving row");
+        const select = async () => {
+          await selectText(editor, initial.tokens[1]!.startOffset, initial.tokens[3]!.endOffset);
+          await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("two three four");
+          return textCharacterPosition(editor, initial.tokens[2]!.startOffset + 1);
+        };
+        await page.evaluate(() => {
+          const observations: string[] = [];
+          for (const name of ["dragstart", "dragover"]) document.addEventListener(name, () => {
+            const overlay = document.querySelector("[data-selected-drop-state]");
+            const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+            if (!overlay || !fragment) return;
+            const observation = [overlay.getAttribute("data-selected-drop-state"),
+              getComputedStyle(fragment).borderTopStyle, overlay.textContent].join("|");
+            if (!observations.includes(observation)) observations.push(observation);
+            document.documentElement.dataset.stashDragObservations = JSON.stringify(observations);
+          }, name === "dragover");
+        });
+        let refuse = true;
+        let firstCalls = 0;
+        let secondCalls = 0;
+        let intermediate: SavedDocument | undefined;
+        await page.route("**/authoring/command", async (route) => {
+          const body = route.request().postDataJSON();
+          if (body.command.kind === "insert_stash_visual") firstCalls++;
+          if (body.command.kind !== "attach_visual_to_words") return route.continue();
+          secondCalls++;
+          expect(body.command).toMatchObject({ startTokenId: initial.tokens[1]!.id, endTokenId: initial.tokens[3]!.id });
+          // The first transform must not have been saved or rendered.
+          intermediate = await load();
+          expect(await stashed.isVisible()).toBe(true);
+          if (refuse) return route.fulfill({ status: 400, json: { ok: false, diagnostics: [{ message: "Synthetic second-stage refusal" }] } });
+          return route.continue();
+        });
+        await stashed.locator(".stash-entry-text").dragTo(editor, { targetPosition: await select() });
+        await expect.poll(() => secondCalls).toBe(1);
+        await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("could not be attached");
+        expect(firstCalls).toBe(1);
+        expect(intermediate).toEqual(before);
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        expect(await load()).toEqual(before);
+        expect(await stashed.isVisible()).toBe(true);
+        // Cancel and stale editor attempts do not dispatch a transform.
+        for (const stale of [false, true]) {
+          const position = await select();
+          await stashed.locator(".stash-entry-text").evaluate((node, { rowId, position, stale }) => {
+            const editor = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+            const bounds = editor.getBoundingClientRect();
+            const transfer = new DataTransfer();
+            const drag = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, {
+              bubbles: true, cancelable: true, dataTransfer: transfer,
+              clientX: bounds.left + position.x, clientY: bounds.top + position.y,
+            }));
+            node.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+            drag(node, "dragstart");
+            drag(editor, "dragover");
+            if (stale) {
+              const original = editor.textContent;
+              editor.textContent = original + " changed";
+              drag(editor, "drop");
+              editor.textContent = original;
+            }
+            drag(node, "dragend");
+          }, { rowId: fixture.targetId, position, stale });
+          expect(await load()).toEqual(before);
+          expect(firstCalls).toBe(1);
+          expect(secondCalls).toBe(1);
+        }
+        refuse = false;
+        await stashed.locator(".stash-entry-text").dragTo(editor, { targetPosition: await select() });
+        await expect.poll(() => secondCalls).toBe(2);
+        await expect.poll(async () => (await load()).document.stash?.flatMap((bundle) => bundle.rows).length ?? 0).toBe(0);
+        const after = await load();
+        expect(after.revision).toBe(before.revision + 1);
+        expect(firstCalls).toBe(2);
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add Stash visual"]);
+        const observations = JSON.parse(await page.locator("html").getAttribute("data-stash-drag-observations") ?? "[]");
+        expect(observations).toContain("available|dashed|");
+        expect(observations).toContain("active|solid|Attach to “two three four” · exactly these words");
+        await expect.poll(() => page.locator("[data-selected-drop-state]").count()).toBe(0);
+        const receiving = after.document.activeDraft.blocks.find((item) => item.id === fixture.targetId);
+        if (receiving?.type !== "narration") throw new Error("missing placed row");
+        expect(receiving.text).toBe(initial.text);
+        const slot = receiving.primaryVisualSequence?.slots.find((item) => item.kind === "content" &&
+          item.payload.kind === "visual" && item.payload.payloadId === fixture.movedPayload.payloadId);
+        if (slot?.kind !== "content" || slot.payload.kind !== "visual") throw new Error("missing attached Stash slot");
+        expect(slot.payload.selectedSourceRange).toEqual(fixture.movedPayload.selectedSourceRange);
+        expect(projectPrimarySequenceV2(after.document).rows.find((item) => item.blockId === receiving.id)
+          ?.brackets.find((item) => item.slotId === slot.id)).toMatchObject({ startTokenIndex: 1, endTokenIndexExclusive: 4 });
+        await page.getByRole("button", { name: "Undo Add Stash visual", exact: true }).click();
+        await expect.poll(async () => (await load()).document.stash).toEqual(before.document.stash);
+        expect((await load()).document.activeDraft).toEqual(before.document.activeDraft);
+        await expect.poll(() => page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        await stashed.waitFor();
+        await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/^Saved/);
+        await select();
+        await stashed.locator(".stash-entry-text").dragTo(row.locator(".visuals-cell"));
+        await expect.poll(async () => (await narrationRowFromApi(page, projectId, fixture.targetId))?.unattachedVisuals?.some(
+          (item) => item.payload.kind === "visual" && item.payload.payloadId === fixture.movedPayload.payloadId)).toBe(true);
+      } finally { await page.close(); }
+    }, 90_000);
+
   it("#616 keeps the pending order when the saved head changes during acceptance", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

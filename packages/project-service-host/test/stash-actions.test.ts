@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
 
-import { applyRowEditV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { applyVisualSequenceEditV2, applyRowEditV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAuthoringHandler } from "../src/authoring.js";
 import {
-  captureStashNoteDrop, captureStashWords, createStashActions, createStashNoteCommand,
+  applySelectedStashTransfer, captureStashNoteDrop, captureStashWords, createStashActions, createStashNoteCommand,
   insertStashNoteCommand, projectStash, stashWordsCommand,
   captureWholeRowStash, wholeRowStashCommand, captureSavedPlacement, savedPlacementCommand,
   originalDraftLocation, draftGapChoices,
 } from "../browser/stash-actions.js";
+
+import { captureSelectedDrop } from "../browser/visual-selection.js";
 
 const id = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 const ids = (start: number): (() => string) => {
@@ -344,5 +346,55 @@ describe("existing authenticated browser command endpoint", () => {
     expect(placement.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === noteId))
       .toMatchObject({ text: "host note", stashChecklist: { completed: true } });
     expect(placement.document.rowEditRevision).toBe(3);
+  });
+});
+
+describe("#691 private selected Stash transfer", () => {
+  it("guards the queued range and source, composes the real transforms, and discards failed or stale scratch", async () => {
+    const { document, source, target } = fixture();
+    const sourceSlot = source.primaryVisualSequence!.slots[0]!;
+    if (sourceSlot.kind !== "content") throw new Error("missing fixture slot");
+    sourceSlot.payload = { kind: "visual", payloadId: id(9001), pictureKind: "unresolved_visual",
+      source: { kind: "unresolved_visual", description: "Synthetic picture" }, sourceUsage: null,
+      audioPolicy: "mute", framingPolicy: "contain" };
+    const parked = apply(document, { kind: "stash_visual", rowId: source.id, slotId: sourceSlot.id,
+      bundleId: id(9002), stashRowId: id(9003), sectionId: null, parentRowId: null, afterRowId: null });
+    const frozen = structuredClone(parked);
+    const snapshot = captureSelectedDrop(parked, { rowId: target.id, text: target.text,
+      rowVersion: target.version, sequenceVersion: target.primaryVisualSequence!.version,
+      selected: true, selection: { start: 0, end: 14 } })!;
+    expect(snapshot).not.toBeNull();
+    const insert = { kind: "insert_stash_visual" as const, stashRowId: id(9003),
+      destinationRowId: target.id, destinationSlotId: id(9004) };
+    const applyTransform: Parameters<typeof applySelectedStashTransfer>[3] = async (model, command, _, sequence) =>
+      command.kind === "attach_visual_to_words"
+        ? applyVisualSequenceEditV2(model, sequence!, command)
+        : applyRowEditV2(model, model.rowEditRevision ?? 0, command as Parameters<typeof applyRowEditV2>[2]);
+    const calls = vi.fn(applyTransform);
+    const result = await applySelectedStashTransfer(parked, insert, snapshot, calls, () => {});
+    expect(calls).toHaveBeenCalledTimes(2);
+    expect(calls.mock.calls[1]?.[1]).toMatchObject({ kind: "attach_visual_to_words",
+      startTokenId: target.tokens[0]!.id, endTokenId: target.tokens[1]!.id });
+    expect(result.document.stash?.flatMap((bundle) => bundle.rows) ?? []).toHaveLength(0);
+    expect(parked).toEqual(frozen);
+    const secondRefusal = vi.fn(applyTransform).mockImplementationOnce(applyTransform)
+      .mockRejectedValueOnce(new Error("second refusal"));
+    await expect(applySelectedStashTransfer(parked, insert, snapshot, secondRefusal, () => {})).rejects.toThrow("second refusal");
+    expect(parked).toEqual(frozen);
+    const stale = vi.fn().mockImplementationOnce(() => {}).mockImplementationOnce(() => { throw new Error("stale"); });
+    calls.mockClear();
+    await expect(applySelectedStashTransfer(parked, insert, snapshot, calls, stale)).rejects.toThrow("stale");
+    expect(calls).toHaveBeenCalledTimes(1);
+    expect(parked).toEqual(frozen);
+    const queue = vi.fn(async () => true);
+    const actions = createStashActions(queue, () => parked);
+    await actions.insertStashVisual(insert.stashRowId, target.id, insert.destinationSlotId, parked, snapshot);
+    expect(queue).toHaveBeenCalledTimes(1);
+    const changed = structuredClone(parked);
+    changed.stash = [];
+    const resolve = queue.mock.calls[0] as unknown as [(model: ScriptDocumentV2) => unknown, string, unknown];
+    expect(resolve[2]).toEqual({ structural: true, selectedStashDrop: snapshot });
+    expect(resolve[0](parked)).toEqual(insert);
+    expect(() => resolve[0](changed)).toThrow(/changed/);
   });
 });

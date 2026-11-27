@@ -1,5 +1,5 @@
 import { createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
-import { selectedSpokenWords } from "./visual-selection.js";
+import { selectedDropPlacement, selectedSpokenWords } from "./visual-selection.js";
 
 const sameGap = (a, b) => !!a && !!b &&
   a.sectionId === b.sectionId && a.afterRowId === b.afterRowId && a.beforeRowId === b.beforeRowId;
@@ -361,6 +361,43 @@ export function insertStashNoteCommand(documentModel, intent) {
 }
 
 /** All three mutations use the editor's existing queue -> authorized host -> CAS save -> Undo. */
+// Both transforms operate on private documents. Only the queue publishes
+// the final result; no intermediate Stash removal, save or Undo is visible.
+export async function applySelectedStashTransfer(prior, insert, snapshot, applyCommand, assertCurrent) {
+  const placement = selectedDropPlacement(prior, snapshot);
+  if (!placement || insert.kind !== "insert_stash_visual" || insert.destinationRowId !== placement.rowId) {
+    throw new Error("Choose the highlighted words again.");
+  }
+  const sameDocument = (model) => model?.projectId === prior.projectId && model.id === prior.id;
+  const findRow = (model) => model?.activeDraft.blocks.find((row) => row.id === placement.rowId);
+  const sourceGone = (model) => !(model.stash ?? []).some((bundle) => bundle.rows.some((row) => row.id === insert.stashRowId));
+  const original = findRow(prior);
+  const sameWords = (row) => row?.type === "narration" && row.text === original.text &&
+    JSON.stringify(row.tokens) === JSON.stringify(original.tokens);
+  assertCurrent();
+  const staged = await applyCommand(prior, insert);
+  assertCurrent();
+  const row = findRow(staged?.document);
+  if (!staged?.ok || !sameDocument(staged.document) || !sameWords(row) ||
+      !sourceGone(staged.document) || !Number.isSafeInteger(row.primaryVisualSequence?.version) ||
+      !row.unattachedVisuals?.some((item) => item.slotId === insert.destinationSlotId)) {
+    throw new Error("The saved visual could not be moved.");
+  }
+  const attached = await applyCommand(staged.document, {
+    kind: "attach_visual_to_words", blockId: row.id, slotId: insert.destinationSlotId,
+    startTokenId: placement.startTokenId, endTokenId: placement.endTokenId,
+  }, undefined, row.primaryVisualSequence.version);
+  assertCurrent();
+  const finalRow = findRow(attached?.document);
+  if (!attached?.ok || !sameDocument(attached.document) || !sameWords(finalRow) ||
+      !sourceGone(attached.document) ||
+      finalRow.unattachedVisuals?.some((item) => item.slotId === insert.destinationSlotId) ||
+      !finalRow.primaryVisualSequence?.slots.some((slot) => slot.id === insert.destinationSlotId)) {
+    throw new Error("The saved visual could not be attached.");
+  }
+  return attached;
+}
+
 export function createStashActions(queueCommand, getDocument, makeId = uuid, queueExtras) {
   return {
     view: () => projectStash(getDocument()),
@@ -452,20 +489,22 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
           sectionId: destination?.sectionId ?? null, parentRowId: destination?.parentRowId ?? null,
           afterRowId: destination?.afterRowId ?? null };
       }, "Stash visual", false, expectedModel),
-    insertStashVisual: (stashRowId, destinationRowId, destinationSlotId, expectedModel) => {
+    insertStashVisual: (stashRowId, destinationRowId, destinationSlotId, expectedModel, selectedDrop) => {
       const model = getDocument();
-      if (!model || expectedModel && model !== expectedModel) return Promise.resolve(false);
+      if (!model || expectedModel && model !== expectedModel ||
+          selectedDrop && (!selectedDropPlacement(model, selectedDrop) || selectedDrop.rowId !== destinationRowId)) return Promise.resolve(false);
       const projectId = model.projectId;
       const documentId = model.id;
       const snapshot = documentStashSnapshot(model);
       const draft = JSON.stringify(model.activeDraft);
       return queueCommand((current) => {
         if (current.projectId !== projectId || current.id !== documentId ||
-          documentStashSnapshot(current) !== snapshot || JSON.stringify(current.activeDraft) !== draft) {
+          documentStashSnapshot(current) !== snapshot || JSON.stringify(current.activeDraft) !== draft ||
+          selectedDrop && !selectedDropPlacement(current, selectedDrop)) {
           throw new Error("The Stash item or script row changed. Drag again.");
         }
         return { kind: "insert_stash_visual", stashRowId, destinationRowId, destinationSlotId };
-      }, "Add Stash visual", { structural: true });
+      }, "Add Stash visual", { structural: true, ...(selectedDrop ? { selectedStashDrop: selectedDrop } : {}) });
     },
     attachFootage: (noteRowId, clipRowId, replace = false) => queueStashCommand(queueCommand, queueExtras,
       getDocument, makeId, (current, idFactory) => {

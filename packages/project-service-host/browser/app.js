@@ -5,7 +5,7 @@ import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
-import { captureWholeRowStash, createStashActions, documentStashSnapshot } from "./stash-actions.js";
+import { applySelectedStashTransfer, captureWholeRowStash, createStashActions, documentStashSnapshot } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
 import { cueExcerpt } from "./footage-trim-timing.js";
 import { captureSelectedDrop, selectedDropPlacement, selectedSpokenWords } from "./visual-selection.js";
@@ -2818,7 +2818,7 @@ function retryExtrasWrite() {
 
 function queueCommand(command, label, options = {}) {
   if (!canEditAccount()) return Promise.resolve(false);
-  if (sortingTrial) return queueSortingCommand(command, label, options);
+  if (sortingTrial) return options.selectedStashDrop ? Promise.resolve(false) : queueSortingCommand(command, label, options);
   if (pendingExtras || options.structural && composingRows.size) return Promise.resolve(false);
   if (extrasFailure && !extrasFailure.action) extrasFailure = undefined;
   const inputAt = performance.now();
@@ -3027,7 +3027,15 @@ function queueCommand(command, label, options = {}) {
     const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
-    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
+    const prior = scriptDocument;
+    const result = options.selectedStashDrop
+      ? await applySelectedStashTransfer(prior, resolved, options.selectedStashDrop, applyBrowserCommand, () => {
+        if (scriptDocument !== prior || activeProjectId !== options.selectedStashDrop.projectId ||
+            !canEditAccount() || sortingTrial || pendingExtras || editRefused || conflicted || composingRows.size) {
+          throw new Error("The script changed before the saved visual could be attached.");
+        }
+      })
+      : await applyBrowserCommand(prior, resolved, replay?.proof, sequenceVersion);
     if (resolved.kind === "move_visual_to_row" || resolved.kind === "move_wordless_visual") activeAttach = null;
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
@@ -3461,6 +3469,7 @@ stashPanel = mountStashPanel({
     const { clip } = await researchCatalogGet(researchProjectId, clipId);
     return clip?.version === clipVersion ? clip : null;
   },
+  selectedDropTarget: (event) => selectedDropDrag?.target(event),
   getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
   onOpen: () => {
     occurrenceFootage?.close(false);
