@@ -2960,6 +2960,85 @@ describe("browser authoring over the local project service", () => {
     },
   120_000);
 
+  it("#750 previews the exact kept picture of a pending Stash restore in Sorting and Back to script", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      // Observe the actual rendered Blob without bypassing the application's CSP.
+      await page.addInitScript(() => {
+        const images = new Map<string, Promise<number[]>>();
+        Object.assign(window, { quotePictureBlobs: images });
+        const create = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (object) => {
+          const url = create(object);
+          if (object instanceof Blob && object.type.startsWith("image/")) {
+            images.set(url, object.arrayBuffer().then((bytes) => [...new Uint8Array(bytes)]));
+          }
+          return url;
+        };
+      });
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const projectId = await createProject(page, origin, "Pending restored quote picture");
+      const fixture = editableDocumentFixture(projectId, "Opening words");
+      await saveDocumentFixture(page, projectId, fixture.document);
+      const path = `/authoring/projects/${projectId}/document`;
+      const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      await page.locator(`[data-quote-place-id="${loggedQuote.itemId}"]`)
+        .dragTo(page.locator("#script-rows [data-row-gap]").first());
+      await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(2);
+      const quoteRow = (await narrationRowsFromApi(page, projectId)).find((row) => row.id !== fixture.rowId)!;
+      const slot = quoteRow.primaryVisualSequence?.slots.find((item) => item.kind === "content" &&
+        item.payload.kind === "visual" && item.payload.researchQuotePicture);
+      expect(slot).toMatchObject({ kind: "content", payload: { researchQuotePicture: { original: { sha256: browserStillHash } } } });
+      const row = page.locator(`#script-rows [data-row-id="${quoteRow.id}"]`);
+      const expectRetainedPicture = async () => {
+        const image = row.locator("[data-quote-picture-media] img");
+        await row.scrollIntoViewIfNeeded();
+        await expect.poll(async () => {
+          if (await image.count() !== 1) return false;
+          return image.evaluate((node) => node instanceof HTMLImageElement && node.complete &&
+            node.naturalWidth > 0 && node.src.startsWith("blob:"));
+        }).toBe(true);
+        const bytes = await image.evaluate((node) => (window as unknown as {
+          quotePictureBlobs: Map<string, Promise<number[]>>;
+        }).quotePictureBlobs.get((node as HTMLImageElement).src));
+        expect(bytes).toBeDefined();
+        expect(createHash("sha256").update(Buffer.from(bytes!)).digest("hex")).toBe(browserStillHash);
+        expect(await row.locator(".visual-card__quote-text").textContent()).toBe(loggedQuote.displayText);
+      };
+      await page.reload();
+      await expectRetainedPicture();
+      await row.hover();
+      await row.locator("[data-row-action-trigger]").click();
+      await row.getByRole("menuitem", { name: "Stash row" }).click();
+      await expect.poll(async () => (await saved()).document.stash?.flatMap((bundle) => bundle.rows)
+        .find((item) => item.id === quoteRow.id)).toEqual(quoteRow);
+      await page.reload();
+      const baseline = await saved();
+      expect(baseline.document.activeDraft.blocks.some((item) => item.id === quoteRow.id)).toBe(false);
+      let writes = 0;
+      page.on("request", (request) => {
+        if (request.method() === "PUT" && new URL(request.url()).pathname === path) writes++;
+      });
+      await page.getByRole("button", { name: "Sort rows", exact: true }).click();
+      await page.getByRole("button", { name: "Stash", exact: true }).click();
+      const entry = page.locator(`#stash-panel [data-stash-row-id="${quoteRow.id}"]`);
+      await entry.locator(".stash-entry-text").dragTo(page.locator(`#script-rows [data-row-id="${fixture.rowId}"]`),
+        { targetPosition: { x: 30, y: 2 } });
+      await row.getByRole("button", { name: /^Expand /u }).click();
+      expect(await saved()).toEqual(baseline);
+      expect(writes).toBe(0);
+      await expectRetainedPicture();
+      await page.getByRole("button", { name: "← Back to script" }).click();
+      await expectRetainedPicture();
+      expect(await page.locator("#script-rows [contenteditable]").count()).toBe(0);
+      expect(await saved()).toEqual(baseline);
+      expect(writes).toBe(0);
+    } finally { await page.close(); }
+  }, 90_000);
+
   it("opens Footage by keyboard at 1024px, restores focus on Escape and reports no authorized project", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
