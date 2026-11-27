@@ -492,8 +492,9 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderEditor() {
-  // A structural redraw replaces the range DOM. Never carry an in-flight drag across it.
-  if (selectedDropDrag?.dragging()) selectedDropDrag.invalidate();
+  // A projection-only redraw may replace the DOM without changing the saved
+  // words. Recompute the range after mounting, rather than retiring its identity.
+  selectedDropDrag?.beforeRedraw();
   stashPanel?.update();
   const root = element("script-rows");
   const model = editorDocument();
@@ -503,6 +504,7 @@ function renderEditor() {
     rowsCleanup?.();
     rowsCleanup = undefined;
     renderRows(root, model, { projection: editorProjection(), quotePicture: researchPlacedQuotePictureGet });
+    selectedDropDrag?.afterRedraw();
     return;
   }
   const requestedFocus = structuralFocus;
@@ -613,6 +615,7 @@ function renderEditor() {
     (card?.querySelector("[data-visual-action-trigger]") ??
       row?.querySelector("[data-visual-action-trigger]") ??
       row?.querySelector(".visual-card"))?.focus();
+    selectedDropDrag?.afterRedraw();
     return;
   }
   const targetRowId = requestedFocus?.rowId ?? rowId;
@@ -653,6 +656,7 @@ function renderEditor() {
       .find((item) => item.dataset.rowGap === transitionFocus);
     (divider?.querySelector("[data-row-transition]") ?? divider?.querySelector("[data-row-add]"))?.focus();
   }
+  selectedDropDrag?.afterRedraw();
 }
 
 async function stashGroup(rowIds) {
@@ -1559,10 +1563,10 @@ function mountSelectedDropDragging(root) {
         entry.row.clearedNarration || entry.row.additionalVisuals?.length) return null;
     return { node: item, panel: "stash-panel", mime: "application/x-vera-stash-item" };
   };
-  // Once focus has moved away, only a candidate explicitly captured at the
-  // matching opener/source may be promoted. An arbitrary native range can
-  // survive an unrelated click; do not resurrect it at a later dragstart.
-  const capture = () => allowed() && doc.activeElement?.matches("[data-narration-editor]")
+  // Sidebar controls can retain a real, visible native range. Permit fresh
+  // capture within that same sidebar, not from unrelated focus or cached text.
+  const capture = (panel) => allowed() && (doc.activeElement?.matches("[data-narration-editor]") ||
+    panel && element(panel).contains(doc.activeElement))
     ? captureSelectedDrop(scriptDocument, selectedNarrationTarget()) : null;
   const removeOverlay = () => {
     overlay?.remove();
@@ -1571,13 +1575,10 @@ function mountSelectedDropDragging(root) {
   };
   const reset = () => {
     const wasDragging = Boolean(active);
+    active?.source.node.removeEventListener("dragend", active.end);
     candidate = active = pointer = null;
     removeOverlay();
     if (wasDragging && renderRequested) scheduleRender();
-  };
-  const invalidate = () => {
-    if (active) active.invalidated = true;
-    removeOverlay();
   };
   const remember = (event) => {
     if (active) reset();
@@ -1586,7 +1587,7 @@ function mountSelectedDropDragging(root) {
     const source = sourceFor(node);
     const panel = opener ? (opener.id === "open-footage" ? "footage-panel" : "stash-panel") : source?.panel;
     if (!panel || event.button !== 0) { candidate = null; return; }
-    const snapshot = capture() ?? (source && candidate?.panel === panel && !candidate.source
+    const snapshot = capture(panel) ?? (source && candidate?.panel === panel && !candidate.source
       ? candidate.snapshot : null);
     candidate = snapshot ? { snapshot, panel, source: source?.node ?? null } : null;
   };
@@ -1596,10 +1597,14 @@ function mountSelectedDropDragging(root) {
     reset();
     if (!source || !allowed() || !panelVisible(source.panel) ||
         !event.dataTransfer?.types.includes(source.mime)) return;
-    const snapshot = capture() ?? (remembered?.panel === source.panel &&
+    const snapshot = capture(source.panel) ?? (remembered?.panel === source.panel &&
       (!remembered.source || remembered.source === source.node) ? remembered.snapshot : null);
     if (!snapshot) return;
-    active = { snapshot, source, invalidated: !selectedDropPlacement(scriptDocument, snapshot) };
+    const current = { snapshot, source, invalidated: !selectedDropPlacement(scriptDocument, snapshot),
+      rects: [], end: () => { if (active === current) reset(); } };
+    active = current;
+    // A removed source will not bubble dragend through the document.
+    source.node.addEventListener("dragend", current.end, { once: true });
     refresh();
   };
   const target = (event) => {
@@ -1611,14 +1616,20 @@ function mountSelectedDropDragging(root) {
       .find((node) => node.dataset.rowId === snapshot.rowId);
     const editor = rowNode?.querySelector("[data-narration-editor]");
     const surface = editor?.closest(".narration-editor__surface");
-    if (!placement || !editor || !surface || editor.textContent !== snapshot.text ||
+    const sameText = editor?.textContent === snapshot.text;
+    if (!placement || !editor || !surface || !sameText ||
         editor.contentEditable !== "true") {
       // Keep refusal identity until dragend/drop; a changed editor must not
       // silently fall back to a single word or insertion on the old row.
       active.invalidated = true;
-      return { snapshot, source, placement: null, hit: Boolean(event && editor?.contains(event.target)), rects: [] };
+      const rects = sameText ? narrationTokenRects(editor, snapshot) : active.rects;
+      const hit = Boolean(event && event.target?.closest?.("[data-narration-editor]") &&
+        (rects.length ? pointInQuoteRects(rects, event.clientX, event.clientY) :
+          !editor || editor.contains(event.target)));
+      return { snapshot, source, placement: null, hit, rects: [] };
     }
     const rects = narrationTokenRects(editor, snapshot);
+    active.rects = rects;
     const hit = Boolean(event && editor.contains(event.target) &&
       pointInQuoteRects(rects, event.clientX, event.clientY));
     return { snapshot, source, placement, hit, rects, surface };
@@ -1694,7 +1705,12 @@ function mountSelectedDropDragging(root) {
   doc.addEventListener("keydown", (event) => { if (event.key === "Escape") reset(); }, true);
   win.addEventListener("scroll", refresh, true);
   win.addEventListener("resize", refresh);
-  return { target, reset, invalidate, dragging: () => Boolean(active) };
+  return { target, reset, beforeRedraw: removeOverlay,
+    afterRedraw() {
+      if (pointer) pointer.target = doc.elementFromPoint(pointer.clientX, pointer.clientY);
+      refresh();
+    },
+    dragging: () => Boolean(active) };
 }
 
 function narrationTokenAtPoint(row, editor, x, y) {

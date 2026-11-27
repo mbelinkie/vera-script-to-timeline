@@ -2802,6 +2802,7 @@ describe("browser authoring over the local project service", () => {
       const projectId = await createProject(page, origin, "Selected words drag");
       const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
       await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
       await page.goto(`${origin}/?project=${projectId}`);
       await page.getByRole("button", { name: "Library", exact: true }).click();
       const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
@@ -2833,14 +2834,23 @@ describe("browser authoring over the local project service", () => {
         const dashed = read();
         drag(target, "dragover", box.left + position.x, box.top + position.y);
         const solid = read();
+        window.__veraVisualTest!.renderEditor();
+        const remounted = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+        const remountedBox = remounted.getBoundingClientRect();
+        drag(remounted, "dragover", remountedBox.left + position.x, remountedBox.top + position.y);
+        const redrawn = read();
         drag(source, "dragover");
         const outside = read();
+        // The browser delivers dragend to the source even after it is removed;
+        // it must not depend on bubbling through the document.
+        source.remove();
         drag(source, "dragend");
-        return { dashed, solid, outside, after: read(), narration: target.textContent };
+        return { dashed, solid, redrawn, outside, after: read(), narration: remounted.textContent };
       }, { rowId: seeded.rowId, position });
       expect(result.dashed).toMatchObject({ state: "available", border: "dashed" });
       expect(result.solid).toMatchObject({ state: "active", border: "solid",
         text: "Attach to “beta gamma” · exactly these words" });
+      expect(result.redrawn).toEqual(result.solid);
       expect(result.outside).toMatchObject({ state: "available", border: "dashed" });
       expect(result.after.state).toBeNull();
       expect(result.narration).toBe(seeded.firstRowText);
@@ -2895,6 +2905,12 @@ describe("browser authoring over the local project service", () => {
         };
         for (const [source, label] of [[clip, "Add footage"], [quote, "Add quote"]] as const) {
           const position = await select();
+          if (label === "Add quote") {
+            // A Library control may retain the native selection while taking
+            // focus. A subsequent quote drag must still attach the entire span.
+            await page.locator('[data-footage-kind="quotes"]').click();
+            await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta beacon before");
+          }
           const path = label === "Add footage" ? "research-insert" : "research-quote-insert";
           const response = page.waitForResponse((r) => r.url().endsWith("/authoring/" + path) && r.request().method() === "POST");
           await source.dragTo(editor, { targetPosition: position });
@@ -2935,6 +2951,7 @@ describe("browser authoring over the local project service", () => {
           await page.getByRole("button", { name: "Undo " + label, exact: true }).click();
           await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
           expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+          if (label === "Add quote") await page.locator('[data-footage-kind="all"]').click();
         }
         const observations: unknown = JSON.parse(await page.locator("html").getAttribute("data-library-drag-observations") ?? "[]");
         expect(observations).toContain("available|dashed|");
