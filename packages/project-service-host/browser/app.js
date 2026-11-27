@@ -1414,20 +1414,28 @@ export async function researchQuoteThumbnailGet(quote) {
 /** Reads a placed quote picture through the host, which resolves the exact saved Research pin. */
 export async function researchPlacedQuotePictureGet(payloadId) {
   const timelineId = activeProjectId;
+  const trial = sortingTrial;
   if (!uuid.test(timelineId ?? "") || !uuid.test(payloadId ?? "")) {
     throw new Error("Choose a current script and retained quote picture.");
   }
-  if (!await waitForDocumentSave() || timelineId !== activeProjectId) {
+  const current = () => timelineId === activeProjectId &&
+    (trial ? sortingBaselineCurrent(trial) : !sortingTrial);
+  if ((trial ? !sortingBaselineCurrent(trial) : !await waitForDocumentSave()) || !current()) {
     throw new Error("Save the quote picture before loading its thumbnail.");
   }
-  const pin = (scriptDocument?.activeDraft?.blocks ?? []).flatMap((row) => row.type === "narration"
-    ? (row.primaryVisualSequence?.slots ?? []).flatMap((slot) => slot.kind === "content" ? [slot.payload] : [])
+  // Resolve only from the saved head, never the speculative trial document.
+  const saved = trial ? trial.baseline : scriptDocument;
+  const rows = [...(saved?.activeDraft?.blocks ?? []),
+    ...(trial ? (saved?.stash ?? []).flatMap((bundle) => bundle.rows) : [])];
+  const pin = rows.flatMap((row) => row.type === "narration" && row.state === "active"
+    ? (row.primaryVisualSequence?.slots ?? []).flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload] : [])
     : []).find((payload) => payload.payloadId === payloadId)?.researchQuotePicture;
   if (!pin) throw new Error("The retained quote picture is no longer in the saved script.");
   const response = await researchStillRequest(`/authoring/research/${timelineId}/quote-pictures/${payloadId}`);
-  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  if (!current()) throw new Error("The open script changed. Reload the picture.");
   const bytes = await response.arrayBuffer();
-  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the picture.");
+  if (!current()) throw new Error("The open script changed. Reload the picture.");
   return { mimeType: response.headers.get("content-type")?.split(";", 1)[0] || pin.original.mimeType, bytes };
 }
 
