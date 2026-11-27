@@ -34,3 +34,7 @@ Pending implementation and verification. Producer acceptance is not implied by c
 Implementation PR: https://github.com/mbelinkie/vera-script-to-timeline/pull/751.
 No production identity provider has been acquired or configured: LIVE_PROVIDER_UNVERIFIED. A trusted host must inject AccountMode/BrowserAccountPort; default local launch is unchanged. Account-mode Research is honestly unavailable pending an actor-specific independent adapter. No email invitations, project listing, collaboration/comment/history UI, native Mac/Resolve acceptance, live deployment or production data touched.
 Producer acceptance remains pending: judge role/actions, demotion notice and explicit discard, access-ended wording/focus against accepted r36 S07. #692 already registers #72 and owns deployed-product verification; Cloud tests and CI do not establish deployed conformance. Keep #72 In review and Acceptance=Producer after technical delivery.
+
+
+## CI follow-up
+The first CI run caught a roster assertion before its asynchronous read completed; it now waits for the unchanged expected three members and native dialog focus. A later run exposed a queued prompter-close event stealing editor focus before a keystroke. A deterministic real-Chromium close-then-focus regression fails before the handler fix. Close handlers now preserve a newer user focus; normal native return focus remains intact. No permission assertion, required check or timeout was weakened.

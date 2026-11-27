@@ -32,7 +32,10 @@ export function mountAccountPanel({ root, request, onAccess, onSessionEnded, bef
   form.append(label, code, selected, node("button", "Add member", { type: "submit" }));
   const close = node("button", "Close", { type: "button" });
   close.onclick = () => dialog.close();
-  dialog.addEventListener("close", () => manage.focus());
+  dialog.addEventListener("close", () => {
+    const active = document.activeElement;
+    if (!active || active === document.body || dialog.contains(active)) manage.focus();
+  });
   dialog.append(heading, note, feedback, roster, form, close);
   root.append(status, member, manage, login, logout, dialog);
 

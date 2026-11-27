@@ -857,9 +857,16 @@ describe("browser authoring over the local project service", () => {
       await route.continue();
     });
     // The modal must be closed to type; closing it also clears the pinned pair.
-    await page.locator("#close-prompter").click();
     const editor = page.locator('[data-row-kind="narration"] [data-narration-editor]').first();
-    await editor.focus();
+    // Native close is queued: focus may already have moved to the editor when
+    // its close event arrives. That event must not steal the next keystroke.
+    await editor.evaluate((target) => new Promise<void>((resolve) => {
+      const dialog = document.querySelector<HTMLDialogElement>("#prompter-dialog")!;
+      dialog.addEventListener("close", () => resolve(), { once: true });
+      dialog.close();
+      (target as HTMLElement).focus();
+    }));
+    expect(await editor.evaluate((target) => target === document.activeElement)).toBe(true);
     await editor.press("End");
     await editor.press("x");
     await expect.poll(() => intercepted).toBe(true);

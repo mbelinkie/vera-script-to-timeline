@@ -323,7 +323,9 @@ element("open-prompter").addEventListener("click", () => {
 element("close-prompter").addEventListener("click", () => prompterDialog.close());
 prompterDialog.addEventListener("close", () => {
   clearPreparedPrompter();
-  element("open-prompter").focus();
+  // Native close is queued. Preserve focus if the user has already moved it.
+  const active = document.activeElement;
+  if (!active || active === document.body || prompterDialog.contains(active)) element("open-prompter").focus();
 });
 for (const name of ["prompter-sections", "prompter-beats"]) {
   element(name).addEventListener("change", () => clearPreparedPrompter("Settings changed. Prepare again to download the new files."));
