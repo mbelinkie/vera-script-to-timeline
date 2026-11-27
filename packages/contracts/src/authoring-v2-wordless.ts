@@ -17,7 +17,14 @@ export function preserveWordlessHoldV2(placement: WordlessPlacementV2, effective
   const timing = placement.visualOnlyTiming;
   if (placement.payload.pictureKind === "clip" || timing.selectedSourceRange ||
       timing.matchAudioDuration || timing.durationOverrideMs !== undefined) return placement;
-  return { ...placement, visualOnlyTiming: { ...timing, durationOverrideMs: effectiveDefaultMs } };
+  return { ...placement, visualOnlyTiming: { ...timing, durationOverrideMs: effectiveDefaultMs, systemPreservedDefaultHold: true } };
+}
+
+/** Retain the historical 4s exception; never infer provenance from a numeric project default. */
+export function hasNondefaultAuthoredHoldV2(timing: WordlessPlacementV2["visualOnlyTiming"]): boolean {
+  return timing.durationOverrideMs !== undefined &&
+    timing.durationOverrideMs !== NEW_VISUAL_HOLD_MS &&
+    timing.systemPreservedDefaultHold !== true;
 }
 
 const problem = (code: string, message: string): Problem => ({ code, message });
@@ -75,7 +82,7 @@ export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Convert
 export function toNarratedPlacementV2(placement: WordlessPlacementV2): Converted<NarratedVisualPayloadV2> {
   const { payload, visualOnlyTiming, researchClip, frameBinding } = placement;
   if (payload.audioPolicy === "full" || visualOnlyTiming.matchAudioDuration ||
-      (visualOnlyTiming.durationOverrideMs !== undefined && visualOnlyTiming.durationOverrideMs !== NEW_VISUAL_HOLD_MS)) {
+      hasNondefaultAuthoredHoldV2(visualOnlyTiming)) {
     return problem("WORDLESS_TIMING_UNSUPPORTED", "Clear custom hold, matched music or full source audio before moving this picture onto narration.");
   }
   const range = visualOnlyTiming.selectedSourceRange;

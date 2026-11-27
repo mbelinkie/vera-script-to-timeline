@@ -444,6 +444,9 @@ describe("#391 fail-closed secondary timing reconciliation", () => {
 
   it("previews a frame-exact +2 still duration change at 24000/1001 without touching signed inputs", () => {
     const { doc, deps } = twoVisualOnlyRows(1000);
+    const row = doc.activeDraft.blocks[0];
+    if (row?.type !== "visual_only") throw new Error("missing still");
+    row.visualOnlyTiming.systemPreservedDefaultHold = true;
     const before = compiled(doc, deps);
     const frozen = JSON.stringify([doc, deps, before]);
     const event = before.events.find((item) => item.provenance.blockId === id(30))!;
@@ -454,6 +457,12 @@ describe("#391 fail-closed secondary timing reconciliation", () => {
     if (!result.ok) return;
     expect(result.disposition).toBe("proposed_not_applied");
     expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({ version: 2, visualOnlyTiming: { durationOverrideMs: 1084 } });
+    expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 1084 },
+    });
+    const changed = result.candidateDocument.activeDraft.blocks[0];
+    if (changed?.type !== "visual_only") throw new Error("missing candidate still");
+    expect(changed.visualOnlyTiming.systemPreservedDefaultHold).toBeUndefined();
     expect(result.comparison.visualEvents.map((item) => [item.ownerId, item.startDeltaFrames, item.endDeltaFrames])
       .sort((left, right) => String(left[0]).localeCompare(String(right[0])))).toEqual([
       [id(31), 0, 2], [id(33), 2, 2],
