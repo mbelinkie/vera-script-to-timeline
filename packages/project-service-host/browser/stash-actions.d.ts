@@ -1,5 +1,6 @@
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
-import type { RowEditCommandV2 } from "@vera/contracts/authoring-v2";
+import type { SelectedDropSnapshot } from "./visual-selection.js";
+import type { RowEditCommandV2, VisualSequenceEditCommandV2 } from "@vera/contracts/authoring-v2";
 
 export function documentStashSnapshot(documentModel: ScriptDocumentV2): string;
 
@@ -60,7 +61,7 @@ export interface StashSectionView {
     group?: { id: string; index: number; size: number } }>;
 }
 export type StashEditorQueue = (command: (document: ScriptDocumentV2) => RowEditCommandV2,
-  label: string, options: { structural: true }) => Promise<boolean>;
+  label: string, options: { structural: true; selectedStashDrop?: SelectedDropSnapshot }) => Promise<boolean>;
 export type StashExtrasQueue = (command: (document: ScriptDocumentV2) => RowEditCommandV2,
   label: string) => Promise<boolean>;
 export interface StashOutlineDestination {
@@ -99,6 +100,12 @@ export function captureStashNoteDrop(document: ScriptDocumentV2, noteRowId: stri
   rowId: string, beforeTokenId: string): StashDropIntent | null;
 export function insertStashNoteCommand(document: ScriptDocumentV2,
   intent: StashDropIntent): Extract<RowEditCommandV2, { kind: "insert_stash_note_words" }>;
+export function applySelectedStashTransfer<T extends { ok: boolean; document: ScriptDocumentV2 }>(
+  prior: ScriptDocumentV2, insert: Extract<RowEditCommandV2, { kind: "insert_stash_visual" }>,
+  snapshot: SelectedDropSnapshot,
+  applyCommand: (document: ScriptDocumentV2, command: RowEditCommandV2 | VisualSequenceEditCommandV2,
+    splitProof?: string, expectedSequenceVersion?: number) => Promise<T>,
+  assertCurrent: () => void): Promise<T>;
 export function createStashActions(queue: StashEditorQueue, getDocument: () => ScriptDocumentV2,
   makeId?: () => string, queueExtras?: StashExtrasQueue): {
     view: () => StashSectionView[];
@@ -119,7 +126,7 @@ export function createStashActions(queue: StashEditorQueue, getDocument: () => S
     stashVisual: (rowId: string, slotId: string, destination?: StashOutlineDestination | null,
       expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     insertStashVisual: (stashRowId: string, destinationRowId: string, destinationSlotId: string,
-      expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+      expectedModel?: ScriptDocumentV2, selectedDrop?: SelectedDropSnapshot) => Promise<boolean>;
     attachFootage: (noteRowId: string, clipRowId: string, replace?: boolean) => Promise<boolean>;
     detachFootage: (noteRowId: string, destination?: StashOutlineDestination, expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     placeAttached: (noteRowId: string, destination: DraftGap, expectedModel?: ScriptDocumentV2) => Promise<boolean>;

@@ -70,7 +70,7 @@ function caretRect(editor, offset) {
 
 /** The panel only projects saved state; all writes go through the ordinary editor queue. */
 export function mountStashPanel({ root, script, actions, getDocument, onOpen, readOnly = () => false,
-  getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, getProjectVisualHoldMs, loadClip, pickClip = () => {}, sorting = () => false }) {
+  selectedDropTarget = () => null, getScriptDrag = () => null, clearScriptDrag = () => {}, applyCommand, fetchProjection, getProjectVisualHoldMs, loadClip, pickClip = () => {}, sorting = () => false }) {
   const doc = root.ownerDocument;
   const toggle = doc.getElementById("open-stash");
   const form = root.querySelector("[data-stash-form]");
@@ -810,6 +810,13 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
 
   function scriptDestination(event) {
     if (!drag || drag.model !== getDocument() || !event.dataTransfer?.types.includes(itemDragType)) return null;
+    const selected = selectedDropTarget(event);
+    if (!sorting() && !drag.attached && !drag.entry.group && drag.entry.row.type === "visual_only" &&
+        !drag.entry.row.clearedNarration && !drag.entry.row.additionalVisuals?.length &&
+        selected?.hit && selected.source.panel === "stash-panel") {
+      if (!selected.placement || selected.source.node.dataset.stashRowId !== drag.id) return null;
+      return { rowId: selected.placement.rowId, selectedDrop: selected.snapshot };
+    }
     let divider = event.target.closest?.("[data-row-gap]");
     const targetRow = event.target.closest?.(".script-row");
     if (!divider && targetRow) {
@@ -933,12 +940,13 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   script.addEventListener("dragover", (event) => {
     if (!drag || root.hidden || readOnly() || pending) return;
     const next = scriptDestination(event);
-    marker.hidden = !next;
-    preview = next ? { gap: next.gap, rowId: next.rowId, intent: next.intent } : null;
+    marker.hidden = !next || Boolean(next.selectedDrop);
+    preview = next ? { gap: next.gap, rowId: next.rowId, intent: next.intent, selectedDrop: next.selectedDrop } : null;
     if (!next) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = drag.entry.kind === "note" && !drag.attached ? "copy" : "move";
+    if (next.selectedDrop) return; // Shared range overlay owns this cue.
     if (next.rect) {
       Object.assign(marker.style, { left: `${next.rect.x}px`, top: `${next.rect.y}px`, width: "3px", height: `${next.rect.height}px` });
     } else drawLine(next.node.getBoundingClientRect(), next.y || undefined);
@@ -947,16 +955,19 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     if (!script.contains(event.relatedTarget)) marker.hidden = true;
   });
   script.addEventListener("drop", (event) => {
-    if (!drag || !event.dataTransfer?.types.includes(itemDragType)) return;
+    if (!drag || root.hidden || readOnly() || pending || !event.dataTransfer?.types.includes(itemDragType)) return;
     const source = drag;
     const next = scriptDestination(event);
     const exact = next && event.dataTransfer.getData(itemDragType) === source.id &&
-      JSON.stringify(preview) === JSON.stringify({ gap: next.gap, rowId: next.rowId, intent: next.intent });
+      JSON.stringify(preview) === JSON.stringify({ gap: next.gap, rowId: next.rowId, intent: next.intent, selectedDrop: next.selectedDrop });
     clearDrag();
     if (!exact) return;
     event.preventDefault();
     event.stopPropagation();
     if (next.intent) void insert(next.intent);
+    else if (next.selectedDrop) void runMutation(() => actions.insertStashVisual(
+      source.id, next.rowId, crypto.randomUUID(), source.model, next.selectedDrop),
+      "Visual attached to the selected words.", "The visual could not be attached. See script status.");
     else if (next.rowId) void runMutation(() => actions.insertStashVisual(source.id, next.rowId, crypto.randomUUID(), source.model),
       "Visual moved to the script. Choose Attach to words to set its range.", "The visual could not be moved. See script status.");
     else if (source.attached) void runMutation(() => actions.placeAttached(source.id, next.gap, source.model),

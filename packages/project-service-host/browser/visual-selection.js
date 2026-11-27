@@ -28,3 +28,37 @@ export function selectedSpokenWords(row, selection, requireIds = false) {
   return { startTokenId: first.id ?? null, endTokenId: last.id ?? null,
     startOffset: first.startOffset, endOffset: last.endOffset };
 }
+
+/**
+ * Freeze the committed identity of the selected spoken range before a sidebar
+ * takes focus. No DOM geometry or mutable row/token objects belong here.
+ */
+export function captureSelectedDrop(model, target) {
+  if (!model?.projectId || !model.id || !target?.selected) return null;
+  const row = model.activeDraft?.blocks.find((item) => item.id === target.rowId);
+  if (row?.type !== "narration" || row.state !== "active" || typeof row.text !== "string" ||
+      row.text !== target.text || row.version !== target.rowVersion ||
+      row.primaryVisualSequence?.version !== target.sequenceVersion ||
+      !Number.isSafeInteger(row.version) || !Number.isSafeInteger(row.primaryVisualSequence?.version) ||
+      row.version < 1 || row.primaryVisualSequence.version < 1 ||
+      row.version >= Number.MAX_SAFE_INTEGER || row.primaryVisualSequence.version >= Number.MAX_SAFE_INTEGER) return null;
+  const words = selectedSpokenWords(row, target.selection, true);
+  if (!words || words.startOffset < 0 || words.endOffset > row.text.length) return null;
+  return Object.freeze({
+    projectId: model.projectId, documentId: model.id, rowId: row.id, text: row.text,
+    rowVersion: row.version, sequenceVersion: row.primaryVisualSequence.version,
+    selection: Object.freeze({ start: target.selection.start, end: target.selection.end }),
+    ...words,
+  });
+}
+
+/** Resolve only the original exact selection, never a nearby or repeated word. */
+export function selectedDropPlacement(model, snapshot) {
+  if (!snapshot || model?.projectId !== snapshot.projectId || model?.id !== snapshot.documentId) return null;
+  const current = captureSelectedDrop(model, { ...snapshot, selected: true });
+  if (!current || current.startTokenId !== snapshot.startTokenId || current.endTokenId !== snapshot.endTokenId ||
+      current.startOffset !== snapshot.startOffset || current.endOffset !== snapshot.endOffset) return null;
+  return { kind: "selected_words", rowId: current.rowId,
+    expectedRowVersion: current.rowVersion, expectedSequenceVersion: current.sequenceVersion,
+    startTokenId: current.startTokenId, endTokenId: current.endTokenId };
+}

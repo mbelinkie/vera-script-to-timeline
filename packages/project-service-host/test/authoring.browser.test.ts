@@ -2798,6 +2798,221 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#691 keeps a multiword drag target visible after Library focus and clears it on cancel", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const projectId = await createProject(page, origin, "Selected words drag");
+      const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+      await saveDocumentFixture(page, projectId, seeded.document);
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Library", exact: true }).click();
+      const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+      await clip.waitFor({ state: "visible" });
+      const before = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect(before.status).toBe(200);
+      const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+      await selectText(editor, 6, 16);
+      await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta gamma");
+      const position = await textCharacterPosition(editor, 13);
+      const result = await clip.evaluate((source, { rowId, position }) => {
+        const target = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+        const box = target.getBoundingClientRect();
+        const transfer = new DataTransfer();
+        const drag = (node: Element, type: string, x = 0, y = 0) => node.dispatchEvent(new DragEvent(type, {
+          bubbles: true, cancelable: true, dataTransfer: transfer, clientX: x, clientY: y,
+        }));
+        const read = () => {
+          const overlay = document.querySelector("[data-selected-drop-state]");
+          const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+          return { state: overlay?.getAttribute("data-selected-drop-state") ?? null,
+            border: fragment ? getComputedStyle(fragment).borderTopStyle : null,
+            text: overlay?.textContent ?? "" };
+        };
+        source.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        (source as HTMLElement).focus();
+        document.getSelection()?.removeAllRanges();
+        drag(source, "dragstart");
+        const dashed = read();
+        drag(target, "dragover", box.left + position.x, box.top + position.y);
+        const solid = read();
+        window.__veraVisualTest!.renderEditor();
+        const remounted = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+        const remountedBox = remounted.getBoundingClientRect();
+        drag(remounted, "dragover", remountedBox.left + position.x, remountedBox.top + position.y);
+        const redrawn = read();
+        drag(source, "dragover");
+        const outside = read();
+        // The browser delivers dragend to the source even after it is removed;
+        // it must not depend on bubbling through the document.
+        source.remove();
+        drag(source, "dragend");
+        return { dashed, solid, redrawn, outside, after: read(), narration: remounted.textContent };
+      }, { rowId: seeded.rowId, position });
+      expect(result.dashed).toMatchObject({ state: "available", border: "dashed" });
+      expect(result.solid).toMatchObject({ state: "active", border: "solid",
+        text: "Attach to “beta gamma” · exactly these words" });
+      expect(result.redrawn).toEqual(result.solid);
+      expect(result.outside).toMatchObject({ state: "available", border: "dashed" });
+      expect(result.after.state).toBeNull();
+      expect(result.narration).toBe(seeded.firstRowText);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+      expect(await appRequest(page, `/authoring/projects/${projectId}/document`)).toEqual(before);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#691 places exact multiword Library footage and quote with one Undo at $width x $height",
+    async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, `Exact Library drop ${viewport.width}`);
+        const seeded = editableDocumentFixture(projectId, "alpha beta beacon before dawn");
+        const initial = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+        if (initial?.type !== "narration") throw new Error("missing fixture row");
+        await saveDocumentFixture(page, projectId, seeded.document);
+        await page.goto(`${origin}/?project=${projectId}`);
+        await page.getByRole("button", { name: "Library", exact: true }).click();
+        const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+        const quote = page.locator(`[data-quote-place-id="${typedQuoteWithPicture.itemId}"]`);
+        await clip.waitFor();
+        await quote.waitFor();
+        const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+        const editor = row.locator("[data-narration-editor]");
+        const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+        const before = await load();
+        // Observe the real browser drag events, including the transient range
+        // styling before the drop handler clears the overlay.
+        await page.evaluate(() => {
+          const observations: string[] = [];
+          document.documentElement.dataset.libraryDragObservations = "[]";
+          for (const name of ["dragstart", "dragover"]) document.addEventListener(name, () => {
+            const overlay = document.querySelector("[data-selected-drop-state]");
+            const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+            if (!overlay || !fragment) return;
+            const observation = [overlay.getAttribute("data-selected-drop-state"),
+              getComputedStyle(fragment).borderTopStyle, overlay.textContent].join("|");
+            if (!observations.includes(observation)) observations.push(observation);
+            document.documentElement.dataset.libraryDragObservations = JSON.stringify(observations);
+          }, name === "dragover");
+        });
+        const select = async () => {
+          await selectText(editor, 6, 24);
+          await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta beacon before");
+          return textCharacterPosition(editor, 13);
+        };
+        for (const [source, label] of [[clip, "Add footage"], [quote, "Add quote"]] as const) {
+          const position = await select();
+          if (label === "Add quote") {
+            // A Library control may retain the native selection while taking
+            // focus. A subsequent quote drag must still attach the entire span.
+            await page.locator('[data-footage-kind="quotes"]').click();
+            await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("beta beacon before");
+          }
+          const path = label === "Add footage" ? "research-insert" : "research-quote-insert";
+          const response = page.waitForResponse((r) => r.url().endsWith("/authoring/" + path) && r.request().method() === "POST");
+          await source.dragTo(editor, { targetPosition: position });
+          const result = await response;
+          expect(result.ok(), await result.text()).toBe(true);
+          expect(result.request().postDataJSON()).toMatchObject({ placement: {
+            kind: "selected_words", rowId: initial.id,
+            startTokenId: initial.tokens[1]!.id, endTokenId: initial.tokens[3]!.id,
+          } });
+          await expect.poll(() => page.locator("#undo-history li").allTextContents()).toEqual([label]);
+          await expect.poll(async () => {
+            const saved = await load();
+            return saved.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+          }).not.toEqual(initial);
+          const saved = await load();
+          const placed = saved.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+          if (placed?.type !== "narration") throw new Error("missing placed narration");
+          expect(placed.text).toBe(initial.text);
+          expect(placed.tokens).toEqual(initial.tokens);
+          expect(placed.unattachedVisuals ?? []).toHaveLength(0);
+          const slot = placed.primaryVisualSequence?.slots.find((item) => item.kind === "content" &&
+            item.payload.kind === "visual" && (label === "Add footage"
+              ? item.payload.researchClip?.clipId === loggedClip.id
+              : item.payload.researchQuotePicture?.ownerKind === "quote"));
+          if (slot?.kind !== "content") throw new Error("missing attached visual");
+          expect(slot.boundaryBefore).toMatchObject({ kind: "spoken_word", anchor: { tokenId: initial.tokens[1]!.id } });
+          expect(projectPrimarySequenceV2(saved.document).rows.find((item) => item.blockId === placed.id)
+            ?.brackets.find((item) => item.slotId === slot.id)).toMatchObject({ startTokenIndex: 1, endTokenIndexExclusive: 4 });
+          if (label === "Add quote") {
+            expect(placed.overlayEvents).toHaveLength(initial.overlayEvents.length + 1);
+            expect(placed.overlayEvents.find((event) => event.quoteBox?.researchQuoteId === typedQuoteWithPicture.itemId))
+              .toMatchObject({ timing: { kind: "timed",
+                start: { kind: "word", anchor: { tokenId: initial.tokens[1]!.id } },
+                end: { kind: "audible_word_end", anchor: { tokenId: initial.tokens[3]!.id } },
+              } });
+          }
+          await expect.poll(() => page.locator("[data-selected-drop-state]").count()).toBe(0);
+          await page.getByRole("button", { name: "Undo " + label, exact: true }).click();
+          await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+          if (label === "Add quote") await page.locator('[data-footage-kind="all"]').click();
+        }
+        const observations: unknown = JSON.parse(await page.locator("html").getAttribute("data-library-drag-observations") ?? "[]");
+        expect(observations).toContain("available|dashed|");
+        expect(observations).toContain("active|solid|Attach to “beta beacon before” · exactly these words");
+
+        // A highlighted range must not change the existing right-column route.
+        await select();
+        await clip.dragTo(row.locator(".visuals-cell"));
+        await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+        await page.getByRole("button", { name: "Undo Add footage" }).click();
+        await expect.poll(async () => (await load()).document.activeDraft.blocks).toEqual(before.document.activeDraft.blocks);
+
+        // A detached/changed editor must not silently fall back to a waiting
+        // clip or a single-word quote. Simulate a DOM change between dragstart
+        // and drop without modifying the saved document.
+        const stable = await load();
+        for (const source of [clip, quote]) {
+          const position = await select();
+          await source.evaluate((node, { rowId, position }) => {
+            const editor = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+            const box = editor.getBoundingClientRect();
+            const transfer = new DataTransfer();
+            const drag = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, {
+              bubbles: true, cancelable: true, dataTransfer: transfer,
+              clientX: box.left + position.x, clientY: box.top + position.y,
+            }));
+            node.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+            drag(node, "dragstart");
+            const extra = document.createTextNode("changed");
+            editor.append(extra);
+            drag(editor, "dragover");
+            drag(editor, "drop");
+            extra.remove();
+            drag(node, "dragend");
+          }, { rowId: seeded.rowId, position });
+          await expect.poll(() => page.locator("#save-status").textContent()).toContain("changed");
+          expect(await load()).toEqual(stable);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        }
+
+        // The catalog remains visible but the host must freshly authorize the
+        // selected drop. Denial must not publish a document or create Undo.
+        const position = await select();
+        researchVisible = false;
+        try {
+          const denied = page.waitForResponse((r) => r.url().endsWith("/authoring/research-insert") && r.request().method() === "POST");
+          await clip.dragTo(editor, { targetPosition: position });
+          expect((await denied).status()).toBe(403);
+          await expect.poll(() => page.locator("#save-status").textContent()).toBe("research_project_forbidden");
+          expect(await load()).toEqual(stable);
+          expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        } finally { researchVisible = true; }
+      } finally {
+        await page.close();
+      }
+    }, 90_000);
+
   it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -6924,6 +7139,137 @@ describe("browser authoring over the local project service", () => {
       expect(await stashed.isVisible()).toBe(true);
     } finally { await page.close(); }
   }, 50_000);
+
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#691 moves a Stash visual onto exact words atomically at $width x $height", async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, "Exact Stash drop");
+        const fixture = draggableVisualFixture(projectId);
+        await saveDocumentFixture(page, projectId, fixture.document);
+        await page.reload();
+        const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+        const source = page.locator(`[data-slot-id="${fixture.movedSlotId}"].visual-card`);
+        await source.waitFor();
+        await page.getByRole("button", { name: "Stash", exact: true }).click();
+        await source.dragTo(page.locator('[data-stash-drop-section=""]'));
+        const stashed = page.locator('#stash-panel [data-stash-kind="clip"]');
+        await stashed.waitFor();
+        await expect.poll(async () => (await load()).document.stash?.flatMap((bundle) => bundle.rows).length).toBe(1);
+        // Start from the persisted Stash state, not a preceding operation's
+        // asynchronous projection redraw or Undo history.
+        await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/^Saved/);
+        await page.reload();
+        await page.locator(`[data-row-id="${fixture.targetId}"] [data-narration-editor]`).waitFor();
+        if (!await stashed.isVisible()) await page.getByRole("button", { name: "Stash", exact: true }).click();
+        await stashed.waitFor();
+        const before = await load();
+        const row = page.locator(`[data-row-id="${fixture.targetId}"]`);
+        const editor = row.locator("[data-narration-editor]");
+        const initial = before.document.activeDraft.blocks.find((item) => item.id === fixture.targetId);
+        if (initial?.type !== "narration") throw new Error("missing receiving row");
+        const select = async () => {
+          await selectText(editor, initial.tokens[1]!.startOffset, initial.tokens[3]!.endOffset);
+          await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe("two three four");
+          return textCharacterPosition(editor, initial.tokens[2]!.startOffset + 1);
+        };
+        await page.evaluate(() => {
+          const observations: string[] = [];
+          for (const name of ["dragstart", "dragover"]) document.addEventListener(name, () => {
+            const overlay = document.querySelector("[data-selected-drop-state]");
+            const fragment = overlay?.querySelector(".narration-selected-drop-fragment");
+            if (!overlay || !fragment) return;
+            const observation = [overlay.getAttribute("data-selected-drop-state"),
+              getComputedStyle(fragment).borderTopStyle, overlay.textContent].join("|");
+            if (!observations.includes(observation)) observations.push(observation);
+            document.documentElement.dataset.stashDragObservations = JSON.stringify(observations);
+          }, name === "dragover");
+        });
+        let refuse = true;
+        let firstCalls = 0;
+        let secondCalls = 0;
+        let intermediate: SavedDocument | undefined;
+        await page.route("**/authoring/command", async (route) => {
+          const body = route.request().postDataJSON() as { command: { kind: string } };
+          if (body.command.kind === "insert_stash_visual") firstCalls++;
+          if (body.command.kind !== "attach_visual_to_words") return route.continue();
+          secondCalls++;
+          expect(body.command).toMatchObject({ startTokenId: initial.tokens[1]!.id, endTokenId: initial.tokens[3]!.id });
+          // The first transform must not have been saved or rendered.
+          intermediate = await load();
+          expect(await stashed.isVisible()).toBe(true);
+          if (refuse) return route.fulfill({ status: 400, json: { ok: false, diagnostics: [{ message: "Synthetic second-stage refusal" }] } });
+          return route.continue();
+        });
+        await stashed.locator(".stash-entry-text").dragTo(editor, { targetPosition: await select() });
+        await expect.poll(() => secondCalls).toBe(1);
+        await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("could not be attached");
+        expect(firstCalls).toBe(1);
+        expect(intermediate).toEqual(before);
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        expect(await load()).toEqual(before);
+        expect(await stashed.isVisible()).toBe(true);
+        // Cancel and stale editor attempts do not dispatch a transform.
+        for (const stale of [false, true]) {
+          const position = await select();
+          await stashed.locator(".stash-entry-text").evaluate((node, { rowId, position, stale }) => {
+            const editor = document.querySelector(`[data-row-id="${rowId}"] [data-narration-editor]`)!;
+            const bounds = editor.getBoundingClientRect();
+            const transfer = new DataTransfer();
+            const drag = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, {
+              bubbles: true, cancelable: true, dataTransfer: transfer,
+              clientX: bounds.left + position.x, clientY: bounds.top + position.y,
+            }));
+            node.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+            drag(node, "dragstart");
+            drag(editor, "dragover");
+            if (stale) {
+              const original = editor.textContent;
+              editor.textContent = original + " changed";
+              drag(editor, "drop");
+              editor.textContent = original;
+            }
+            drag(node, "dragend");
+          }, { rowId: fixture.targetId, position, stale });
+          expect(await load()).toEqual(before);
+          expect(firstCalls).toBe(1);
+          expect(secondCalls).toBe(1);
+        }
+        refuse = false;
+        await stashed.locator(".stash-entry-text").dragTo(editor, { targetPosition: await select() });
+        await expect.poll(() => secondCalls).toBe(2);
+        await expect.poll(async () => (await load()).document.stash?.flatMap((bundle) => bundle.rows).length ?? 0).toBe(0);
+        const after = await load();
+        expect(after.revision).toBe(before.revision + 1);
+        expect(firstCalls).toBe(2);
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add Stash visual"]);
+        const observations: unknown = JSON.parse(await page.locator("html").getAttribute("data-stash-drag-observations") ?? "[]");
+        expect(observations).toContain("available|dashed|");
+        expect(observations).toContain("active|solid|Attach to “two three four” · exactly these words");
+        await expect.poll(() => page.locator("[data-selected-drop-state]").count()).toBe(0);
+        const receiving = after.document.activeDraft.blocks.find((item) => item.id === fixture.targetId);
+        if (receiving?.type !== "narration") throw new Error("missing placed row");
+        expect(receiving.text).toBe(initial.text);
+        const slot = receiving.primaryVisualSequence?.slots.find((item) => item.kind === "content" &&
+          item.payload.kind === "visual" && item.payload.payloadId === fixture.movedPayload.payloadId);
+        if (slot?.kind !== "content" || slot.payload.kind !== "visual") throw new Error("missing attached Stash slot");
+        expect(slot.payload.selectedSourceRange).toEqual(fixture.movedPayload.selectedSourceRange);
+        expect(projectPrimarySequenceV2(after.document).rows.find((item) => item.blockId === receiving.id)
+          ?.brackets.find((item) => item.slotId === slot.id)).toMatchObject({ startTokenIndex: 1, endTokenIndexExclusive: 4 });
+        await page.getByRole("button", { name: "Undo Add Stash visual", exact: true }).click();
+        await expect.poll(async () => (await load()).document.stash).toEqual(before.document.stash);
+        expect((await load()).document.activeDraft).toEqual(before.document.activeDraft);
+        await expect.poll(() => page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        await stashed.waitFor();
+        await expect.poll(() => page.locator("#save-status").textContent()).toMatch(/^Saved/);
+        await select();
+        await stashed.locator(".stash-entry-text").dragTo(row.locator(".visuals-cell"));
+        await expect.poll(async () => (await narrationRowFromApi(page, projectId, fixture.targetId))?.unattachedVisuals?.some(
+          (item) => item.payload.kind === "visual" && item.payload.payloadId === fixture.movedPayload.payloadId)).toBe(true);
+      } finally { await page.close(); }
+    }, 90_000);
 
   it("#616 keeps the pending order when the saved head changes during acceptance", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
