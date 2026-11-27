@@ -242,9 +242,10 @@ describe("#585 visuals-only ordered cards", () => {
     expect(session.undo().ok).toBe(true);
     const moved = move();
     expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
-    expect(moved.document.activeDraft.blocks[1]).toMatchObject({ unattachedVisuals: expect.arrayContaining([
-      expect.objectContaining({ payload: { ...legacy.payload, sourceUsage: null } }),
-    ]) });
+    const destination = moved.document.activeDraft.blocks[1];
+    if (destination?.type !== "narration") throw new Error("missing narrated destination");
+    expect(destination.unattachedVisuals?.find(visual => visual.payload.payloadId === legacy.payload.payloadId))
+      .toMatchObject({ payload: { ...legacy.payload, sourceUsage: null } });
   });
 
   it.each(["clear", "delete"] as const)("#746 %s music match keeps only existing system provenance", (action) => {
@@ -283,7 +284,7 @@ describe("#585 visuals-only ordered cards", () => {
     for (const audioPolicy of ["full", "mute"] as const) {
       const { document } = sequence();
       const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
-      const clip = row.additionalVisuals![0]!;
+      const clip = row.additionalVisuals![0];
       clip.payload.audioPolicy = audioPolicy;
       const target = narratedDestination(row);
       document.activeDraft.blocks.push(target);
