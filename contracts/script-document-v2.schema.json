@@ -92,6 +92,13 @@
       },
       "description": "Optional persisted organization of adjacent ordinary saved rows. Members reference canonical Stash identities, never copied row payloads or nested groups."
     },
+    "stashResearchItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StashResearchItemV2"
+      },
+      "description": "Ordered compact, frozen Research occurrences. Each has one section and optionally one canonical Stash note owner. Never build-eligible."
+    },
     "rowTransitions": {
       "type": "array",
       "items": {
@@ -114,6 +121,216 @@
     }
   },
   "$defs": {
+    "StashResearchQuoteSnapshotV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchQuoteId",
+        "researchProjectId",
+        "researchSourceId",
+        "researchQuoteVersion",
+        "displayText",
+        "speakerName",
+        "speakerTitle",
+        "citationText",
+        "italicSpan",
+        "templateRevision",
+        "spokenText"
+      ],
+      "properties": {
+        "researchQuoteId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchSourceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "researchQuoteVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "displayText": {
+          "type": "string",
+          "maxLength": 20000,
+          "minLength": 1
+        },
+        "speakerName": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "speakerTitle": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "citationText": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "citationOverridden": {
+          "description": "The per-use citationText and italicSpan were edited locally and survive a refresh from Research.",
+          "const": true
+        },
+        "italicSpan": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start",
+                "end"
+              ],
+              "properties": {
+                "start": {
+                  "$ref": "#/$defs/NonNegativeSafeInteger"
+                },
+                "end": {
+                  "$ref": "#/$defs/NonNegativeSafeInteger"
+                }
+              }
+            }
+          ]
+        },
+        "templateRevision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "spokenText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      }
+    },
+    "StashResearchQuoteBackgroundV2": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "picture"
+          ],
+          "properties": {
+            "kind": {
+              "const": "still_image"
+            },
+            "picture": {
+              "$ref": "#/$defs/ResearchQuotePictureV2"
+            },
+            "displayName": {
+              "type": "string",
+              "maxLength": 20000
+            }
+          }
+        }
+      ]
+    },
+    "StashResearchQuoteV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sectionId",
+        "noteRowId",
+        "kind",
+        "quote",
+        "background"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "sectionId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/EntityId"
+            }
+          ]
+        },
+        "noteRowId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/EntityId"
+            }
+          ]
+        },
+        "kind": {
+          "const": "quote"
+        },
+        "quote": {
+          "$ref": "#/$defs/StashResearchQuoteSnapshotV2"
+        },
+        "background": {
+          "$ref": "#/$defs/StashResearchQuoteBackgroundV2"
+        }
+      }
+    },
+    "StashResearchStillV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sectionId",
+        "noteRowId",
+        "kind",
+        "still"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "sectionId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/EntityId"
+            }
+          ]
+        },
+        "noteRowId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/EntityId"
+            }
+          ]
+        },
+        "kind": {
+          "const": "still"
+        },
+        "still": {
+          "$ref": "#/$defs/ResearchStillSnapshotV2"
+        }
+      }
+    },
+    "StashResearchItemV2": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StashResearchQuoteV2"
+        },
+        {
+          "$ref": "#/$defs/StashResearchStillV2"
+        }
+      ]
+    },
     "EntityId": {
       "type": "string",
       "format": "uuid"

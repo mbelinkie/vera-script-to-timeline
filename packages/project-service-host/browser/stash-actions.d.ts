@@ -102,6 +102,9 @@ export function insertStashNoteCommand(document: ScriptDocumentV2,
 export function createStashActions(queue: StashEditorQueue, getDocument: () => ScriptDocumentV2,
   makeId?: () => string, queueExtras?: StashExtrasQueue): {
     view: () => StashSectionView[];
+    moveResearch: (itemId: string, location: { sectionId: string | null; noteRowId: string | null; afterItemId: string | null },
+      expectedModel?: ScriptDocumentV2) => Promise<boolean>;
+    deleteResearch: (itemId: string, expectedModel?: ScriptDocumentV2) => Promise<boolean>;
     stashRow: (rowId: string) => Promise<boolean>;
     placeSaved: (intent: SavedPlacementIntent) => Promise<boolean>;
     addNote: (text: string, location?: StashLocation) => Promise<boolean>;

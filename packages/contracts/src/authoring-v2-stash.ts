@@ -23,6 +23,7 @@ const fatalDocumentDiagnostics = new Set([
   "FOOTAGE_OWNER_DUPLICATE",
   "RESEARCH_CLIP_INVALID",
   "STASH_GROUP_INVALID",
+  "RESEARCH_STASH_INVALID",
 ]);
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({

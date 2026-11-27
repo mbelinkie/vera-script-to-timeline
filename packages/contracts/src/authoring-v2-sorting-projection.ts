@@ -11,6 +11,7 @@ import type {
 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
+import { reconcileResearchStashLocationsV2 } from "./research-stash-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import { stashGroupLocationProblemV2 } from "./authoring-v2-stash-groups.js";
@@ -1311,6 +1312,8 @@ export function projectSortingDocumentV2(
         return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", `The selected Sorting outcome loses existing clip ${clipId}; accept all changes or separate the conflicting edits.`);
       }
     }
+    const researchProblem = reconcileResearchStashLocationsV2(output);
+    if (researchProblem) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", researchProblem);
     const errors = newErrors(baseline, output);
     if (errors.length > 0) return { ok: false, document: current, diagnostics: errors };
     return { ok: true, document: output, diagnostics: [] };

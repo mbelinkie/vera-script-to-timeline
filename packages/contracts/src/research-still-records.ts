@@ -94,7 +94,7 @@ function readAsset(value: unknown, maxBytes: number, maxEdge: number): Asset {
   return { versionId, sha256, byteCount, mimeType, width, height };
 }
 
-function readProvenance(value: unknown): Provenance {
+export function readKeptStillProvenance(value: unknown): Provenance {
   if (!record(value) ||
       (value.kind !== "url" && value.kind !== "file" && value.kind !== "page_picture" && value.kind !== "still_crop") ||
       typeof value.inputSha256 !== "string" || !SHA256.test(value.inputSha256) ||
@@ -135,5 +135,5 @@ export function readKeptStillManifest(value: unknown) {
   const original = readKeptOriginalAsset(value.assets.original);
   return { original,
     thumbnail: readAsset(value.assets.thumbnail, 1024 * 1024, 320),
-    provenance: readProvenance(value.provenance) };
+    provenance: readKeptStillProvenance(value.provenance) };
 }

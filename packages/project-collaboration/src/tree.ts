@@ -43,6 +43,8 @@ const DOCUMENT: ShapeFields = {
   stash: { kind: "list", element: ENTITY, retainRemoved: true },
   stashSections: list(ENTITY),
   stashGroups: list(ENTITY),
+  // stashResearchItems is ordinary JSON: keep its frozen payload and section/note
+  // coordinates together rather than merging independently editable snapshot fields.
   rowTransitions: list(ENTITY),
   rowAudioSpans: list(ENTITY),
   rowReferences: list(ENTITY),

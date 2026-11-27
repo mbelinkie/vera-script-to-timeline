@@ -92,14 +92,14 @@ export function compareDocuments(before: ScriptDocumentV2, after: ScriptDocument
     {
       title: before.title, scriptSettings: before.scriptSettings,
       stash: before.stash, stashSections: before.stashSections,
-      stashOutline: before.stashOutline, stashGroups: before.stashGroups,
+      stashOutline: before.stashOutline, stashGroups: before.stashGroups, stashResearchItems: before.stashResearchItems,
       rowTransitions: before.rowTransitions, rowAudioSpans: before.rowAudioSpans,
       rowReferences: before.rowReferences,
     },
     {
       title: after.title, scriptSettings: after.scriptSettings,
       stash: after.stash, stashSections: after.stashSections,
-      stashOutline: after.stashOutline, stashGroups: after.stashGroups,
+      stashOutline: after.stashOutline, stashGroups: after.stashGroups, stashResearchItems: after.stashResearchItems,
       rowTransitions: after.rowTransitions, rowAudioSpans: after.rowAudioSpans,
       rowReferences: after.rowReferences,
     },

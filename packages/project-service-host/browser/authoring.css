@@ -1177,13 +1177,13 @@ html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }
 /* Normally zero-height row dividers expand into actual hit targets while a
    source clip can be dragged from Footage. A zero-height divider cannot be
    the target of a native drop or accessible keyboard navigation. */
-.authoring-view:has(#footage-panel:not([hidden])) .row-divider {
+.authoring-view:has(#footage-panel:not([hidden]), .stash-panel:not([hidden]) [data-stash-research-kind="quote"][draggable="true"]) .row-divider {
   height: 1.65rem;
   pointer-events: auto;
   border-top: 1px dashed #d1dadd;
   border-bottom: 1px dashed #d1dadd;
 }
-.authoring-view:has(#footage-panel:not([hidden])) .row-divider__add {
+.authoring-view:has(#footage-panel:not([hidden]), .stash-panel:not([hidden]) [data-stash-research-kind="quote"][draggable="true"]) .row-divider__add {
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -1559,6 +1559,25 @@ html[data-thumbnail-scale="0"] [data-quote-picture-preview] { display: none; }
 }
 
 .stash-entry--dragging { outline: 2px solid var(--gold); }
+
+/* Both saved Research and Library must remain reachable during cross-panel drag. */
+.authoring-view:has(.footage-panel:not([hidden]), .research-still-panel:not([hidden])) .stash-panel {
+  left: 0.9rem;
+  right: auto;
+  width: min(19rem, calc(50vw - 1.2rem));
+}
+@media (min-width: 1000px) {
+  .authoring-view:has(.stash-panel:not([hidden])):has(.footage-panel:not([hidden]), .research-still-panel:not([hidden])) .script-stage {
+    margin-left: 20rem;
+    margin-right: 22rem;
+  }
+}
+.stash-research-item { border: 1px solid #c8d6d9; border-radius: 0.4rem; padding: 0.45rem; margin: 0.4rem 0; }
+.stash-research-item[draggable="true"] { cursor: grab; }
+.stash-research-item p, .stash-research-text { margin: 0.3rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stash-research-item button { margin: 0.25rem 0; }
+.footage-item__quote-stash { grid-column: 1 / -1; justify-self: start; }
+.stash-research-attachments { padding: 0.35rem; border: 1px dashed #aab8bd; margin: 0.4rem 0; }
 
 .occurrence-footage button.occurrence-footage__word-bracket {
   border: 1px solid #a28454;

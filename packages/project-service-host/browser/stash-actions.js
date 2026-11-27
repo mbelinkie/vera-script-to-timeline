@@ -9,7 +9,7 @@ const draftBlocks = (model) => model?.activeDraft?.blocks ?? [];
 const sectionTitle = (blocks, sectionId, missing) => sectionId === null ? "Before first section" :
   blocks.find((block) => block.type === "section" && block.id === sectionId)?.title ?? missing;
 const stashSnapshot = (model) =>
-  JSON.stringify([model.stash, model.stashOutline, model.stashSections, model.stashGroups]);
+  JSON.stringify([model.stash, model.stashOutline, model.stashSections, model.stashGroups, model.stashResearchItems]);
 const validRowIds = (ids) => Array.isArray(ids) && ids.length > 0 && ids.length <= 4096 &&
   ids.every((id) => typeof id === "string") && new Set(ids).size === ids.length;
 
@@ -139,7 +139,7 @@ export function projectStash(documentModel) {
 }
 
 export const documentStashSnapshot = (documentModel) => JSON.stringify([
-  documentModel?.stash, documentModel?.stashOutline, documentModel?.stashSections, documentModel?.stashGroups,
+  documentModel?.stash, documentModel?.stashOutline, documentModel?.stashSections, documentModel?.stashGroups, documentModel?.stashResearchItems,
 ]);
 
 function queueStashCommand(queueCommand, queueExtras, getDocument, makeId, command, label, useExtras = false, expectedModel) {
@@ -364,6 +364,12 @@ export function insertStashNoteCommand(documentModel, intent) {
 export function createStashActions(queueCommand, getDocument, makeId = uuid, queueExtras) {
   return {
     view: () => projectStash(getDocument()),
+    moveResearch: (itemId, location, expectedModel) => queueStashCommand(queueCommand, queueExtras,
+      getDocument, makeId, { kind: "move_stash_research_item", itemId, ...location },
+      "Organize saved Research item", false, expectedModel),
+    deleteResearch: (itemId, expectedModel) => queueStashCommand(queueCommand, queueExtras,
+      getDocument, makeId, { kind: "delete_stash_research_item", itemId },
+      "Delete saved Research item", false, expectedModel),
     stashRow: (rowId) => {
       const intent = captureWholeRowStash(getDocument(), [rowId]);
       return intent && queueExtras ? queueExtras((current) => wholeRowStashCommand(current, intent, makeId),

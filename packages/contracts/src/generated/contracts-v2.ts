@@ -795,6 +795,10 @@ export interface ScriptDocumentV2 {
    */
   stashGroups?: StashRowGroupV2[];
   /**
+   * Ordered compact, frozen Research occurrences. Each has one section and optionally one canonical Stash note owner. Never build-eligible.
+   */
+  stashResearchItems?: (StashResearchQuoteV2 | StashResearchStillV2)[];
+  /**
    * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
    */
   rowTransitions?: RowTransitionIntentV2[];
@@ -1333,6 +1337,64 @@ export interface StashRowGroupV2 {
    */
   createdBy?: string;
   createdAt?: string;
+}
+export interface StashResearchQuoteV2 {
+  id: string;
+  sectionId: null | string;
+  noteRowId: null | string;
+  kind: "quote";
+  quote: StashResearchQuoteSnapshotV2;
+  background: null | {
+    kind: "still_image";
+    picture: ResearchQuotePictureV21;
+    displayName?: string;
+  };
+}
+export interface StashResearchQuoteSnapshotV2 {
+  researchQuoteId: string;
+  researchProjectId: string;
+  researchSourceId: string;
+  researchQuoteVersion: number;
+  displayText: string;
+  speakerName: string;
+  speakerTitle: string;
+  citationText: string;
+  /**
+   * The per-use citationText and italicSpan were edited locally and survive a refresh from Research.
+   */
+  citationOverridden?: true;
+  italicSpan: null | {
+    start: number;
+    end: number;
+  };
+  templateRevision: string;
+  spokenText: string;
+}
+export interface ResearchQuotePictureV21 {
+  researchProjectId: string;
+  ownerKind: "web_capture" | "source" | "quote";
+  ownerId: string;
+  revisionId: string;
+  original: ResearchStillAssetV2;
+}
+export interface StashResearchStillV2 {
+  id: string;
+  sectionId: null | string;
+  noteRowId: null | string;
+  kind: "still";
+  still: ResearchStillSnapshotV21;
+}
+export interface ResearchStillSnapshotV21 {
+  researchProjectId: string;
+  itemId: string;
+  itemVersion: number;
+  sourceId: string;
+  title: string;
+  credit?: string;
+  licence?: string;
+  usageNote?: string;
+  provenance: ResearchStillProvenanceV2;
+  original: ResearchStillAssetV2;
 }
 export interface RowTransitionIntentV2 {
   id: string;

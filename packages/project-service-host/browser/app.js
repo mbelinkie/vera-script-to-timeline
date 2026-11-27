@@ -91,6 +91,82 @@ let researchStillPanel;
 let sortingTrial = null;
 let stashPanel;
 let stashScriptDrag = null;
+let researchStashDrag = null;
+let stashPickerLocation = null;
+let stashNarrationTarget = null;
+const savedResearchDragType = "application/x-vera-saved-research";
+const libraryResearchDragType = "application/x-vera-library-stash-research";
+
+function queueResearchStash(body, expected, label) {
+  if (!expected || sortingTrial || editorDocument() !== expected) {
+    setSaveStatus("The script or Stash changed. Close the picker and choose again.");
+    return Promise.resolve(false);
+  }
+  return queueCommand((latest) => {
+    if (latest !== expected) throw new Error("The script or Stash changed. Choose again.");
+    return typeof body === "function" ? body(latest) : body;
+  }, label, { structural: true, researchStash: true, expectedProjectId: expected.projectId });
+}
+
+function captureLibraryResearch(source, location, expected = editorDocument()) {
+  return queueResearchStash({ action: source.kind === "quote" ? "capture_quote" : "capture_still",
+    researchProjectId: source.researchProjectId, itemId: source.itemId, itemVersion: source.itemVersion,
+    location }, expected, "Add Research item to Stash");
+}
+
+function appendResearchLocation(model, location) {
+  const last = model?.stashResearchItems?.filter((item) =>
+    item.sectionId === location.sectionId && item.noteRowId === location.noteRowId).at(-1);
+  return { ...location, afterItemId: last?.id ?? null };
+}
+
+function captureQuoteBox(request) {
+  const expected = editorDocument();
+  return queueResearchStash({ action: "capture_quote_box", ...request,
+    location: appendResearchLocation(expected, { sectionId: null, noteRowId: null }) }, expected, "Stash quote box")
+    .then((ok) => { if (ok && activeProjectId === expected.projectId) stashPanel.open(); return ok; });
+}
+
+function placeSavedResearch(item, placement, expected) {
+  return queueResearchStash((latest) => {
+    const target = placement(latest);
+    if (item.kind === "still" && !["selected_words", "unattached"].includes(target.kind)) throw new Error("Choose current narration for the saved still.");
+    return { action: "place", itemId: item.id, placement: target };
+  }, expected, "Place saved Research item");
+}
+
+function startResearchStashDrag(event, source, panel = source.kind === "quote" ? "footage-panel" : "research-still-panel") {
+  if (!event.dataTransfer || sortingTrial || !editorDocument()) return;
+  researchStashDrag = { source, model: editorDocument(), panel };
+  event.dataTransfer.setData(libraryResearchDragType, source.itemId);
+}
+
+function openResearchStashPicker(kind, location, from) {
+  if (sortingTrial || !editorDocument()) return;
+  if (kind === "still") {
+    researchPanel.close();
+    stashPickerLocation = { location, model: editorDocument() };
+    void researchStillPanel.open({ from, placement: null });
+  } else {
+    researchStillPanel.close();
+    stashPickerLocation = { location, model: editorDocument() };
+    void researchPanel.open({ from });
+  }
+}
+
+function addPickerResearch(source) {
+  const intent = stashPickerLocation;
+  const expected = intent?.model ?? editorDocument();
+  const location = intent?.location ?? { sectionId: null, noteRowId: null, afterItemId: null };
+  return captureLibraryResearch(source, appendResearchLocation(expected, location), expected).then((ok) => {
+    if (ok && activeProjectId === expected.projectId && intent === stashPickerLocation) {
+      stashPickerLocation = intent ? { location, model: editorDocument() } : null;
+      stashPanel.open();
+    }
+    return ok;
+  });
+}
+
 
 let accountRole = null;
 let accountWriteSession = "";
@@ -423,6 +499,9 @@ async function showScript(projectId) {
   researchPanel?.close();
   researchStillPanel?.close();
   stashPanel?.close(false, true);
+  stashPickerLocation = null;
+  researchStashDrag = null;
+  stashNarrationTarget = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -541,6 +620,7 @@ function renderEditor() {
     addWordless: addWordlessVisual, projectVisualHoldMs, allowStash: true,
     quoteBoxEdit: sortingTrial ? undefined : queueResearchQuoteBoxEdit,
     quoteBoxRangeEdit: sortingTrial ? undefined : queueQuoteBoxRangeEdit,
+    quoteBoxStash: sortingTrial ? undefined : captureQuoteBox,
     quotePicture: researchPlacedQuotePictureGet,
     flashIds: flashVisualIds,
   });
@@ -1416,6 +1496,7 @@ function queueQuoteBoxRangeEdit({ rowId, overlayId, expectedRowVersion, expected
 }
 
 function openFootageForWords({ rowId, text, selection, seed, from }) {
+  stashPickerLocation = null;
   stashPanel.close(false);
   const selectedRow = scriptDocument?.activeDraft?.blocks.find((item) => item.id === rowId);
   const expectedRowVersion = selectedRow?.type === "narration" ? selectedRow.version : null;
@@ -1435,6 +1516,7 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
 }
 
 function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
+  stashPickerLocation = null;
   const projectId = activeProjectId;
   const expected = editorDocument();
   const snapshot = documentStashSnapshot(expected);
@@ -1456,6 +1538,7 @@ function openStashClipPicker({ sectionId = null, noteRowId = null, from }) {
 }
 
 function openLibraryAtCaret(snapshot, from) {
+  stashPickerLocation = null;
   stashPanel.close(false);
   void researchPanel.open({ quick: true, from, placement: quotePlacementFromSelection(snapshot),
     stillPlacement: stillPlacementFromTarget(snapshot) });
@@ -1623,6 +1706,7 @@ function placeLibraryStill(still, destination) {
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
+  stashPickerLocation = null;
   occurrenceFootage?.close(false);
   stashPanel.close(false);
   void researchStillPanel.open({ from, placement: (latest) => {
@@ -1674,6 +1758,7 @@ function mountResearchDragging(root) {
   let target = null;
   let cue = null;
   let quoteSelection = null;
+  let savedPreview = null;
   const ownerDocument = root.ownerDocument;
   const clear = () => {
     target?.classList.remove("script-row--footage-target", "row-divider--footage-target");
@@ -1684,7 +1769,9 @@ function mountResearchDragging(root) {
   const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
   const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
   const draggingStill = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-still");
-  const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote");
+  const draggingSavedResearch = (event) => [...(event.dataTransfer?.types ?? [])].includes(savedResearchDragType);
+  const draggingQuote = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-quote") || draggingSavedResearch(event);
+  const savedSource = () => researchStashDrag?.model === editorDocument() ? researchStashDrag.source : null;
   const quoteDestination = (event) => {
     const gap = event.target.closest?.("[data-row-gap]");
     if (gap) return { target: gap, mode: "insert", placement: quoteGapPlacement({
@@ -1733,26 +1820,29 @@ function mountResearchDragging(root) {
     }
     return { target: rowNode, mode: token ? "attach" : "waiting", placement: stillPlacementFromTarget(snapshot) };
   };
-  const showCue = (next, mode, still = false) => {
+  const showCue = (next, mode, kind = "quote") => {
     clear();
     target = next;
     target.classList.add(target.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
     cue = ownerDocument.createElement("span");
     cue.className = "research-quote-drop-cue";
     cue.dataset.quoteDropMode = mode;
-    cue.textContent = still ? (mode === "attach" ? "Attach still · narration unchanged" : "Add still waiting for words") :
-      mode === "attach" ? "Attach quote · narration unchanged" :
+    cue.textContent = kind === "still" && mode === "waiting" ? "Add still waiting for words" :
+      mode === "attach" ? `Attach ${kind} · narration unchanged` :
       target.matches("[data-row-gap]") ? "Insert quote as new row" : "Insert quote";
     cue.setAttribute("role", "status");
     cue.setAttribute("aria-live", "polite");
     (target.matches("[data-row-gap]") ? target : target.querySelector(".narration-cell"))?.append(cue);
   };
   const captureQuoteSelection = (event) => {
-    quoteSelection = draggingQuote(event) || draggingStill(event) ? selectedNarrationTarget() ?? lastQuoteTarget : null;
+    quoteSelection = (draggingQuote(event) || draggingStill(event)) ? selectedNarrationTarget() ?? (draggingSavedResearch(event) ? stashNarrationTarget : lastQuoteTarget) : null;
   };
   const rememberQuoteTarget = (event) => {
     const targetNode = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
     if (targetNode?.closest?.(".visual-card__quote-editor, [data-quote-box-range-edit]")) return;
+    if (targetNode?.closest?.("#open-stash, #stash-panel")) {
+      stashNarrationTarget = selectedNarrationTarget() ?? stashNarrationTarget;
+    } else if (targetNode?.closest?.("[data-narration-editor]")) stashNarrationTarget = null;
     const target = targetNode?.closest?.("#open-footage, #footage-panel, [data-narration-editor]");
     if (target?.matches("#open-footage")) {
       lastQuoteTarget = selectedNarrationTarget();
@@ -1761,24 +1851,31 @@ function mountResearchDragging(root) {
         ? selectedNarrationTarget() ?? lastQuoteTarget : null;
     } else lastQuoteTarget = null;
   };
-  const endDrag = () => { clear(); quoteSelection = null; };
+  const endDrag = () => { clear(); quoteSelection = null; savedPreview = null; researchStashDrag = null; };
   const over = (event) => {
     if (draggingStill(event)) {
       const next = stillDestination(event);
       if (!next) { clear(); return; }
       event.preventDefault();
       event.stopPropagation();
-      showCue(next.target, next.mode, true);
+      showCue(next.target, next.mode, "still");
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       return;
     }
     if (draggingQuote(event)) {
-      const next = quoteDestination(event);
+      const saved = draggingSavedResearch(event) ? savedSource() : null;
+      const next = saved?.kind === "still" ? stillDestination(event) : quoteDestination(event);
+      if (draggingSavedResearch(event)) {
+        savedPreview = null;
+        if (!saved || !next) { clear(); return; }
+        try { savedPreview = JSON.stringify(next.placement(editorDocument())); }
+        catch { clear(); return; }
+      }
       if (!next) { clear(); return; }
       event.preventDefault();
       event.stopPropagation();
-      showCue(next.target, next.mode);
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      showCue(next.target, next.mode, saved?.kind);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = saved ? "move" : "copy";
       return;
     }
     if (!draggingFootage(event)) return;
@@ -1805,7 +1902,22 @@ function mountResearchDragging(root) {
       return;
     }
     if (draggingQuote(event)) {
-      const next = quoteDestination(event);
+      const source = draggingSavedResearch(event) ? savedSource() : null;
+      const next = source?.kind === "still" ? stillDestination(event) : quoteDestination(event);
+      if (draggingSavedResearch(event)) {
+        const expected = researchStashDrag?.model;
+        clear();
+        quoteSelection = null;
+        let exact = false;
+        try { exact = Boolean(next && savedPreview && savedPreview === JSON.stringify(next.placement(editorDocument()))); }
+        catch { /* The preview is no longer current. */ }
+        savedPreview = null;
+        if (!exact || !source || event.dataTransfer.getData(savedResearchDragType) !== source.id) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void placeSavedResearch(source, next.placement, expected);
+        return;
+      }
       const quote = researchPanel.dropQuote(event.dataTransfer?.getData("application/x-vera-research-quote"));
       clear();
       quoteSelection = null;
@@ -2107,7 +2219,7 @@ function queueSortingCommand(command, label, options) {
       }
       const additions = prepared.rowCommands.map((item) => ({ kind: "command", command: item }));
       latest = await apply(additions.length === 1 ? additions[0] : { kind: "batch", operations: additions });
-    } else if (options.research || options.researchStill) {
+    } else if (options.research || options.researchStill || options.researchStash) {
       throw new Error("Choose existing Stash material while Sorting.");
     } else if (options.paste) {
       const pasted = await applyPlainPaste(before, resolved, async (_model, part) => {
@@ -2695,11 +2807,11 @@ function queueCommand(command, label, options = {}) {
       void refreshProjection(scriptDocument, true, previousProjection);
       return true;
     }
-    if (options.research || options.researchStill || options.researchQuote) {
+    if (options.research || options.researchStill || options.researchQuote || options.researchStash) {
       typingGroup = null;
       const prior = scriptDocument;
       const quote = options.researchQuote === true;
-      const path = quote ? "research-quote-insert" :
+      const path = options.researchStash ? "research-stash" : quote ? "research-quote-insert" :
         options.researchStill ? "research-still-insert" : "research-insert";
       const result = await authoringVisualPost(path, {
         timelineProjectId: options.expectedProjectId, document: prior,
@@ -2716,6 +2828,7 @@ function queueCommand(command, label, options = {}) {
       scriptDocument = result.document;
       researchPanel?.update();
       researchStillPanel?.update();
+      stashPanel?.update();
       lastSplit = null;
       updateUndo();
       documentDirty = true;
@@ -3246,13 +3359,33 @@ stashPanel = mountStashPanel({
     return clip?.version === clipVersion ? clip : null;
   },
   getScriptDrag: () => stashScriptDrag, clearScriptDrag: () => { stashScriptDrag = null; },
-  onOpen: () => {
-    occurrenceFootage?.close(false);
-    if (!element("footage-panel").hidden) researchPanel.close();
-    if (!element("research-still-panel").hidden) researchStillPanel.close();
+  onOpen: () => occurrenceFootage?.close(false),
+  pickResearch: openResearchStashPicker,
+  startResearchDrag: (event, source, model) => {
+    researchStashDrag = { source, model };
+    event.dataTransfer.setData(savedResearchDragType, source.id);
+    event.dataTransfer.effectAllowed = "move";
+  },
+  getResearchDrag: () => {
+    const source = researchStashDrag;
+    if (!source?.panel) return source;
+    if (element(source.panel).hidden) return null;
+    const project = source.panel === "footage-panel" ? researchPanel.currentProject() : researchStillPanel.currentProject();
+    return project === source.source.researchProjectId ? source : null;
+  },
+  captureResearch: captureLibraryResearch,
+  placeResearch: (item, gap, model) => {
+    const selection = selectedNarrationTarget() ?? stashNarrationTarget;
+    const placement = item.kind === "still" ? selection && !gap ? stillPlacementFromTarget(selection) : null :
+      gap ? quoteGapPlacement(gap) : selection ? quotePlacementFromSelection(selection) : null;
+    if (!placement) {
+      setSaveStatus("Choose current narration or spoken words first.");
+      return Promise.resolve(false);
+    }
+    return placeSavedResearch(item, placement, model);
   },
 });
-element("open-footage").addEventListener("click", () => stashPanel.close(false));
+element("open-footage").addEventListener("click", () => { stashPickerLocation = null; });
 occurrenceFootage = mountOccurrenceFootage({
   root: element("occurrence-footage"), getDocument: () => scriptDocument,
   getBasis: researchTrimBasis, commit: queueResearchTrim, excerpt: cueExcerpt,
@@ -3282,19 +3415,31 @@ researchPanel = mountResearchPanel({
     clipId: clip.id, clipVersion: clip.version, placement }),
   insertQuote: (quote, placement) => queueResearchQuoteInsert({ quote, placement }),
   onPlaceQuote: placeLibraryQuote,
+  stashQuote: (quote) => addPickerResearch({ kind: "quote", researchProjectId: quote.researchProjectId,
+    itemId: quote.itemId, itemVersion: quote.itemVersion }),
+  dragQuote: (event, quote) => startResearchStashDrag(event, { kind: "quote",
+    researchProjectId: quote.researchProjectId, itemId: quote.itemId, itemVersion: quote.itemVersion }),
+  stashStill: (still) => addPickerResearch({ kind: "still", researchProjectId: still.researchProjectId, itemId: still.itemId, itemVersion: still.itemVersion }),
+  dragStill: (event, still) => startResearchStashDrag(event, { kind: "still", researchProjectId: still.researchProjectId, itemId: still.itemId, itemVersion: still.itemVersion }, "footage-panel"),
   gapChoices: availableGaps, rowChoices: availableNarrationRows,
   onStatus: (message) => setSaveStatus(message),
+  onClose: () => { stashPickerLocation = null; },
 });
 researchStillPanel = mountResearchStillPanel({
   root: element("research-still-panel"),
   catalog: async (researchProjectId, offset) => researchProjectId === undefined
     ? await researchCatalogGet() : await researchStillCatalogGet(researchProjectId, offset),
   thumbnail: researchStillThumbnailGet,
+  stashStill: (still, researchProjectId) => addPickerResearch({ kind: "still", researchProjectId,
+    itemId: still.itemId, itemVersion: still.itemVersion }),
+  dragStill: (event, still, researchProjectId) => startResearchStashDrag(event, { kind: "still",
+    researchProjectId, itemId: still.itemId, itemVersion: still.itemVersion }),
   insert: (still, placement, researchProjectId) => queueResearchStillInsert({
     researchProjectId,
     itemId: still.itemId, itemVersion: still.itemVersion, placement,
   }),
   onStatus: (message) => setSaveStatus(message),
+  onClose: () => { stashPickerLocation = null; },
 });
 const initialProject = new URLSearchParams(location.search).get("project");
 if (initialProject !== null) {
