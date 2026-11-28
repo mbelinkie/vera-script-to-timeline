@@ -4,17 +4,15 @@ These rules supersede older plans and issues. See [D-0018](DECISIONS.md).
 
 ## How we work
 
-VERA is a one-person project. Matthew, the Producer, is not a developer.
-**Agents decide everything technical; Matthew decides product and taste.**
-Move fast, keep `main` green, fix bugs forward.
+VERA is a one-person project. **Agents decide technical matters. Matthew, the
+Producer, decides product and taste.** Move fast, keep `main` green, fix bugs
+forward.
 
-Ask Matthew only about: product behaviour the spec doesn't settle; taste (look,
-sound, timing, wording); money, paid services, credentials; deleting, uploading
-or sharing his media or data; steps only he can physically do. Ask plainly,
-batched, with a recommended answer. Never ask him to approve
-technical things (schemas, contracts, fixtures, goldens, dependencies, tests,
-model choice, reviews, merges). Between two reasonable technical options,
-pick the more reversible, note it in one PR line, and continue.
+Ask Matthew only about unspecified product behaviour, taste (look, sound,
+timing, wording), money, paid services, credentials, deleting, uploading or
+sharing his media or data, and steps only he can physically do. Batch plain
+questions with a recommendation. Choose the more reversible technical option
+and note it in one PR line.
 
 If blocked, name the missing capability and smallest action.
 
@@ -46,11 +44,10 @@ If blocked, name the missing capability and smallest action.
    stays on `main`). Claim with `npm run roadmap -- claim <issue> --branch
    <branch>` (marks it In progress). Push the first
    commit and open a draft PR targeting `main`.
-3. **Build.** Prefer small unit tests; compiler output keeps byte-identical
-   goldens (update them in the same PR for intended output changes).
-   Change contracts, fixtures and dependencies when needed; say what and
-   why in the PR. Fix small things in files you touch; file an Inbox issue for
-   anything bigger.
+3. **Build.** Prefer small unit tests. Keep compiler goldens byte-identical
+   and update them in the PR for intended output changes. Explain changes to
+   contracts, fixtures and dependencies in the PR. Fix small issues in
+   touched files and file bigger ones in Inbox.
 4. **Check locally.** Focused tests, then `npm run validate:fast`. Never run
    the full `npm run validate` on the Mac (1–3 hours); CI runs it.
 5. **Review.** For >50 lines of code, money, Matthew's data, Resolve writes or
@@ -67,14 +64,17 @@ stop, push and note what's left in the issue.
 
 ## Branch upkeep
 
-- Deploy pilots from a recorded commit on `main`; send pilot fixes through PRs
-  to `main`, then advance the deployment.
-- By day seven, merge each open PR, split it into a smaller PR, or
-  record its blocker, owner and next review date in the PR. Check overdue PRs
-  at the next session start. Close superseded or abandoned PRs after
-  preserving and linking their unique work.
-- After merge, preserve any unique local work, then remove the branch and
-  worktree (`npm run cleanup`).
+- Before a local run or review that needs current code, fetch `origin/main`.
+  If the checkout is clean and on `main` at or behind `origin/main`, run
+  `git merge --ff-only origin/main`. Otherwise, preserve the checkout and use
+  a separate clean worktree at the fetched commit. Record the commit used.
+- Deploy pilots from recorded `main` commits. Merge pilot fixes by PR before
+  redeploying.
+- By day seven, merge or split each open PR, or record its blocker, owner and
+  next review date in the PR. Check overdue PRs at session start. Preserve and
+  link unique work before closing superseded or abandoned PRs.
+- After merge, preserve unique local work, then remove the branch and worktree
+  with `npm run cleanup`.
 
 ## Acceptance
 
