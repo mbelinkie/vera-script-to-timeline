@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { isResearchId, ResearchReadError } from "@vera/contracts/research-clip-client";
 import type { RowAudioSourceV2 } from "@vera/contracts/v2";
+import { ProjectAuthError } from "@vera/project-authorization";
 import type { AuthoringResearchAccess } from "./authoring.js";
 import { runResearchMediaWorker, type ResearchMediaConfig } from "./research-media-authoring.js";
 
@@ -31,16 +32,21 @@ export async function resolveResearchMusicSource(
     throw new ResearchReadError(503, "Research Music preparation is unavailable for this project.");
   }
   const readCurrent = async () => {
-    await research.authorizeTimelineProject(projectId, "edit_document");
-    const visible = await catalog.projects();
-    if (!visible.some(({ id }) => id.toLowerCase() === catalogProjectId)) {
-      throw new ResearchReadError(403, "You do not have access to this Research project.");
+    try {
+      await research.authorizeTimelineProject(projectId, "edit_document");
+      const visible = await catalog.projects();
+      if (!visible.some(({ id }) => id.toLowerCase() === catalogProjectId)) {
+        throw new ResearchReadError(403, "You do not have access to this Research project.");
+      }
+      const current = await musicSelection(catalogProjectId, itemId);
+      if (!isDeepStrictEqual(expected, current.selection)) {
+        throw new ResearchReadError(409, "The saved Music selection changed. Reload Music choices and select it again.");
+      }
+      return current;
+    } catch (error) {
+      if (error instanceof ResearchReadError || error instanceof ProjectAuthError) throw error;
+      throw new ResearchReadError(503, "The Music selection could not be checked. Reload Music choices and retry.");
     }
-    const current = await musicSelection(catalogProjectId, itemId);
-    if (!isDeepStrictEqual(expected, current.selection)) {
-      throw new ResearchReadError(409, "The saved Music selection changed. Reload Music choices and select it again.");
-    }
-    return current;
   };
   const { selection, mimeType } = await readCurrent();
   const bytes = await musicPlayback(catalogProjectId, selection.sourceId, mimeType, selection.playbackHash).catch((error: unknown) => {

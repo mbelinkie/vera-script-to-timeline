@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import wave
+from fractions import Fraction
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL import Image
+from test_issue603_still_preparation import _descriptor
 from vera_timeline_agent.build_jobs import BuildJobError
 from vera_timeline_agent.build_timeline_once import (
     BuildOptions,
@@ -17,6 +20,7 @@ from vera_timeline_agent.build_timeline_once import (
     compile_prepared,
     package_compiled,
 )
+from vera_timeline_agent.local_media_import import FFmpegDecoder
 from vera_timeline_agent.music_input import music_event_id
 from vera_timeline_agent.prep_media import prepare_project
 from vera_timeline_agent.research_music import prepare_selection
@@ -24,7 +28,7 @@ from vera_timeline_agent.v2_package import _compiler_hash
 
 _FIXTURE = (
     Path(__file__).parent
-    / "data/authoring_v2/issue_173/compiler/visual-only-default-25fps.input.golden.json"
+    / "data/authoring_v2/issue_173/compiler/visual-only-image-still-25fps-default.input.golden.json"
 )
 
 
@@ -60,6 +64,17 @@ def prepare_fixture(root: Path) -> tuple[Path, dict[str, Any], Path]:
     assert prepare_selection(media, request, BytesIO(raw)) == prepared
     source = prepared["source"]
     row = document["activeDraft"]["blocks"][0]
+    row["payload"]["imageMotion"] = {"mode": "none"}
+    original_still = media / "still.png"
+    Image.new("RGB", (1600, 900), (84, 46, 124)).save(original_still)
+    with original_still.open("rb") as still:
+        still_facts = FFmpegDecoder().decode(still.fileno(), "image")
+    previous = deps["occurrenceResolutions"][0]
+    descriptor = _descriptor(original_still, still_facts, Fraction(24))
+    for key in ("payloadId", "owner", "mediaReferenceId"):
+        descriptor[key] = previous[key]
+    deps["occurrenceResolutions"] = [descriptor]
+    deps["preparedMedia"] = []
     span_id = "20000000-0000-4000-8000-000000000004"
     document["rowAudioSpans"] = [
         {
@@ -79,6 +94,9 @@ def prepare_fixture(root: Path) -> tuple[Path, dict[str, Any], Path]:
     script = inputs / "script.json"
     script.write_text(json.dumps(document))
     (inputs / "compiler-dependencies.json").write_text(json.dumps(deps))
+    (inputs / "media-paths.json").write_text(
+        json.dumps({f"source:{descriptor['mediaReferenceId']}": str(original_still)})
+    )
     handoff = prepare_project(
         script, inputs, root, acquire=lambda _: None, narration=lambda *_: None
     )

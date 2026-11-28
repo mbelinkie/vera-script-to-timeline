@@ -138,7 +138,7 @@ export function createResearchClient(options: {
   }
   const request = options.request ?? fetch;
 
-  async function send(path: string, accept: string, update?: LibraryUpdate): Promise<Response> {
+  async function send(path: string, accept: string, update?: LibraryUpdate, timeoutMs = 10_000): Promise<Response> {
     let response: Response;
     try {
       response = await request(new URL(path, origin), {
@@ -149,7 +149,7 @@ export function createResearchClient(options: {
           ...(update ? { "Content-Type": "application/json" } : {}),
         },
         ...(update ? { body: JSON.stringify(update) } : {}),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       // Fetch errors may embed the full request URL or headers, including secrets.
@@ -461,15 +461,20 @@ export function createResearchClient(options: {
       if (!Array.isArray(items) || items.length > MUSIC_PAGE_SIZE + 1) throw new Error("Invalid Research Music page.");
       const music = await Promise.all(items.slice(0, MUSIC_PAGE_SIZE).map(async (entry): Promise<ResearchMusicChoice | null> => {
         if (!record(entry) || !validId(entry.id)) return null;
-        const selection = readMusicSelection(entry, projectId, entry.id);
+        let selection: MusicSelection | null;
+        try {
+          selection = readMusicSelection(entry, projectId, entry.id);
+        } catch {
+          return null;
+        }
         if (!selection) return null;
         try {
           const asset = await musicAsset(selection);
           return asset.status === "candidate" ? { status: "candidate", selection: asset.selection } :
             { status: asset.status, selection };
         } catch (error) {
-          if (error instanceof ResearchReadError && [404, 422].includes(error.status)) return { status: "unavailable", selection };
-          throw error;
+          if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+          return { status: "unavailable", selection };
         }
       }));
       const more = offset + MUSIC_PAGE_SIZE;
@@ -487,7 +492,7 @@ export function createResearchClient(options: {
     },
 
     async musicPlayback(projectId: string, sourceId: string, mimeType: string, playbackHash: string) {
-      const response = await send(libraryPath(projectId, "audio", sourceId) + "/playback", mimeType);
+      const response = await send(libraryPath(projectId, "audio", sourceId) + "/playback", mimeType, undefined, 60_000);
       const reader = response.body?.getReader();
       if (!reader) throw new ResearchReadError(422, "Missing kept Research audio.");
       const chunks: Uint8Array[] = [];

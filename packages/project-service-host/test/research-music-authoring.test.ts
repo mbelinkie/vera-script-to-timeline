@@ -49,18 +49,22 @@ function setup() {
   const source = { id: sourceId, projectId: researchId, kind: "audio", version: 2, bibliography: {}, details: {} };
   const manifest = { durationMs: 5000, playbackDurationMs: 5000,
     mimeType: "audio/wav", playbackSha256: playbackHash.slice(7), origin: { kind: "url" } };
-  const state = { visible: true, corrupt: false, denyEdit: false, denyView: false, changeDuringPlayback: false, absent: false };
+  const state = { visible: true, corrupt: false, denyEdit: false, denyView: false,
+    changeDuringPlayback: false, absent: false, manifestDown: false };
   function respond(url: URL): Response {
     if (url.pathname === "/api/projects") return Response.json(state.visible ? [{ id: researchId, name: "Research fixture" }] : []);
     if (url.pathname === project + "/items") {
       expect(url.search).toBe("?kind=audio&limit=13&offset=0");
-      return Response.json([item, { ...item, id: clipId, content: { ...item.content, role: "speech" } }]);
+      return Response.json([item, { ...item, id: clipId, content: { ...item.content, role: "speech" } },
+        { ...item, id: "20000000-0000-4000-8000-000000000005", content: null }]);
     }
     if (url.pathname === project + "/items/" + itemId) {
       return state.absent ? new Response(null, { status: 404 }) : Response.json(item);
     }
     if (url.pathname === project + "/sources/" + sourceId) return Response.json(source);
-    if (url.pathname === project + "/audio/" + sourceId) return Response.json(manifest);
+    if (url.pathname === project + "/audio/" + sourceId) {
+      return state.manifestDown ? new Response(null, { status: 503 }) : Response.json(manifest);
+    }
     if (url.pathname === project + "/audio/" + sourceId + "/playback") {
       if (state.changeDuringPlayback) item.version++;
       return new Response(state.corrupt ? new Uint8Array([0]) : new Uint8Array(wav), {
@@ -106,6 +110,11 @@ describe("project Research Music", () => {
       music: [{ status: "candidate", selection }], nextOffset: null,
     });
     expect(request.mock.calls.some(([input]) => requestUrl(input).pathname.endsWith("/playback"))).toBe(false);
+    state.manifestDown = true;
+    expect(await (await listChoices())?.json()).toMatchObject({
+      music: [{ status: "unavailable", selection: { itemId } }],
+    });
+    state.manifestDown = false;
     manifest.origin.kind = "file";
     expect(await (await listChoices())?.json()).toMatchObject({
       music: [{ status: "relink_required", selection: { itemId, title: "Harbor score" } }],
@@ -127,6 +136,9 @@ describe("project Research Music", () => {
       state.absent = true;
       await expect(resolve()).rejects.toMatchObject({ status: 404 });
       state.absent = false;
+      state.manifestDown = true;
+      await expect(resolve()).rejects.toMatchObject({ status: 503 });
+      state.manifestDown = false;
       source.version++;
       await expect(resolve()).rejects.toMatchObject({ status: 409 });
       source.version--;

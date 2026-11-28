@@ -59,7 +59,9 @@ Any other audio role is outside this API.
 5. Keep the existing row-bounded initial cue, −12 dB and legacy fade. The
    prepared WAV begins at **selection.startMs** and ends before
    **selection.endMs**, so source frame zero is the selection's first
-   sample. **durationSamples** is verified at 48 kHz. Later cue edits can
+   sample. **durationSamples** is verified at 48 kHz. Resolution refuses a
+   selection that extends past the decoded samples, including a rounded-up
+   final millisecond. Later cue edits can
    use the existing sample-to-frame helper and the prepared selection as
    their source bounds. Preserve the surrounding document and normal Undo.
    Prove creation, save/reload, refusal and one Undo at both #764 viewports.
@@ -74,7 +76,8 @@ explicit locator contract.
 ## Generated native acceptance
 
 In a bootstrapped checkout on the Resolve Mac, launch Studio 21.2 with
-external scripting set to Local. Use a new scratch directory and run the
+external scripting set to Local. Keep a project open on the Edit page.
+Use a new scratch directory and run the
 ordinary Build command against the generated 24 fps fixture.
 
 ~~~sh
