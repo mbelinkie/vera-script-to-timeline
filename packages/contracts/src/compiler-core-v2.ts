@@ -969,6 +969,12 @@ function freezeRowTransitions(document: ScriptDocumentV2, dependencies: Compiler
       handles.set(incoming.payloadId, { pre: left ? recordDurationInSeconds(left, rate) : frac(0n, 1n), post: frac(0n, 1n) });
     }
   }
+  const opening = pairs.find((item) => item.fromPayloadId === undefined);
+  if (opening && pairs.some((item) => item.fromPayloadId !== undefined && item.disposition === "apply" &&
+    (item.boundaryFrame <= opening.durationFrames ||
+      item.boundaryFrame - (item.alignment === "left" ? item.durationFrames : item.alignment === "center" ? item.durationFrames / 2 : 0) < opening.durationFrames))) {
+    throw new RangeError("The opening fade is too close to the next transition. Extend the first row or move the next transition.");
+  }
   return { pairs, handles };
 }
 
@@ -985,9 +991,13 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
     const common = { id: pair.id, toRowId: pair.toRowId, trackId: dependencies.roles.primaryRootTrackId, boundaryFrame,
       incomingEventId: incoming.eventId, effectIdentity: qualifiedCrossDissolve, requestedDurationFrames: durationFrames, alignment,
       disposition: frozen.disposition };
+    const bindingFor = (payloadId: string) => {
+      const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === payloadId);
+      return dependencies.preparedMedia.find((item) => item.requirementKey === descriptor?.preparedMediaRequirementKey);
+    };
     if (frozen.fromPayloadId === undefined) {
-      if (incoming.sourceRange!.startFrame < durationFrames || incoming.recordRange.endFrame < durationFrames) {
-        throw new RangeError("The first picture needs 24 frames of delivered source handle for the opening fade.");
+      if (bindingFor(frozen.toPayloadId)?.mode !== "verified_reuse" || incoming.sourceRange!.startFrame < durationFrames || incoming.recordRange.endFrame < durationFrames) {
+        throw new RangeError("The opening fade requires a reused 24 fps source with at least 24 frames of delivered source handle before the first picture.");
       }
       return { ...common, startFrame: 0, endFrame: durationFrames };
     }
@@ -995,10 +1005,6 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
     const left = alignment === "left" ? durationFrames : alignment === "center" ? durationFrames / 2 : 0;
     const right = durationFrames - left;
     if (frozen.disposition === "apply") {
-      const bindingFor = (payloadId: string) => {
-        const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === payloadId);
-        return dependencies.preparedMedia.find((item) => item.requirementKey === descriptor?.preparedMediaRequirementKey);
-      };
       const outBinding = bindingFor(frozen.fromPayloadId);
       const inBinding = bindingFor(frozen.toPayloadId);
       if (!outBinding || !inBinding || !outgoing.sourceRange || !incoming.sourceRange ||

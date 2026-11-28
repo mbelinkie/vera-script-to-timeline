@@ -651,6 +651,8 @@ def test_issue590_signed_consumer_refuses_even_an_omitted_opening_fade() -> None
         if item["eventId"] == manifest["transitions"][0]["outgoingEventId"]
     )
     outgoing["sourceRange"] = {"startFrame": 24, "endFrame": 120}
+    deps["preparedMedia"][0]["mode"] = "verified_reuse"
+    deps["preparedMedia"][0]["verification"]["decodedFrameCount"] = 144
     doc["rowTransitions"] = [opening]
     plan = manifest["transitions"][0].copy()
     del plan["fromRowId"]

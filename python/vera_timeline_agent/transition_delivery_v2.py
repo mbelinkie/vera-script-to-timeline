@@ -140,6 +140,7 @@ def validate_signed_transitions(
         item.get("payloadId"): item
         for item in dependencies.get("occurrenceResolutions", [])
     }
+    has_opening = any("fromRowId" not in pair for pair in authored)
     seen_ids: set[str] = set()
     seen_edges: set[tuple[str, int]] = set()
     for plan in raw:
@@ -182,6 +183,22 @@ def validate_signed_transitions(
             record = opening_clip.get("recordRange", {})
             source = opening_clip.get("sourceRange") or {}
             source_start = source.get("startFrame")
+            source_end = source.get("endFrame")
+            opening_source: Mapping[str, Any] = next(
+                (
+                    entry
+                    for entry in manifest.get("sources", [])
+                    if entry.get("id")
+                    == opening_clip.get("provenance", {}).get("sourceId")
+                ),
+                {},
+            )
+            opening_binding = bindings.get(
+                opening_source.get("preparationRequirementKey"), {}
+            )
+            decoded_frames = opening_binding.get("verification", {}).get(
+                "decodedFrameCount"
+            )
             _need(
                 _fraction(manifest["timeline"]["frameRate"]) == 24
                 and duration == 24
@@ -206,7 +223,11 @@ def validate_signed_transitions(
                 and _frame(record.get("endFrame"))
                 and record["endFrame"] >= duration
                 and _frame(source_start)
-                and source_start >= duration,
+                and _frame(source_end)
+                and _frame(decoded_frames)
+                and duration <= source_start < source_end <= decoded_frames
+                and source_end - source_start == record["endFrame"]
+                and opening_binding.get("mode") == "verified_reuse",
                 "signed opening fade differs from the qualified frame-zero placement",
             )
             seen_edges.add((root_track, 0))
@@ -280,6 +301,10 @@ def validate_signed_transitions(
         )
         if disposition == "apply":
             _need("reason" not in plan, "applicable transition has a cut reason")
+            _need(
+                not has_opening or (boundary > 24 and plan["startFrame"] >= 24),
+                "the opening fade is too close to the next transition",
+            )
             for event, needed, side in (
                 (outgoing, right, "postHandle"),
                 (incoming, left, "preHandle"),

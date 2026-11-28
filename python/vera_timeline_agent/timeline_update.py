@@ -308,16 +308,20 @@ def _retime_row(
     by_event = {edit["previousEventId"]: edit for edit in edits}
     new_plans = {plan["id"]: plan for plan in current_manifest.get("transitions", [])}
     for old_plan in baseline_manifest.get("transitions", []):
-        if "fromRowId" not in old_plan and old_plan["toRowId"] == row_id:
-            if (
+        if (
+            "fromRowId" not in old_plan
+            and old_plan["toRowId"] == row_id
+            and (
                 new_plans.get(old_plan["id"]) != old_plan
                 or old_plan["incomingEventId"] in by_event
-            ):
-                return (
-                    "The opening fade or its picture changed. Rebuild the timeline to keep the fade.",
-                    [],
-                    [],
-                )
+            )
+        ):
+            return (
+                "The opening fade or its picture changed. "
+                "Rebuild the timeline to keep the fade.",
+                [],
+                [],
+            )
         if old_plan.get("fromRowId") != row_id or old_plan["disposition"] != "apply":
             continue
         new_plan = new_plans.get(old_plan["id"])

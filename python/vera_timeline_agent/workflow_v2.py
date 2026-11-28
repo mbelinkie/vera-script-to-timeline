@@ -4214,7 +4214,8 @@ def run_workflow_delivery_v2(
         if has_native_transitions and connected_identity != ("21.1.1", "10"):
             if any("outgoingEventId" not in plan for plan in transition_plans):
                 raise WorkflowV2Error(
-                    "Opening fades at frame zero require Resolve Studio 21.1.1 build 10."
+                    "Opening fades at frame zero require "
+                    "Resolve Studio 21.1.1 build 10."
                 )
             raise WorkflowV2Error(
                 "native Cross Dissolve requires measured Studio 21.1.1 build 10"

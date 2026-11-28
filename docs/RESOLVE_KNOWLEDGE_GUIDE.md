@@ -967,8 +967,9 @@ only with matching signed handles, frame trims, media, and speed.
 On the same build and rate, a first-clip `AddTransition` with start position,
 right alignment and 24-frame duration placed a fade from black at `[0,24)`.
 Both effects retained their geometry and unique IDs after save, close and
-reopen. The opening route requires a full first clip and at least 24 frames
-of delivered source handle. The native Cross Dissolve gate for other Resolve
+reopen. The opening route requires a reused 24 fps source, a full first clip
+and at least 24 source frames before the trim. An overlapping dissolve is
+refused before any native write. The native Cross Dissolve gate for other Resolve
 builds remains explicit. [21.2 qualification](https://github.com/mbelinkie/vera-script-to-timeline/issues/769)
 is separate.
 
