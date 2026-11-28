@@ -8,6 +8,7 @@ import wave
 from fractions import Fraction
 from io import BytesIO
 from pathlib import Path
+from shutil import copytree
 from typing import Any
 
 import pytest
@@ -34,7 +35,9 @@ _FIXTURE = (
 )
 
 
-def prepare_fixture(root: Path) -> tuple[Path, dict[str, Any], Path]:
+def prepare_fixture(
+    root: Path, *, repeated: bool = False
+) -> tuple[Path, dict[str, Any], Path]:
     case = json.loads(_FIXTURE.read_bytes())
     document, deps = case["document"], case["dependencies"]
     media = root / "Media"
@@ -87,6 +90,24 @@ def prepare_fixture(root: Path) -> tuple[Path, dict[str, Any], Path]:
             "settings": {"gainDb": -12},
         }
     ]
+    if repeated:
+        first = document["rowAudioSpans"][0]
+        first["timing"] = {
+            "sourceInFrame": 0,
+            "sourceOutFrame": 24,
+            "timelineIn": {"kind": "frame", "frame": 0},
+        }
+        document["rowAudioSpans"].append(
+            {
+                **first,
+                "id": "20000000-0000-4000-8000-000000000005",
+                "timing": {
+                    "sourceInFrame": 24,
+                    "sourceOutFrame": 60,
+                    "timelineIn": {"kind": "frame", "frame": 36},
+                },
+            }
+        )
     document.pop("liveContentHash")
     document["liveContentHash"] = _compiler_hash(document)
     deps["document"]["contentHash"] = document["liveContentHash"]
@@ -173,4 +194,63 @@ def test_research_music_freezes_exact_saved_selection_and_packages_a5(
     with pytest.raises(BuildJobError, match="previously ready music disappeared"):
         compile_prepared(
             BuildOptions(handoff / "script.json", tmp_path / "missing", handoff)
+        )
+
+
+@pytest.mark.slow
+def test_repeated_research_music_shares_pin_but_keeps_occurrence_geometry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Same Linux still-tool qualification shim as the single-cue fixture;
+    # Research Music provenance, PCM validation and packaging remain strict.
+    monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
+    handoff, source, audio = prepare_fixture(tmp_path, repeated=True)
+    document = json.loads((handoff / "script.json").read_bytes())
+    frozen = json.loads((handoff / "compiler-dependencies.json").read_bytes())
+    paths = json.loads((handoff / "media-paths.json").read_bytes())
+    spans = document["rowAudioSpans"]
+    ids = [music_event_id(document["id"], s["id"], source["artifactId"]) for s in spans]
+    assert len(set(ids)) == 2
+    bindings = frozen["musicBindings"]
+    assert [b["spanId"] for b in bindings] == [s["id"] for s in spans]
+    assert all(b["source"] == source and b["status"] == "ready" for b in bindings)
+    assert [b["durationSamples"] for b in bindings] == [192000, 192000]
+    assert [Path(paths[f"event:{event_id}"]) for event_id in ids] == [audio, audio]
+
+    compiled = compile_prepared(
+        BuildOptions(handoff / "script.json", tmp_path / "build", handoff)
+    )
+    package, _, _ = package_compiled(compiled, timings=StageTimings())
+    events = {
+        e["eventId"]: e for e in package.manifest["events"] if e["kind"] == "music"
+    }
+    assert set(events) == set(ids)
+    manifest_sources = {s["id"]: s for s in package.manifest["sources"]}
+    verified_sources = {s["id"]: s for s in package.view["sources"]}
+    raw = audio.read_bytes()
+    for index, (record, trim) in enumerate([((0, 24), (0, 24)), ((36, 72), (24, 60))]):
+        event = events[ids[index]]
+        assert event["trackId"] == "music-a5"
+        assert event["music"]["spanId"] == spans[index]["id"]
+        assert event["recordRange"] == {"startFrame": record[0], "endFrame": record[1]}
+        assert event["sourceRange"] == {"startFrame": trim[0], "endFrame": trim[1]}
+        assert event["music"]["audioHash"] == source["contentHash"]
+        source_id = event["provenance"]["sourceId"]
+        # The package inventory is occurrence-specific; both entries must
+        # nevertheless carry the same immutable Research pin and PCM bytes.
+        assert manifest_sources[source_id]["musicAudio"] == bindings[index]
+        verified = verified_sources[source_id]
+        assert verified["contentHash"] == source["contentHash"]
+        assert (package.root / verified["path"]).read_bytes() == raw
+
+    fresh = tmp_path / "fresh-settings"
+    copytree(tmp_path / "settings", fresh)
+    audio.unlink()
+    with pytest.raises(BuildJobError, match="Prepared Research Music is missing"):
+        prepare_project(
+            fresh / "script.json",
+            fresh,
+            tmp_path,
+            acquire=lambda _: None,
+            narration=lambda *_: None,
         )
