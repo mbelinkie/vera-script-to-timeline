@@ -73,7 +73,7 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
       const selections: unknown[] = [], restores: unknown[] = [];
       await page.exposeFunction("recordComparison", (selection: unknown) => { selections.push(selection); });
       await page.exposeFunction("recordRestore", (selection: unknown) => { restores.push(selection); });
-      await page.route("http://history-panel.test/**", async route => {
+      await page.route("http://localhost/**", async route => {
         const path = new URL(route.request().url()).pathname;
         if (path === "/history-panel.js" || path === "/history-panel.css") {
           await route.fulfill({ contentType: path.endsWith(".js") ? "text/javascript" : "text/css", body: await readFile(new URL("../browser" + path, import.meta.url), "utf8") });
@@ -88,7 +88,7 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
             </script>` });
         }
       });
-      await page.goto("http://history-panel.test/");
+      await page.goto("http://localhost/");
       const set = async (role: ProjectRole, savedHead: number | null) => {
         f.as(role === "producer" ? "owner" : role);
         await page.evaluate(async context => {
