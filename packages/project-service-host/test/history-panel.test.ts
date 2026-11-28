@@ -83,7 +83,8 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     expect(controls.snapshot().history.cursor).toBe(2);
     await controls.loadHistory();
     expect(controls.snapshot().history.items.map(r => [r.revision, r.actorId])).toEqual([[2, f.owner.principalId], [1, f.editor.principalId]]);
-    expect(controls.snapshot().history.items[1]).toMatchObject({ digest: f.first.digest, createdAt: expect.stringMatching(/Z$/u) });
+    expect(controls.snapshot().history.items[1]?.digest).toBe(f.first.digest);
+    expect(controls.snapshot().history.items[1]?.createdAt).toMatch(/Z$/u);
     expect(controls.snapshot().checkpoints.cursor).toBeNull();
     expect(controls.snapshot().canCreate).toBe(false);
     await controls.create("Viewer not allowed"); await controls.approve(id(100));
@@ -92,7 +93,8 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     set("editor", null); expect(controls.snapshot().canCreate).toBe(false);
     await controls.create("Unsaved"); expect(createCalls).toHaveLength(0);
     set("editor", 1); await controls.create("Cut for Dana");
-    expect(controls.snapshot().mutation).toMatchObject({ busy: false, error: expect.any(String), pending: { kind: "create", checkpointId: id(100) } });
+    expect(controls.snapshot().mutation).toMatchObject({ busy: false, pending: { kind: "create", checkpointId: id(100) } });
+    expect(controls.snapshot().mutation.error).toContain("Try again");
     expect(createCalls[0]).toEqual({ checkpointId: id(100), clientMutationId: id(101), name: "Cut for Dana", sourceRevision: 1 });
     set("editor", 2);
     await controls.retry();
@@ -114,8 +116,9 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     await controls.retry();
     expect(approveCalls[1]).toEqual(approveCalls[0]);
     await controls.loadCheckpoints();
-    expect(controls.snapshot().checkpoints.items.find(c => c.checkpointId === id(100))?.approval)
-      .toMatchObject({ approvedBy: f.owner.principalId, approvedAt: expect.stringMatching(/Z$/u) });
+    const approval = controls.snapshot().checkpoints.items.find(c => c.checkpointId === id(100))?.approval;
+    expect(approval?.approvedBy).toBe(f.owner.principalId);
+    expect(approval?.approvedAt).toMatch(/Z$/u);
     await controls.approve(id(100)); expect(approveCalls).toHaveLength(2);
     const approved = await f.api.getCheckpoint(projectId, id(100));
     expect(approved.document).toEqual(saved.document); expect(approved.sourceDigest).toBe(saved.sourceDigest);
