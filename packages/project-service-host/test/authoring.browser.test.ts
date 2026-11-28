@@ -5520,7 +5520,8 @@ describe("browser authoring over the local project service", () => {
         await start.press("Escape");
         expect(await start.getAttribute("data-music-token")).toBe(first.tokens[1]!.id);
         expect(await load()).toEqual(baseline);
-        expect(await page.locator("#undo-history li").count()).toBe(0);
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+        expect(await page.locator("#undo").isDisabled()).toBe(true);
 
         // A real pointer move between two identical words chooses the exact token.
         await start.scrollIntoViewIfNeeded();
