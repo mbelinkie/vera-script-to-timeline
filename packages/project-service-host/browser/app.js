@@ -32,7 +32,7 @@ const visualCommandKinds = new Set([
   "move_visual_to_row", "attach_visual_to_words",
 ]);
 const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
-  "reorder_visual_only", "set_visual_only_hold", "add_row_transition", "remove_row_transition"]);
+  "reorder_visual_only", "set_visual_only_hold", "add_row_transition", "remove_row_transition", "move_music_cue_endpoint"]);
 let project;
 let projectVisualHoldMs;
 let activeProjectId;

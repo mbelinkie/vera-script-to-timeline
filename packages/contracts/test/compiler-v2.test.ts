@@ -694,6 +694,89 @@ describe("#100 verified A5 music compilation", () => {
     expect(invalidPin.document).toBe(doc);
   });
 
+  it("#765 moves exactly one saved word pin and keeps the other pin, source and settings", () => {
+    const { doc, deps, span, row, timing } = wordMusicFixture();
+    span.timing = timing;
+    span.settings.fadeOutMs = 500;
+    const session = createRowEditSessionV2(doc);
+    const fourth = row.tokens[3]!;
+    const point = { kind: "word", anchor: { blockId: row.id, tokenId: fourth.id,
+      quotedWord: fourth.value, affinity: "before", anchorVersion: row.version } } as const;
+    const command = { kind: "move_music_cue_endpoint", cueId: span.id, endpoint: "timelineIn", point, expectedRevision: 0 } as const;
+    const moved = session.apply(command);
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    const saved = JSON.parse(JSON.stringify(moved.document)) as ScriptDocumentV2;
+    expect(saved.rowAudioSpans![0]).toEqual({ ...span, timing: { ...timing, timelineIn: point } });
+    expect(saved.activeDraft).toEqual(doc.activeDraft);
+    expect(compile(saved, deps).manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 36, endFrame: 126 }, sourceRange: { startFrame: 12, endFrame: 102 },
+    });
+    expect(session.undoDepth).toBe(1);
+    expect(session.apply(command).diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(session.apply({ ...command, expectedRevision: 1 }).diagnostics[0]?.code).toBe("MUSIC_CUE_NO_CHANGE");
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().document.rowAudioSpans).toEqual(doc.rowAudioSpans);
+    expect(session.redo().document.rowAudioSpans).toEqual(saved.rowAudioSpans);
+    const second = doc.activeDraft.blocks[1] as NarrationBlockV2;
+    const last = second.tokens[3]!;
+    const out = { kind: "word", anchor: { blockId: second.id, tokenId: last.id, quotedWord: last.value,
+      affinity: "after", anchorVersion: second.version } } as const;
+    const endMoved = session.apply({ ...command, endpoint: "timelineOut", point: out, expectedRevision: session.revision });
+    expect(endMoved.ok).toBe(true);
+    expect(compile(endMoved.document, deps).manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 36, endFrame: 138 }, sourceRange: { startFrame: 12, endFrame: 114 },
+    });
+  });
+
+  it("#765 puts both brackets on a single visuals-only row without changing its hold", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    const row = doc.activeDraft.blocks[1]!;
+    const session = createRowEditSessionV2(doc);
+    const command = { kind: "move_music_cue_endpoint", cueId: span.id, endpoint: "timelineIn", expectedRevision: 0,
+      point: { kind: "row_edge", blockId: row.id, edge: "start" } } as const;
+    expect(session.apply(command).ok).toBe(true);
+    const moved = session.apply({ ...command, endpoint: "timelineOut", expectedRevision: 1,
+      point: { ...command.point, edge: "end" } });
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    expect(moved.document.activeDraft).toEqual(doc.activeDraft);
+    expect(moved.document.rowAudioSpans![0]).toEqual({ ...span, timing: { sourceInFrame: 0,
+      timelineIn: command.point, timelineOut: { ...command.point, edge: "end" } } });
+    expect(compile(moved.document, deps).manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 96, endFrame: 192 }, sourceRange: { startFrame: 0, endFrame: 96 },
+    });
+    const rejected = session.apply({ ...command, endpoint: "timelineOut", expectedRevision: 2,
+      point: { ...command.point, edge: "start" } });
+    expect(rejected.diagnostics[0]?.code).toBe("MUSIC_CUE_SPAN_REVERSED");
+    expect(rejected.document).toEqual(moved.document);
+    expect(session.undoDepth).toBe(2);
+    const adjacent = session.apply({ ...command, endpoint: "timelineIn", expectedRevision: 2,
+      point: { kind: "row_edge", blockId: doc.activeDraft.blocks[2]!.id, edge: "start" } });
+    expect(adjacent.diagnostics[0]?.code).toBe("MUSIC_CUE_SPAN_REVERSED");
+  });
+
+  it("#765 refuses stale words, reversed words and unpinned endpoints without history", () => {
+    const { doc, row, span, timing } = wordMusicFixture();
+    span.timing = timing;
+    const session = createRowEditSessionV2(doc);
+    const command = { kind: "move_music_cue_endpoint", cueId: span.id, endpoint: "timelineOut", expectedRevision: 0,
+      point: timing.timelineIn } as const;
+    expect(session.apply(command).diagnostics[0]?.code).toBe("MUSIC_CUE_SPAN_REVERSED");
+    const stale = { ...timing.timelineIn, anchor: { ...timing.timelineIn.anchor, tokenId: id(99999) } };
+    expect(session.apply({ ...command, point: stale }).diagnostics[0]?.code).toBe("MUSIC_CUE_ANCHOR_INVALID");
+    expect(session.undoDepth).toBe(0);
+    expect(session.document).toEqual(doc);
+    span.timing = { sourceInFrame: 12, sourceOutFrame: 192, timelineIn: timing.timelineIn };
+    const derived = applyRowEditV2(doc, 0, { ...command, point: timing.timelineOut });
+    expect(derived.diagnostics[0]?.code).toBe("MUSIC_CUE_DERIVED_ENDPOINT");
+    expect(derived.document).toBe(doc);
+    // A frozen source out pin is retained when moving the other explicit edge.
+    span.timing = { sourceOutFrame: 192, timelineIn: timing.timelineIn, timelineOut: timing.timelineOut };
+    const changed = applyRowEditV2(doc, 0, { ...command, point: { kind: "row_edge", blockId: row.id, edge: "end" } });
+    expect(changed.ok).toBe(true);
+    expect(changed.document.rowAudioSpans![0]!.timing).toEqual({ ...span.timing, timelineOut: { kind: "row_edge", blockId: row.id, edge: "end" } });
+  });
+
   it("plans A-B-C at 24fps, signs one hash-bound music source/event, and keeps needs independent", () => {
     const { doc, deps } = threeRowMusicFixture();
     const frozen = JSON.stringify([doc, deps]);

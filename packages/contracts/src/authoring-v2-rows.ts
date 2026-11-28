@@ -1,7 +1,7 @@
 import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2, VisualSequenceEditResultV2 } from "./authoring-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
-import { editMusicCueV2, type MusicCueEditV2, type MusicCueEditResultV2 } from "./authoring-v2-music-cues.js";
+import { editMusicCueV2, moveMusicCueEndpointV2, type MoveMusicCueEndpointV2, type MusicCueEditV2, type MusicCueEditResultV2 } from "./authoring-v2-music-cues.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
@@ -192,6 +192,7 @@ export type RowEditCommandV2 =
   | { kind: "set_visual_only_audio_match"; rowId: string; payloadId: string; cueId: string | null }
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
   | { kind: "delete_row_audio_span"; cueId: string }
+  | MoveMusicCueEndpointV2
   | { kind: "add_row_transition"; transitionId: string; toRowId: string; expectedToVersion: number; fromRowId?: string; expectedFromVersion?: number }
   | { kind: "remove_row_transition"; transitionId: string; toRowId: string; expectedToVersion: number; fromRowId?: string; expectedFromVersion?: number }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
@@ -1541,6 +1542,15 @@ export function applyRowEditV2(
     }
   } catch {
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
+  }
+  if (command.kind === "move_music_cue_endpoint") {
+    if (!isJsonValue(command) || !exactKeys(command, ["kind", "cueId", "endpoint", "point", "expectedRevision"]) ||
+        typeof command.cueId !== "string" || !command.cueId ||
+        (command.endpoint !== "timelineIn" && command.endpoint !== "timelineOut") ||
+        !plainObject(command.point) || (command.point.kind !== "word" && command.point.kind !== "row_edge")) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide one exact music cue endpoint and gesture revision.");
+    }
+    return moveMusicCueEndpointV2(document, expectedRevision, command);
   }
   const before = validateScriptDocumentV2(document);
   // A concurrently removed cue leaves an explicit stale match. Keep the
