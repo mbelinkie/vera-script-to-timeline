@@ -356,6 +356,34 @@ describe("#677 ordinary row transitions", () => {
     expect(session.apply({ ...add, kind: "remove_row_transition" }).document.rowTransitions).toBeUndefined();
   });
 
+  it("keeps a saved transition active when both rows move through Stash together", () => {
+    const a = clipRow(10000), b = clipRow(20000), c = clipRow(30000);
+    const session = createRowEditSessionV2(documentWith([a, b, c]));
+    const add = commandFor(a, b);
+    expect(session.apply(add).ok).toBe(true);
+    const saved = session.apply({ kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(99010) });
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.rowTransitions).toEqual([intentFor(add)]);
+    const restored = session.apply({ kind: "restore_stash_rows", rowIds: [a.id, b.id], destination: gap(null, null, c.id) });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    expect(restored.document.rowTransitions).toEqual([intentFor(add)]);
+  });
+
+  it("removes a reviewed opening fade from its exact Stash target", () => {
+    const a = clipRow(10000), b = clipRow(20000);
+    const session = createRowEditSessionV2(documentWith([a, b]));
+    const add = { kind: "add_row_transition" as const, transitionId: id(99001), toRowId: a.id, expectedToVersion: a.version };
+    expect(session.apply(add).ok).toBe(true);
+    const saved = session.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(99010) });
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.rowTransitions?.[0]?.state).toBe("needs_review");
+    const version = saved.document.stash![0]!.rows[0].version;
+    const removed = session.apply({ ...add, kind: "remove_row_transition", expectedToVersion: version });
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document.rowTransitions).toBeUndefined();
+    expect(session.apply({ kind: "delete_rows", rowIds: [a.id] }).ok).toBe(true);
+  });
+
   it("refuses unsupported clip-root shapes on either side", () => {
     const a = clipRow(10000), b = clipRow(20000);
     const still = clipRow(20000);

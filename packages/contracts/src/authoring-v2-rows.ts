@@ -1182,11 +1182,13 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
   for (const pair of after.rowTransitions ?? []) {
     if (pair.state === "needs_review") continue;
     const divider = rowTransitionDividerV2(after.activeDraft.blocks, pair.fromRowId, pair.toRowId);
+    const stashedPair = pair.fromRowId !== undefined && after.stash?.some((bundle) =>
+      bundle.rows.some((row, index) => row.id === pair.fromRowId && bundle.rows[index + 1]?.id === pair.toRowId));
     // An explicitly placed transition may cross a section. Inserting a new
     // heading through an existing transition still puts it up for review.
     const newHeading = command.kind === "create_section" && pair.fromRowId !== undefined &&
       command.destination.afterRowId === pair.fromRowId && command.destination.beforeRowId === pair.toRowId;
-    if (!divider || newHeading) pair.state = "needs_review";
+    if ((!divider && !stashedPair) || newHeading) pair.state = "needs_review";
   }
   const spans = before.rowAudioSpans ?? [];
   const flattenedCoverage = (document: ScriptDocumentV2, start: string, end: string): string[] | null => {
@@ -1596,7 +1598,8 @@ export function applyRowEditV2(
       intent.state === "needs_review" && intent.id === command.transitionId &&
       intent.fromRowId === command.fromRowId && intent.toRowId === command.toRowId);
     const from = blocks.find((block): block is Row => block.type !== "section" && block.id === command.fromRowId);
-    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId);
+    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId) ??
+      (reviewed && command.fromRowId === undefined ? stashRowById(working, command.toRowId) : undefined);
     const divider = rowTransitionDividerV2(blocks, command.fromRowId, command.toRowId) ??
       (reviewed && to && (command.fromRowId === undefined || from) ? { from, to } : null);
     if (!divider) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the opening divider, two consecutive rows, or an exact saved transition that needs review.");
