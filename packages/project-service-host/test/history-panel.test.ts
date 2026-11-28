@@ -258,7 +258,9 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
 
     let deliver!: (receipt: CheckpointCreateReceipt) => void;
     const heldMutation = new Promise<CheckpointCreateReceipt>(resolve => { deliver = resolve; });
-    const changing = createHistoryControls({ api: { ...f.api, createCheckpoint: () => heldMutation }, makeId: (() => {
+    let deliverNew!: (receipt: CheckpointCreateReceipt) => void;
+    const newMutation = new Promise<CheckpointCreateReceipt>(resolve => { deliverNew = resolve; });
+    const changing = createHistoryControls({ api: { ...f.api, createCheckpoint: p => p === project ? heldMutation : newMutation }, makeId: (() => {
       let next = 200; return () => id(next++);
     })() });
     changing.setContext({ projectId: project, capabilities: capabilities("producer"), savedHead: 2 });
@@ -266,10 +268,15 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     expect(changing.snapshot().mutation.busy).toBe(true);
     changing.setContext({ projectId: other.projectId, capabilities: capabilities("producer"), savedHead: 0 });
     await changing.refresh();
+    const creatingNew = changing.create("New project");
     deliver(await f.api.createCheckpoint(project, { checkpointId: id(200), clientMutationId: id(201), name: "Old project", sourceRevision: 2 }));
     await creating;
     expect(changing.snapshot().context.projectId).toBe(other.projectId);
-    expect(changing.snapshot().mutation).toMatchObject({ busy: false, pending: null, error: null });
+    expect(changing.snapshot().mutation).toMatchObject({ busy: true, pending: { checkpointId: id(202) } });
     expect(changing.snapshot().checkpoints.items).toEqual([]);
+    deliverNew(await f.api.createCheckpoint(other.projectId, { checkpointId: id(202), clientMutationId: id(203), name: "New project", sourceRevision: 0 }));
+    await creatingNew;
+    expect(changing.snapshot().mutation).toMatchObject({ busy: false, pending: null, error: null });
+    expect(changing.snapshot().checkpoints.items.map(c => c.checkpointId)).toEqual([id(202)]);
   });
 });
