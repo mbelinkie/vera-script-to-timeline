@@ -91,6 +91,6 @@ npm exec --yes --package=node@24.19.0 -- .venv/bin/python \
 ~~~
 
 The command creates a disposable project and performs the save, close and
-reopen verification. Expect one A5 cue at source and record frames [0,96),
+reopen verification. Expect one A5 cue at source and record frames [0,72),
 −12 dB and six-frame fades. Its WAV contains exactly original samples
 [48000,240000). The check takes a single short build and uses synthetic media.

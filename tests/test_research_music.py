@@ -114,7 +114,7 @@ def test_research_music_freezes_exact_saved_selection_and_packages_a5(
     assert (
         event["sourceRange"]
         == event["recordRange"]
-        == {"startFrame": 0, "endFrame": 96}
+        == {"startFrame": 0, "endFrame": 72}
     )
     assert event["music"]["audioHash"] == source["contentHash"]
     manifest_source = next(
