@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFile } from "node:fs/promises";
+import { chromium } from "playwright";
 import { canPerformProjectAction, type ProjectAction, type ProjectRole } from "@vera/project-authorization";
 import { createProjectApiHandler, type DocumentHistoryPage, type CheckpointPage,
   type CreateCheckpointInput, type ApproveCheckpointInput, type CheckpointCreateReceipt } from "@vera/project-documents";
 import { harness, initialProject } from "../../project-documents/test/helpers.js";
-import { createHistoryControls, type HistoryApi } from "../browser/history-panel.js";
+import { createHistoryControls, type HistoryApi, type HistoryContext } from "../browser/history-panel.js";
 
 vi.setConfig({ testTimeout: 90_000 });
 const cleanups: Array<() => Promise<void>> = [];
@@ -53,6 +55,83 @@ async function fixture() {
 }
 
 describe("history controls using stored, attributed HTTP fixtures", () => {
+  it("mounts the standalone controls in Chromium and hands exact saved selections to the child callbacks", async () => {
+    const f = await fixture();
+    const projectId = f.initial.projectId;
+    f.as("editor");
+    await f.api.createCheckpoint(projectId, { checkpointId: id(40), clientMutationId: id(41), name: "First cut", sourceRevision: 1 });
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({ viewport: { width: 380, height: 800 } });
+      const errors: string[] = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.exposeFunction("listRevisions", f.api.listDocumentRevisions);
+      await page.exposeFunction("listCheckpoints", f.api.listCheckpoints);
+      await page.exposeFunction("getCheckpoint", f.api.getCheckpoint);
+      await page.exposeFunction("createCheckpoint", f.api.createCheckpoint);
+      await page.exposeFunction("approveCheckpoint", f.api.approveCheckpoint);
+      const selections: unknown[] = [], restores: unknown[] = [];
+      await page.exposeFunction("recordComparison", (selection: unknown) => { selections.push(selection); });
+      await page.exposeFunction("recordRestore", (selection: unknown) => { restores.push(selection); });
+      await page.route("http://history-panel.test/**", async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === "/history-panel.js" || path === "/history-panel.css") {
+          await route.fulfill({ contentType: path.endsWith(".js") ? "text/javascript" : "text/css", body: await readFile(new URL("../browser" + path, import.meta.url), "utf8") });
+        } else {
+          await route.fulfill({ contentType: "text/html", body: `<!doctype html><link rel="stylesheet" href="/history-panel.css"><main id="panel"></main>
+            <script type="module">
+              import { mountHistoryPanel } from '/history-panel.js';
+              const api = { listDocumentRevisions: listRevisions, listCheckpoints, getCheckpoint, createCheckpoint, approveCheckpoint };
+              window.panel = mountHistoryPanel({ root: document.querySelector('#panel'), api, pageSize: 1,
+                onCompare: ({mount, checkpoint, toRevision}) => { mount.textContent = 'Comparison child'; void recordComparison({checkpoint, toRevision}); },
+                onRestore: selection => { void recordRestore(selection); } });
+            </script>` });
+        }
+      });
+      await page.goto("http://history-panel.test/");
+      const set = async (role: ProjectRole, savedHead: number | null) => {
+        f.as(role === "producer" ? "owner" : role);
+        await page.evaluate(async context => {
+          await (window as unknown as {panel: {setContext(context: HistoryContext): Promise<void>}}).panel.setContext(context);
+        }, { projectId, capabilities: capabilities(role), savedHead });
+      };
+      await set("viewer", 2);
+      const checkpoint = page.locator(`[data-checkpoint-id="${id(40)}"]`);
+      expect(await checkpoint.innerText()).toContain("First cut");
+      expect(await checkpoint.innerText()).toContain(f.editor.principalId);
+      expect(await checkpoint.innerText()).toContain("Not approved");
+      expect(await page.getByRole("button", { name: "Save checkpoint" }).count()).toBe(0);
+      expect(await page.getByRole("button", { name: "Approve", exact: true }).count()).toBe(0);
+      expect(await page.getByRole("button", { name: "Restore", exact: true }).count()).toBe(0);
+      await page.getByRole("button", { name: "Load more revisions" }).click();
+      await expect.poll(() => page.locator("[data-revision]").count()).toBe(2);
+      expect(await page.locator('[data-revision="2"]').innerText()).toContain(f.owner.principalId);
+      expect(await page.locator('[data-revision="1"]').innerText()).toContain(f.editor.principalId);
+      await checkpoint.getByRole("button", { name: "Compare with now" }).click();
+      await expect.poll(() => selections.length).toBe(1);
+      expect(selections[0]).toMatchObject({ checkpoint: { checkpointId: id(40), sourceRevision: 1, sourceDigest: f.first.digest, document: { title: "Editor revision" } }, toRevision: 2 });
+      expect(await page.locator(".history-panel__comparison").innerText()).toBe("Comparison child");
+      await set("editor", null);
+      expect(await page.locator(".history-panel__comparison").innerText()).toBe("");
+      expect(await page.getByRole("button", { name: "Save checkpoint" }).isDisabled()).toBe(true);
+      await set("editor", 2);
+      await checkpoint.getByRole("button", { name: "Restore" }).click();
+      await expect.poll(() => restores.length).toBe(1);
+      expect(restores[0]).toEqual({ projectId, checkpointId: id(40) });
+      await page.getByRole("textbox").fill("Second cut");
+      await page.getByRole("button", { name: "Save checkpoint" }).click();
+      await expect.poll(() => page.locator("[data-checkpoint-id]").first().innerText()).toContain("Second cut");
+      expect(await page.getByRole("button", { name: "Approve", exact: true }).count()).toBe(0);
+      await set("producer", 2);
+      const newest = page.locator("[data-checkpoint-id]").first();
+      await newest.getByRole("button", { name: "Approve", exact: true }).click();
+      await expect.poll(() => newest.innerText()).toContain("Approved · " + f.owner.principalId);
+      expect(await newest.getByRole("button", { name: "Approve", exact: true }).count()).toBe(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      expect(errors).toEqual([]);
+    } finally { await browser.close(); }
+  });
+
   it("pages stable identities, gates actions and retries an identical committed checkpoint/approval after a lost response", async () => {
     const f = await fixture();
     const projectId = f.initial.projectId;
