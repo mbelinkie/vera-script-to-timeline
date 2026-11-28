@@ -1,0 +1,8 @@
+.history-panel { display: grid; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.history-panel h2, .history-panel h3, .history-panel p { margin: 0; }
+.history-panel__body, .history-panel__body section, .history-panel__body form { display: grid; gap: 8px; min-width: 0; }
+.history-panel__body ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.history-panel__body li, .history-panel__body form { border: 1px solid #8b929e; border-radius: 7px; padding: 10px; }
+.history-panel__body li > * { margin: 3px 6px 3px 0; }
+.history-panel__body input { display: block; width: 100%; box-sizing: border-box; }
+.history-panel__comparison:empty { display: none; }
