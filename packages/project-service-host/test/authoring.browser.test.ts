@@ -405,7 +405,7 @@ async function saveDocumentFixture(page: Page, projectId: string, document: Scri
     clientMutationId: randomUUID(),
     document,
   });
-  expect(response.status).toBe(200);
+  expect(response.status, JSON.stringify(response.body)).toBe(200);
 }
 
 async function narrationRowFromApi(page: Page, projectId: string, rowId: string): Promise<Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> | null> {
@@ -5495,7 +5495,7 @@ describe("browser authoring over the local project service", () => {
         });
         const cueId = randomUUID();
         const original = { id: cueId, startRowId: first.id, endRowId: last.id,
-          source: { mediaReferenceId: randomUUID(), artifactId: randomUUID(), artifactVersion: 1, contentHash: createHash("sha256").update("generated music").digest("hex") },
+          source: { mediaReferenceId: randomUUID(), artifactId: randomUUID(), artifactVersion: 1, contentHash: `sha256:${createHash("sha256").update("generated music").digest("hex")}` },
           settings: { gainDb: -12, fadeOutMs: 500 },
           timing: { sourceInFrame: 12, timelineIn: pin(first, 1, "before"), timelineOut: pin(last, 0, "after") } };
         seeded.document.rowAudioSpans = [original];
