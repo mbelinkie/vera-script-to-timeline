@@ -20,6 +20,7 @@ const project = "/api/projects/" + researchId;
 const list = origin + "/authoring/research/" + timelineId + "/projects/" + researchId + "/music";
 const browserHeaders = { "x-vera-authoring": "1", "sec-fetch-site": "same-origin", origin };
 const cwd = fileURLToPath(new URL("../../../", import.meta.url));
+const requestUrl = (input: Parameters<typeof fetch>[0]) => new URL(input instanceof Request ? input.url : input);
 
 function generatedWav() {
   const wav = Buffer.alloc(44 + 5 * 48_000 * 2);
@@ -49,9 +50,7 @@ function setup() {
   const manifest = { durationMs: 5000, playbackDurationMs: 5000,
     mimeType: "audio/wav", playbackSha256: playbackHash.slice(7), origin: { kind: "url" } };
   const state = { visible: true, corrupt: false, denyEdit: false, denyView: false, changeDuringPlayback: false, absent: false };
-  const request = vi.fn<typeof fetch>(async (input, init) => {
-    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer research-fixture");
-    const url = new URL(String(input));
+  function respond(url: URL): Response {
     if (url.pathname === "/api/projects") return Response.json(state.visible ? [{ id: researchId, name: "Research fixture" }] : []);
     if (url.pathname === project + "/items") {
       expect(url.search).toBe("?kind=audio&limit=13&offset=0");
@@ -69,11 +68,16 @@ function setup() {
       });
     }
     return new Response(null, { status: 404 });
+  }
+  const request = vi.fn<typeof fetch>((input, init) => {
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer research-fixture");
+    return Promise.resolve(respond(requestUrl(input)));
   });
   const catalog = createResearchClient({ bearer: "research-fixture", request });
-  const authorizeTimelineProject = vi.fn(async (_id: string, action = "view_document") => {
-    if (state.denyView || state.denyEdit && action === "edit_document") throw new ProjectAuthError("action_not_allowed", 403);
-  });
+  const authorizeTimelineProject = vi.fn((_id: string, action = "view_document") =>
+    state.denyView || state.denyEdit && action === "edit_document"
+      ? Promise.reject(new ProjectAuthError("action_not_allowed", 403))
+      : Promise.resolve());
   const research = { catalog, authorizeTimelineProject };
   const config = { projectId: timelineId, mediaRoot: "/unused", cwd, python: join(cwd, ".venv/bin/python") };
   const host = createAuthoringHandler(origin, editorBearer, () => Promise.resolve(new Response(null, { status: 500 })),
@@ -101,7 +105,7 @@ describe("project Research Music", () => {
     expect(await (await listChoices())?.json()).toEqual({
       music: [{ status: "candidate", selection }], nextOffset: null,
     });
-    expect(request.mock.calls.some(([url]) => String(url).endsWith("/playback"))).toBe(false);
+    expect(request.mock.calls.some(([input]) => requestUrl(input).pathname.endsWith("/playback"))).toBe(false);
     manifest.origin.kind = "file";
     expect(await (await listChoices())?.json()).toMatchObject({
       music: [{ status: "relink_required", selection: { itemId, title: "Harbor score" } }],
