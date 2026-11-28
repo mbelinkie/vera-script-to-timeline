@@ -518,6 +518,25 @@ describe("#579 split/join review regressions", () => {
 });
 
 describe("#579 what still points at a split or joined row", () => {
+  it("follows a music cue's word and trailing edge through a split and join", () => {
+    const row = rowOf(1, "one two three four");
+    const cue = span(70, row.id, row.id);
+    const word = row.tokens[2]!;
+    cue.timing = {
+      sourceInFrame: 0,
+      timelineIn: { kind: "word", anchor: { blockId: row.id, tokenId: word.id, affinity: "before", quotedWord: word.value, anchorVersion: row.version } },
+      timelineOut: { kind: "row_edge", blockId: row.id, edge: "end" },
+    };
+    const initial = documentOf([row], { rowAudioSpans: [cue] });
+    const split = apply(initial, { kind: "split_row", rowId: row.id, newRowId: NEW_ROW, at: { beforeTokenId: word.id } });
+    expect(split.rowAudioSpans?.[0]).toMatchObject({
+      endRowId: NEW_ROW,
+      timing: { timelineIn: { anchor: { blockId: NEW_ROW, tokenId: word.id } }, timelineOut: { blockId: NEW_ROW, edge: "end" } },
+    });
+    const joined = apply(split, { kind: "join_rows", rowId: NEW_ROW, direction: "previous", words: null });
+    expect(joined.rowAudioSpans).toEqual([cue]);
+  });
+
   const A = 1;
   const B = 2;
   const C = 3;

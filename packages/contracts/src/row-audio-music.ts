@@ -1,3 +1,5 @@
+import type { RationalRate } from "./generated/contracts-v2.js";
+
 /** One duration-bearing, active program row in compiled timeline order. */
 export interface MusicRowBounds {
   id: string;
@@ -32,6 +34,22 @@ export function availableMusicFrames(
     throw new RangeError("music duration exceeds safe frame range");
   }
   return Number(available);
+}
+
+/** Quantize an explicit fade upward to whole frames within the delivered cue. */
+export function resolveMusicFadeOutFrames(fadeOutMs: number, cueFrames: number, rate: RationalRate): number {
+  if (!Number.isSafeInteger(fadeOutMs) || fadeOutMs < 0) {
+    throw new RangeError("Music fade-out must be a nonnegative whole number of milliseconds.");
+  }
+  if (![cueFrames, rate.numerator, rate.denominator].every((value) => Number.isSafeInteger(value) && value > 0)) {
+    throw new RangeError("Music fade-out needs a positive exact cue duration and frame rate.");
+  }
+  const units = 1000n * BigInt(rate.denominator);
+  const requested = BigInt(fadeOutMs) * BigInt(rate.numerator);
+  if (requested > BigInt(cueFrames) * units) {
+    throw new RangeError("Music fade-out is longer than the cue. Shorten the fade or extend the cue.");
+  }
+  return Number((requested + units - 1n) / units);
 }
 
 export function planAnchoredMusicFrames(

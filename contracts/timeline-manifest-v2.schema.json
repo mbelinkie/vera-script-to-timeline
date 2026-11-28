@@ -545,7 +545,7 @@
       ]
     },
     "MusicEventV2": {
-      "description": "Fixed six-frame-or-shorter fade treatment for the explicitly pinned music bed; sourceRange in TimelineEventV2 is in full timeline-rate frames.",
+      "description": "Verified music bed treatment in timeline-rate frames. The fade-out may be authored and cannot exceed the cue duration.",
       "type": "object",
       "additionalProperties": false,
       "required": ["spanId", "startRowId", "endRowId", "audioHash", "gainDb", "fadeInFrames", "fadeOutFrames", "requestedEndFrame"],
@@ -556,7 +556,7 @@
         "audioHash": { "$ref": "#/$defs/ContentHash" },
         "gainDb": { "type": "number", "minimum": -60, "maximum": 0 },
         "fadeInFrames": { "type": "integer", "minimum": 0, "maximum": 6 },
-        "fadeOutFrames": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "fadeOutFrames": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger" },
         "requestedEndFrame": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger" }
       }
     },

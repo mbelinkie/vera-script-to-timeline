@@ -52,7 +52,7 @@ import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { decideTransitionBoundary, requestedTransitionFrames } from "./transition-boundary-v2.js";
-import { availableMusicFrames, planAnchoredMusicFrames, planMusicSpanFrames } from "./row-audio-music.js";
+import { availableMusicFrames, planAnchoredMusicFrames, planMusicSpanFrames, resolveMusicFadeOutFrames } from "./row-audio-music.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -246,11 +246,12 @@ function musicBindingProblem(document: ScriptDocumentV2, deps: CompilerDependenc
 
 function musicSettingsSupported(settings: Record<string, unknown>): boolean {
   return Object.entries(settings).every(([key, value]) => key === "gainDb" && typeof value === "number" && Number.isFinite(value) && value >= -60 && value <= 0 ||
+    key === "fadeOutMs" && typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ||
     key === "trimStartFrames" && value === 0 || key === "endpointMode" && value === "row_end" || key === "loop" && value === false ||
     (key === "fadeInFrames" || key === "fadeOutFrames") && value === 6);
 }
 
-function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependenciesV2, rows: ProgramRow[]): {
+function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependenciesV2, rows: ProgramRow[], anchorReviews: ReadonlyMap<string, string>): {
   sources: TimelineManifestV2["sources"]; events: TimelineEventV2[]; diagnostics: BuildDiagnosticV2[];
   markers: { event: TimelineEventV2; short: boolean }[];
 } {
@@ -303,6 +304,9 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
   };
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
+    const blockPlacement = (message: string): void => {
+      diagnostics.push(diagnostic("MUSIC_SPAN_INVALID", message, target, { kind: "details", message }, ["manual_review"]));
+    };
     const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string, frame = bounds.find((row) => row.id === span.startRowId)?.startFrame): void => {
       diagnostics.push(diagnostic(code, message, target, { kind: "details", message }, ["none"], "warning"));
       const trackId = deps.roles.markerTrackId;
@@ -314,7 +318,16 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
         sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
         marker: { supportingItemId: span.id, text: message } } });
     };
-    const settings = span.settings as Record<string, unknown>;
+    const anchorReview = anchorReviews.get(span.id);
+    if (anchorReview !== undefined) {
+      blockPlacement(anchorReview);
+      continue;
+    }
+    const settings = span.settings;
+    if (settings.fadeOutMs !== undefined && Object.hasOwn(settings, "fadeOutFrames")) {
+      blockPlacement("The music cue has both an explicit fade-out duration and a legacy fade-out. Set the fade-out again to replace the legacy value.");
+      continue;
+    }
     if (!musicSettingsSupported(settings)) {
       warn("MUSIC_SETTINGS_UNSUPPORTED", `Music span ${span.id} requests an unsupported gain, trim, endpoint, loop or fade; the cue was omitted for review.`);
       continue;
@@ -339,8 +352,7 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
         : planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
     } catch (error) {
       if (span.timing) {
-        const message = error instanceof Error ? error.message : String(error);
-        diagnostics.push(diagnostic("MUSIC_SPAN_INVALID", message, target, { kind: "details", message }, ["manual_review"]));
+        blockPlacement(error instanceof Error ? error.message : String(error));
       } else {
         warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
       }
@@ -349,6 +361,17 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     if (!geometry) {
       warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} cannot supply one complete timeline frame; the cue was omitted.`);
       continue;
+    }
+    let fadeOutFrames = geometry.fadeOutFrames;
+    if (settings.fadeOutMs !== undefined) {
+      try {
+        fadeOutFrames = resolveMusicFadeOutFrames(
+          settings.fadeOutMs, geometry.recordRange.endFrame - geometry.recordRange.startFrame, deps.timeline.frameRate,
+        );
+      } catch (error) {
+        blockPlacement(error instanceof Error ? error.message : String(error));
+        continue;
+      }
     }
     const trackId = deps.roles.musicTrackId;
     const track = deps.tracks.find((item) => item.id === trackId);
@@ -364,8 +387,8 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
       provenance: { documentId: document.id, blockId: matchedVisual?.block.id ?? span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId,
         originalSourceHash: span.source.contentHash, deliveredSourceHash: span.source.contentHash, timingMapHash: null, compilerVersion: deps.compiler.version },
       sourceRange: geometry.sourceRange, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
-      music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: (settings.gainDb as number | undefined) ?? -12,
-        fadeInFrames: geometry.fadeInFrames, fadeOutFrames: geometry.fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
+      music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: settings.gainDb ?? -12,
+        fadeInFrames: geometry.fadeInFrames, fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
     if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends early at timeline frame ${geometry.recordRange.endFrame}; ${geometry.requestedEndFrame - geometry.recordRange.endFrame} frames are uncovered.`, geometry.recordRange.endFrame);
   }
   // Validate the emitted ranges, not the requested row spans: a short source
@@ -2378,7 +2401,9 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       const eventId = stableId(`narration:${document.id}:${row.block.id}:${row.map.audio!.narrationAssetId}`);
       resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });
     }
-    const music = compileMusicSpans(document, dependencies, resolved.timedRows);
+    const musicAnchorReviews = new Map(validDocument.diagnostics.flatMap((item) =>
+      item.code === "MUSIC_CUE_ANCHOR_REVIEW" && item.entityId ? [[item.entityId, item.message] as const] : []));
+    const music = compileMusicSpans(document, dependencies, resolved.timedRows, musicAnchorReviews);
     for (const row of resolved.timedRows) {
       if (row.kind !== "visual_only") continue;
       const match = (row.visual?.visualOnlyTiming ?? row.block.visualOnlyTiming).matchAudioDuration;

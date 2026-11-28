@@ -1609,18 +1609,34 @@ def test_music_native_plan_refuses_changed_signed_source_track_or_mix(
         workflow_v2._verify_native_otio_plan(changed)
 
 
-def test_music_native_configuration_is_exact_and_reopened_readback_agrees() -> None:
+@pytest.mark.parametrize("fade_out", [5, 12, 72])
+def test_music_native_configuration_is_exact_and_reopened_readback_agrees(
+    fade_out: int,
+) -> None:
     adapter, item, view = _native_music_fixture()
     event = view["events"][0]
+    if fade_out > 5:
+        item.duration = 96
+        item.source_end = 95
+        adapter.timeline.GetEndFrame = lambda: 96
+        view["timeline"]["durationFrames"] = 96
+        for key in ("recordRange", "sourceRange"):
+            event[key]["durationFrames"] = 96
+        event["musicTreatment"].update({"fadeInFrames": 6, "fadeOutFrames": fade_out})
     adapter._configure_native_music(event)
     assert item.properties == {"AudioVolumeEnabled": True, "AudioVolume": -12}
-    assert item.fades == {"FadeIn": 5, "FadeOut": 5}
+    assert item.fades == {
+        "FadeIn": event["musicTreatment"]["fadeInFrames"],
+        "FadeOut": fade_out,
+    }
     assert adapter.expected_properties[event["id"]] == item.properties
     assert adapter.expected_fades[event["id"]] == item.fades
-    adapter.expected_source_ranges[event["id"]] = (0, 9)
+    adapter.expected_source_ranges[event["id"]] = (0, item.source_end)
     adapter.expected_stamps[event["id"]] = "bound-event-stamp"
     item.AddMarker(0, "Cyan", "VERA v2 event", event["id"], 1, "bound-event-stamp")
     assert adapter.verify(view) == ()
+    item.fades["FadeOut"] -= 1
+    assert "event-music-fades" in adapter.verify(view)
 
 
 def test_music_exclusive_end_requires_matching_source_times_and_speed() -> None:

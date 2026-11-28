@@ -1,6 +1,7 @@
 import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2, VisualSequenceEditResultV2 } from "./authoring-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+import { editMusicCueV2, type MusicCueEditV2, type MusicCueEditResultV2 } from "./authoring-v2-music-cues.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
@@ -1256,6 +1257,8 @@ function audioSpanTouchesRows(document: ScriptDocumentV2, selected: Set<string>)
   const places = locations(document);
   return (document.rowAudioSpans ?? []).some((span) => {
     if (selected.has(span.startRowId) || selected.has(span.endRowId)) return true;
+    if ([span.timing?.timelineIn, span.timing?.timelineOut].some((point) =>
+      point?.kind === "word" ? selected.has(point.anchor.blockId) : point?.kind === "row_edge" && selected.has(point.blockId))) return true;
     const samePlace = places.find((part) => part.rows.some((row) => row.id === span.startRowId) && part.rows.some((row) => row.id === span.endRowId));
     if (samePlace) {
       const start = samePlace.rows.findIndex((row) => row.id === span.startRowId);
@@ -2899,6 +2902,17 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2, projectHoldMs 
       revision++;
       current = { ...result.document, rowEditRevision: revision };
       return { ...result, document: structuredClone(current) };
+    },
+    applyMusicCueEdit(edit: MusicCueEditV2, expectedRevision = revision): MusicCueEditResultV2 {
+      const result = editMusicCueV2(current, expectedRevision, edit);
+      if (result.ok) {
+        history.push(current);
+        redoHistory.length = 0;
+        lastSplit = null;
+        current = result.document;
+        revision++;
+      }
+      return { ...result, document: structuredClone(result.document) };
     },
     undo(): RowEditResultV2 {
       if (revision === Number.MAX_SAFE_INTEGER) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session revision cannot advance.");

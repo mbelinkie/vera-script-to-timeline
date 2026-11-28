@@ -1356,10 +1356,14 @@ export interface RowAudioSpanIntentV2 {
   endRowId: string;
   source: RowAudioSourceV2;
   /**
-   * Music build recognizes gainDb (-60 through 0 dB, default -12). Legacy probe settings remain saved for review; unsupported audible effects are rejected by the compiler, not silently applied.
+   * Per-cue gain and optional fade-out duration. Legacy probe settings can still be saved; the compiler checks which settings it can deliver.
    */
   settings: {
     gainDb?: number;
+    /**
+     * Explicit fade-out in milliseconds, including zero. Omit for the legacy short fade.
+     */
+    fadeOutMs?: number;
     [k: string]: unknown;
   };
   timing?: MusicCueTimingV2;
@@ -2040,7 +2044,7 @@ export interface EventProvenanceV2 {
     "reviewed_audio_boundaries/v1" | "measured_audio_boundaries/v1";
 }
 /**
- * Fixed six-frame-or-shorter fade treatment for the explicitly pinned music bed; sourceRange in TimelineEventV2 is in full timeline-rate frames.
+ * Verified music bed treatment in timeline-rate frames. The fade-out may be authored and cannot exceed the cue duration.
  */
 export interface MusicEventV2 {
   spanId: string;
