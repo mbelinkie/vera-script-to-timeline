@@ -2137,19 +2137,25 @@ def observe_current_timeline_v2(
     for plan in applicable_transitions:
         matched_tracks = [t for t in tracks if t["id"] == plan["trackId"]]
         boundary_track = matched_tracks[0] if len(matched_tracks) == 1 else None
-        outgoing = expected_events.get(plan["outgoingEventId"])
+        opening = "outgoingEventId" not in plan
+        outgoing = expected_events.get(plan.get("outgoingEventId"))
         incoming = expected_events.get(plan["incomingEventId"])
         if (
             boundary_track is None
             or boundary_track["kind"] != "video"
-            or outgoing is None
             or incoming is None
-            or outgoing["trackId"] != boundary_track["id"]
             or incoming["trackId"] != boundary_track["id"]
-            or outgoing["recordRange"]["startFrame"]
-            + outgoing["recordRange"]["durationFrames"]
-            != plan["boundaryFrame"]
             or incoming["recordRange"]["startFrame"] != plan["boundaryFrame"]
+            or (
+                not opening
+                and (
+                    outgoing is None
+                    or outgoing["trackId"] != boundary_track["id"]
+                    or outgoing["recordRange"]["startFrame"]
+                    + outgoing["recordRange"]["durationFrames"]
+                    != plan["boundaryFrame"]
+                )
+            )
         ):
             raise WorkflowV2Error("signed transition row boundary differs")
         matched = [
@@ -2293,15 +2299,15 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             raise WorkflowV2Error("live native boundary inventory is unknown")
         edges: dict[str, Any] = {}
         transitions: list[Any] = []
+        event_ids = {"incoming": plan["incomingEventId"]}
+        if "outgoingEventId" in plan:
+            event_ids["outgoing"] = plan["outgoingEventId"]
         for item in items:
             if item.GetType() == "transition":
                 if item.GetStart() <= plan["boundaryFrame"] <= item.GetEnd():
                     transitions.append(item)
                 continue
-            for side, event_id in (
-                ("outgoing", plan["outgoingEventId"]),
-                ("incoming", plan["incomingEventId"]),
-            ):
+            for side, event_id in event_ids.items():
                 if item.GetMarkerCustomData(0) == self.expected_stamps.get(event_id):
                     if side in edges:
                         raise WorkflowV2Error("native boundary marker is duplicated")
@@ -2325,13 +2331,13 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             "native boundary event range or media changed"
                         )
                     edges[side] = item
-        if set(edges) != {"outgoing", "incoming"} or len(transitions) > 1:
+        if edges.keys() != event_ids.keys() or len(transitions) > 1:
             raise WorkflowV2Error(
                 "native boundary clip/transition inventory is ambiguous"
             )
         return {
             **edges,
-            "outgoingId": plan["outgoingEventId"],
+            "outgoingId": plan.get("outgoingEventId"),
             "incomingId": plan["incomingEventId"],
             "transition": transitions[0] if transitions else None,
         }
@@ -2924,7 +2930,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         discrepancies: list[str] = []
         transition_source_handles: dict[str, tuple[int, int]] = {}
         for plan in getattr(self, "_v2_transition_plans", ()):
-            if plan["disposition"] != "apply":
+            if plan["disposition"] != "apply" or "outgoingEventId" not in plan:
                 continue
             outgoing, incoming = plan["outgoingEventId"], plan["incomingEventId"]
             transition_source_handles[outgoing] = (
@@ -4206,6 +4212,10 @@ def run_workflow_delivery_v2(
                     "native OTIO treatment lacks qualification on this Studio build"
                 )
         if has_native_transitions and connected_identity != ("21.1.1", "10"):
+            if any("outgoingEventId" not in plan for plan in transition_plans):
+                raise WorkflowV2Error(
+                    "Opening fades at frame zero require Resolve Studio 21.1.1 build 10."
+                )
             raise WorkflowV2Error(
                 "native Cross Dissolve requires measured Studio 21.1.1 build 10"
             )

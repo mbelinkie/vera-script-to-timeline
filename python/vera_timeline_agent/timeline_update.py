@@ -121,7 +121,7 @@ def _transitions(manifest: Mapping[str, Any], row_id: str) -> dict[str, Any]:
     return {
         plan["id"]: _strip(plan, _TRANSITION_IDENTITY_FIELDS)
         for plan in manifest.get("transitions", [])
-        if row_id in (plan["fromRowId"], plan["toRowId"])
+        if row_id in (plan.get("fromRowId"), plan["toRowId"])
     }
 
 
@@ -294,7 +294,7 @@ def _retime_row(
     }
     for plan in current_manifest.get("transitions", []):
         if (
-            row_id in (plan["fromRowId"], plan["toRowId"])
+            row_id in (plan.get("fromRowId"), plan["toRowId"])
             and plan["disposition"] == "apply"
             and plan["id"] not in old_ids
         ):
@@ -308,7 +308,17 @@ def _retime_row(
     by_event = {edit["previousEventId"]: edit for edit in edits}
     new_plans = {plan["id"]: plan for plan in current_manifest.get("transitions", [])}
     for old_plan in baseline_manifest.get("transitions", []):
-        if old_plan["fromRowId"] != row_id or old_plan["disposition"] != "apply":
+        if "fromRowId" not in old_plan and old_plan["toRowId"] == row_id:
+            if (
+                new_plans.get(old_plan["id"]) != old_plan
+                or old_plan["incomingEventId"] in by_event
+            ):
+                return (
+                    "The opening fade or its picture changed. Rebuild the timeline to keep the fade.",
+                    [],
+                    [],
+                )
+        if old_plan.get("fromRowId") != row_id or old_plan["disposition"] != "apply":
             continue
         new_plan = new_plans.get(old_plan["id"])
         if new_plan is None or _relative(old_plan) != _relative(new_plan):

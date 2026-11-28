@@ -603,9 +603,18 @@ def _dependency_facts(
     for raw in _array(manifest.get("transitions", []), "compiled transitions"):
         transition = _object(raw, "compiled transition")
         transition_id = _id(transition.get("id"), "transition ID")
-        left = _id(transition.get("fromRowId"), "transition from-row ID")
         right = _id(transition.get("toRowId"), "transition to-row ID")
-        if left not in positions or right not in positions or left == right:
+        opening = "fromRowId" not in transition
+        left = (
+            right
+            if opening
+            else _id(transition.get("fromRowId"), "transition from-row ID")
+        )
+        if (
+            left not in positions
+            or right not in positions
+            or (not opening and left == right)
+        ):
             raise ValueError("transition references missing or identical script rows")
         if left not in envelopes:
             raise ValueError("transition has no outgoing row geometry")
@@ -617,13 +626,13 @@ def _dependency_facts(
             )
         if normalized["endFrame"] <= normalized["startFrame"]:
             raise ValueError("invalid transition interval")
-        adjacent = positions[right] == positions[left] + 1
+        adjacent = positions[right] == (0 if opening else positions[left] + 1)
         normalized["adjacentInScript"] = adjacent
         key = ("transition", transition_id)
         if key in facts:
             raise ValueError("duplicate transition ID")
         facts[key] = {
-            "members": (left, right),
+            "members": (right,) if opening else (left, right),
             "signature": json.dumps(normalized, sort_keys=True, separators=(",", ":")),
             "adjacent": adjacent,
         }

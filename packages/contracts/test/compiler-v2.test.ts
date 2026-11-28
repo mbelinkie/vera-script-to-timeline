@@ -1203,7 +1203,7 @@ describe("#590 transition dividers", () => {
     readTransitionGolden("two-row-24-frame", section);
   });
 
-  it("refuses an active opening fade explicitly and compiles dormant or Cut intent normally", () => {
+  it("signs a qualified frame-zero fade and refuses unsupported opening placements", () => {
     const { doc, deps } = transitionRowsFixture("apply");
     const fade = { id: id(201), toRowId: doc.activeDraft.blocks[0]!.id, effect: "Cross Dissolve",
       settings: { durationFrames: 24, alignment: "right" }, state: "active" as const };
@@ -1214,17 +1214,16 @@ describe("#590 transition dividers", () => {
     doc.rowTransitions!.push(fade);
     const needs = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
       sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
-    const refused = [resolveMediaRequirementsV2(doc, needs), compileTimelineV2(doc, deps)];
-    for (const result of refused) {
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.diagnostics.map((diagnostic) => diagnostic.message))
-        .toEqual(["Opening fade delivery at frame zero has not been verified in Resolve."]);
-    }
+    expect(resolveMediaRequirementsV2(doc, needs).ok).toBe(true);
+    const noHandle = compileTimelineV2(doc, deps);
+    expect(noHandle.ok).toBe(false);
+    if (!noHandle.ok) expect(noHandle.diagnostics[0]?.message).toContain("delivered source handle");
 
     for (const [settings, message] of [
       [{ durationFrames: 23 }, /supported even frame count/],
       [{ durationFrames: 24, alignment: "center" }, /must extend right from frame zero/],
       [{ durationFrames: 98 }, /cover the full opening fade/],
+      [{ durationFrames: 12 }, /support 24 frames at 24 fps/],
     ] as const) {
       doc.rowTransitions![1] = { ...fade, settings };
       const result = compileTimelineV2(doc, deps);

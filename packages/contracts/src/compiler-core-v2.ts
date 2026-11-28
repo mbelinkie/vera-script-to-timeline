@@ -863,11 +863,9 @@ function joinAdjacentQuoteBackgrounds(document: ScriptDocumentV2, plan: Resolved
   return joinedSources;
 }
 
-class OpeningFadeUnqualified extends RangeError {}
-
 interface FrozenTransitionPair {
-  pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number] & { fromRowId: string };
-  fromPayloadId: string;
+  pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number];
+  fromPayloadId?: string;
   toPayloadId: string;
   boundaryFrame: number;
   durationFrames: number;
@@ -933,8 +931,14 @@ function freezeRowTransitions(document: ScriptDocumentV2, dependencies: Compiler
       if (!first || first.block.id !== pair.toRowId || first.startFrame !== 0 || first.durationFrames < duration) {
         throw new RangeError("The first picture must start at frame zero and cover the full opening fade.");
       }
-      rootClip(first);
-      throw new OpeningFadeUnqualified("Opening fade delivery at frame zero has not been verified in Resolve.");
+      if (rate.numerator !== 24 || rate.denominator !== 1 || duration !== 24) {
+        throw new RangeError("Opening fades support 24 frames at 24 fps in Resolve.");
+      }
+      const incoming = rootClip(first);
+      if (claimedBoundaries.has(0)) throw new RangeError("Only one opening fade can occupy frame zero.");
+      claimedBoundaries.add(0);
+      pairs.push({ pair, toPayloadId: incoming.payloadId, boundaryFrame: 0, durationFrames: duration, alignment: "right", disposition: "apply" });
+      continue;
     }
     const fromIndex = rows.findIndex((row) => row.block.id === fromRowId);
     if (fromIndex < 0 || rows[fromIndex + 1]?.block.id !== pair.toRowId) throw new RangeError(`Transition ${pair.id} does not name two currently adjacent active picture rows`);
@@ -977,8 +981,17 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
       if (candidates.length !== 1 || !candidates[0]!.sourceRange) throw new RangeError(`Transition ${pair.id} has no single delivered video event at its exact cut`);
       return candidates[0]!;
     };
-    const outgoing = edge(frozen.fromPayloadId, "out");
     const incoming = edge(frozen.toPayloadId, "in");
+    const common = { id: pair.id, toRowId: pair.toRowId, trackId: dependencies.roles.primaryRootTrackId, boundaryFrame,
+      incomingEventId: incoming.eventId, effectIdentity: qualifiedCrossDissolve, requestedDurationFrames: durationFrames, alignment,
+      disposition: frozen.disposition };
+    if (frozen.fromPayloadId === undefined) {
+      if (incoming.sourceRange!.startFrame < durationFrames || incoming.recordRange.endFrame < durationFrames) {
+        throw new RangeError("The first picture needs 24 frames of delivered source handle for the opening fade.");
+      }
+      return { ...common, startFrame: 0, endFrame: durationFrames };
+    }
+    const outgoing = edge(frozen.fromPayloadId, "out");
     const left = alignment === "left" ? durationFrames : alignment === "center" ? durationFrames / 2 : 0;
     const right = durationFrames - left;
     if (frozen.disposition === "apply") {
@@ -994,9 +1007,10 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
         throw new RangeError(`Transition ${pair.id} lacks independently verified delivered source handles; refusing rather than shortening`);
       }
     }
-    return { id: pair.id, fromRowId: pair.fromRowId, toRowId: pair.toRowId, trackId: dependencies.roles.primaryRootTrackId, boundaryFrame,
+    return { id: pair.id, fromRowId: pair.fromRowId!, toRowId: pair.toRowId, trackId: dependencies.roles.primaryRootTrackId, boundaryFrame,
       outgoingEventId: outgoing.eventId, incomingEventId: incoming.eventId, effectIdentity: qualifiedCrossDissolve, requestedDurationFrames: durationFrames, alignment,
-      startFrame: Math.max(0, boundaryFrame - left), endFrame: safe(BigInt(boundaryFrame) + BigInt(right), "transition endpoint"), disposition: frozen.disposition,
+      startFrame: Math.max(0, boundaryFrame - left), endFrame: safe(BigInt(boundaryFrame) + BigInt(right), "transition endpoint"),
+      disposition: frozen.disposition,
       ...(frozen.reason ? { reason: frozen.reason } : {}) };
   });
 }
@@ -2458,7 +2472,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     const manifestJson = canonicalJson(manifest); const reportJson = canonicalJson(report);
     return { ok: true, manifest, report, manifestJson, reportJson };
   } catch (error) {
-    return fail({ code: error instanceof OpeningFadeUnqualified ? "ROW_OPENING_FADE_UNQUALIFIED" : "COMPILATION_PRECONDITION_FAILED", message: error instanceof Error ? error.message : String(error) });
+    return fail({ code: "COMPILATION_PRECONDITION_FAILED", message: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -2494,6 +2508,6 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     if (hardRefusal) return { ok: false, diagnostics: [{ code: hardRefusal.code, message: hardRefusal.message, ...(hardRefusal.entity.id ? { entityId: hardRefusal.entity.id } : {}), ...(hardRefusal.code === "BOUNDARY_EVIDENCE_REQUIRED" && hardRefusal.entity.path ? { jsonPath: hardRefusal.entity.path } : {}) }] };
     return { ok: true, requirements: plan.requirements, durationFrames: plan.durationFrames };
   } catch (error) {
-    return { ok: false, diagnostics: [{ code: error instanceof OpeningFadeUnqualified ? "ROW_OPENING_FADE_UNQUALIFIED" : "MEDIA_NEEDS_FAILED", message: error instanceof Error ? error.message : String(error) }] };
+    return { ok: false, diagnostics: [{ code: "MEDIA_NEEDS_FAILED", message: error instanceof Error ? error.message : String(error) }] };
   }
 }

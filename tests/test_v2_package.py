@@ -643,7 +643,31 @@ def test_issue590_signed_consumer_refuses_even_an_omitted_opening_fade() -> None
         manifest["transitions"]
     )
     opening["state"] = "active"
-    with pytest.raises(TransitionRefusal, match="Opening fade delivery at frame zero"):
+    with pytest.raises(TransitionRefusal, match="differs from authored"):
+        validate_signed_transitions(doc, deps, manifest, report)
+    (outgoing,) = (
+        item
+        for item in manifest["events"]
+        if item["eventId"] == manifest["transitions"][0]["outgoingEventId"]
+    )
+    outgoing["sourceRange"] = {"startFrame": 24, "endFrame": 120}
+    doc["rowTransitions"] = [opening]
+    plan = manifest["transitions"][0].copy()
+    del plan["fromRowId"]
+    del plan["outgoingEventId"]
+    plan.update(
+        id=opening["id"],
+        toRowId=opening["toRowId"],
+        incomingEventId=outgoing["eventId"],
+        boundaryFrame=0,
+        startFrame=0,
+        endFrame=24,
+        alignment="right",
+    )
+    manifest["transitions"] = [plan]
+    assert validate_signed_transitions(doc, deps, manifest, report) == (plan,)
+    plan["startFrame"] = 1
+    with pytest.raises(TransitionRefusal, match="qualified frame-zero placement"):
         validate_signed_transitions(doc, deps, manifest, report)
 
 

@@ -957,14 +957,20 @@ be preserved through a proved route or the affected write refused; #327 owns
 that remaining preservation proof. This does not blanket-block independently
 bounded safe changes.
 
-**#590 opening and section dividers.** The #88 production route applies a
-signed native/simple Cross Dissolve at an existing two-clip cut on Studio
-21.1.1 build 10. Section headings are markers, so a transition at that divider
-uses the same adjacent clips and geometry. The section-marker case still needs
-a disposable build and reopen check. #292 measured two-clip cuts only. The
-first-item fade from black is saved as intent, and Build stops with an explicit
-refusal until frame-zero placement and persistence are verified. Native
-acceptance for #590 was deferred.
+**#590 opening and section dividers.** Studio **21.1.1 build 10** with Local
+scripting placed a native/simple Cross Dissolve at `[84,108)` across a section
+marker at frame 96. At 24 fps the adjacent clips retained the exact signed
+source frame trims while the source-time getters included 12 extra frames on
+their respective transition sides. The verifier accepts that getter shape
+only with matching signed handles, frame trims, media, and speed.
+
+On the same build and rate, a first-clip `AddTransition` with start position,
+right alignment and 24-frame duration placed a fade from black at `[0,24)`.
+Both effects retained their geometry and unique IDs after save, close and
+reopen. The opening route requires a full first clip and at least 24 frames
+of delivered source handle. The native Cross Dissolve gate for other Resolve
+builds remains explicit. [21.2 qualification](https://github.com/mbelinkie/vera-script-to-timeline/issues/769)
+is separate.
 
 ### RK-42 — Saved row intent, music delivery and bounded native probes
 

@@ -274,7 +274,7 @@ def test_actual_pinned_compiler_fixture_preserves_golden_manifest_and_report(
     )
 
 
-def test_issue590_build_reports_opening_fade_refusal_before_resolve(
+def test_issue590_refuses_invalid_opening_alignment_before_resolve(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     options = _inputs(tmp_path / "inputs", "flat")
@@ -285,7 +285,7 @@ def test_issue590_build_reports_opening_fade_refusal_before_resolve(
             "toRowId": doc["activeDraft"]["blocks"][0]["id"],
             "state": "active",
             "effect": "Cross Dissolve",
-            "settings": {"durationFrames": 24, "alignment": "right"},
+            "settings": {"durationFrames": 24, "alignment": "center"},
         }
     ]
     options.script.write_text(json.dumps(doc))
@@ -300,9 +300,8 @@ def test_issue590_build_reports_opening_fade_refusal_before_resolve(
         )
         == 2
     )
-    assert capsys.readouterr().err.strip() == (
-        "Build refused: v2 needs refused: "
-        "Opening fade delivery at frame zero has not been verified in Resolve."
+    assert (
+        "An opening fade must extend right from frame zero." in capsys.readouterr().err
     )
     assert not (options.output / "timeline-manifest.json").exists()
 
