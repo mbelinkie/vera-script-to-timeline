@@ -279,7 +279,7 @@ const VISUAL_KINDS = new Set([
 ]);
 const REVISIONED_ROW_KINDS = new Set([
   "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
-  "add_row_transition", "remove_row_transition",
+  "add_row_transition", "remove_row_transition", "move_music_cue_endpoint",
 ]);
 
 /** Only the commands this browser editor can issue, with exact JSON shapes. */
@@ -349,6 +349,12 @@ function usesProjectVisualHold(row: ScriptDocumentV2["activeDraft"]["blocks"][nu
 function revisionedRowCommand(value: unknown): RowEditCommandV2 | null {
   if (!record(value) || !REVISIONED_ROW_KINDS.has(String(value.kind))) return null;
   switch (value.kind) {
+    case "move_music_cue_endpoint":
+      if (!exact(value, ["kind", "cueId", "endpoint", "point", "expectedRevision"]) ||
+          !uuid(value.cueId) || !record(value.point) ||
+          (value.endpoint !== "timelineIn" && value.endpoint !== "timelineOut") ||
+          !Number.isSafeInteger(value.expectedRevision) || (value.expectedRevision as number) < 0) return null;
+      break;
     case "add_row_transition":
     case "remove_row_transition": {
       const keys = ["kind", "transitionId", "toRowId", "expectedToVersion"];

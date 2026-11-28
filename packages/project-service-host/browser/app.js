@@ -1,7 +1,7 @@
 import { mountAccountPanel } from "./account-panel.js";
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel } from "./rows-editor.js";
-import { mountNarration, mountVisualConnectors } from "./narration-editor.js";
+import { mountNarration, mountVisualConnectors, mountMusicBrackets } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
@@ -32,7 +32,7 @@ const visualCommandKinds = new Set([
   "move_visual_to_row", "attach_visual_to_words",
 ]);
 const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
-  "reorder_visual_only", "set_visual_only_hold", "add_row_transition", "remove_row_transition"]);
+  "reorder_visual_only", "set_visual_only_hold", "add_row_transition", "remove_row_transition", "move_music_cue_endpoint"]);
 let project;
 let projectVisualHoldMs;
 let activeProjectId;
@@ -525,6 +525,9 @@ function renderEditor() {
     slotId: active.dataset.rangeSlot,
     edge: active.dataset.rangeEdge,
   } : null;
+  const musicFocus = active?.matches("[data-music-cue]") ? {
+    cueId: active.dataset.musicCue, endpoint: active.dataset.musicEndpoint,
+  } : null;
   const reselectFocus = active?.matches("[data-reselect-open]") ? {
     rowId: active.closest("[data-row-id]")?.dataset.rowId,
     slotId: active.closest("[data-slot-id]")?.dataset.slotId,
@@ -607,6 +610,8 @@ function renderEditor() {
     }));
   });
   if (sortingTrial) decorateSortingRows(root, model);
+  else narrationCleanup.push(mountMusicBrackets(root, model,
+    (command, label) => queueCommand(command, label, { structural: true })));
   if (requestedCardFocus) {
     const row = [...root.querySelectorAll("[data-row-id]")]
       .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
@@ -650,6 +655,8 @@ function renderEditor() {
       item.closest("[data-row-id]")?.dataset.rowId === bracketFocus.rowId);
     handle?.focus();
   }
+  if (musicFocus) [...root.querySelectorAll("[data-music-cue]")].find(button =>
+    button.dataset.musicCue === musicFocus.cueId && button.dataset.musicEndpoint === musicFocus.endpoint)?.focus();
   if (reselectFocus) focusReselectOpener(reselectFocus);
   if (transitionFocus) {
     const divider = [...root.querySelectorAll("[data-row-gap]")]

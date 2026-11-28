@@ -248,3 +248,23 @@
   pointer-events: none;
 }
 .narration-selected-drop-cue[hidden] { display: none; }
+
+/* Music lives below its exact boundary, independently of visual range handles. */
+.script-rows:has(.music-bracket-overlay) { position: relative; }
+.music-bracket-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.music-bracket {
+  position: absolute; transform: translateX(-50%); padding: 0 3px;
+  border: 0; border-radius: 3px; background: white; color: #735398;
+  font: 700 12px/15px system-ui, sans-serif; white-space: nowrap;
+  cursor: ew-resize; touch-action: none; user-select: none; pointer-events: auto;
+}
+.music-bracket[data-pending="true"], .music-bracket:focus-visible { outline: 2px solid #735398; }
+.music-bracket-label {
+  display: none; position: absolute; top: 100%; left: 0; padding: 4px 8px;
+  background: #fff; color: #4f3969; border: 1px solid #bda9d3;
+  border-radius: 4px; font-weight: 500; white-space: normal; width: max-content; max-width: 220px;
+  pointer-events: none;
+}
+.music-bracket:hover, .music-bracket:focus-visible { z-index: 1; }
+.music-bracket:hover .music-bracket-label, .music-bracket:focus-visible .music-bracket-label { display: block; }
+.music-bracket-review { padding: 0.4rem 1.35rem; color: #725627; font-size: 0.85rem; }
