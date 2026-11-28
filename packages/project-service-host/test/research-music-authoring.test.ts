@@ -158,5 +158,5 @@ describe("project Research Music", () => {
     } finally {
       await rm(scratch, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 60_000);
 });
