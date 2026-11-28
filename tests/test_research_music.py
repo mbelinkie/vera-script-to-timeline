@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 from PIL import Image
 from test_issue603_still_preparation import _descriptor
+from vera_timeline_agent import prep_media_inputs
 from vera_timeline_agent.build_jobs import BuildJobError
 from vera_timeline_agent.build_timeline_once import (
     BuildOptions,
@@ -28,7 +29,8 @@ from vera_timeline_agent.v2_package import _compiler_hash
 
 _FIXTURE = (
     Path(__file__).parent
-    / "data/authoring_v2/issue_173/compiler/visual-only-image-still-25fps-default.input.golden.json"
+    / "data/authoring_v2/issue_173/compiler"
+    / "visual-only-image-still-25fps-default.input.golden.json"
 )
 
 
@@ -117,7 +119,11 @@ def prepare_fixture(root: Path) -> tuple[Path, dict[str, Any], Path]:
 @pytest.mark.slow
 def test_research_music_freezes_exact_saved_selection_and_packages_a5(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # The generated picture uses Linux's test FFmpeg. Native acceptance uses
+    # the qualified workstation toolchain with the normal gate enabled.
+    monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
     handoff, source, audio = prepare_fixture(tmp_path)
     frozen = json.loads((handoff / "compiler-dependencies.json").read_bytes())
     assert frozen["musicBindings"][0]["source"] == source
