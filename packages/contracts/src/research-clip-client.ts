@@ -10,6 +10,10 @@ import {
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
 import { readResearchLibraryItem, readResearchLibrarySource, type ResearchLibraryItemKind } from "./research-library-records.js";
+import {
+  MAX_RESEARCH_AUDIO_BYTES, readMusicAsset, readMusicSelection,
+  type MusicSelection, type ResearchMusicChoice,
+} from "./research-music-records.js";
 import { describeResearchQuote, readResearchQuote, type ResearchQuoteRecord } from "./research-quote-records.js";
 import {
   readKeptOriginalAsset, readKeptStillManifest, readStillItem, readStillChoice,
@@ -27,6 +31,7 @@ const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
 const STILL_PAGE_SIZE = 12;
+const MUSIC_PAGE_SIZE = 12;
 const QUOTE_PAGE_SIZE = 20;
 const MAX_LIBRARY_OFFSET = 100_000;
 const EXTENSION_CAPTURE_PAGE_SIZE = 50;
@@ -133,7 +138,7 @@ export function createResearchClient(options: {
   }
   const request = options.request ?? fetch;
 
-  async function send(path: string, accept: string, update?: LibraryUpdate): Promise<Response> {
+  async function send(path: string, accept: string, update?: LibraryUpdate, timeoutMs = 10_000): Promise<Response> {
     let response: Response;
     try {
       response = await request(new URL(path, origin), {
@@ -144,7 +149,7 @@ export function createResearchClient(options: {
           ...(update ? { "Content-Type": "application/json" } : {}),
         },
         ...(update ? { body: JSON.stringify(update) } : {}),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       // Fetch errors may embed the full request URL or headers, including secrets.
@@ -195,6 +200,22 @@ export function createResearchClient(options: {
       if (error instanceof UnsupportedKeptStillError) throw new ResearchReadError(422, error.message);
       throw error;
     }
+  }
+
+  async function musicAsset(selection: MusicSelection) {
+    const { researchProjectId, sourceId } = selection;
+    const path = libraryPath(researchProjectId, "audio", sourceId);
+    const [sourceRecord, asset] = await Promise.all([
+      get(libraryPath(researchProjectId, "sources", sourceId)), get(path),
+    ]);
+    readResearchLibrarySource(sourceRecord, researchProjectId, sourceId);
+    if (!record(sourceRecord) || sourceRecord.kind !== "audio" ||
+        typeof sourceRecord.version !== "number" || !Number.isSafeInteger(sourceRecord.version) || sourceRecord.version < 1) {
+      throw new ResearchReadError(422, "Research Music has no valid audio source.");
+    }
+    const manifest = readMusicAsset(asset, selection);
+    if (manifest.status !== "candidate") return manifest;
+    return { ...manifest, selection: { ...selection, sourceVersion: sourceRecord.version, playbackHash: manifest.playbackHash } };
   }
 
   function validatedCandidate(input: unknown): ResearchLoggedCandidateInputV2 {
@@ -432,6 +453,73 @@ export function createResearchClient(options: {
       return clip;
     },
 
+    async musicSelections(projectId: string, offset: number): Promise<{ music: ResearchMusicChoice[]; nextOffset: number | null }> {
+      if (!UUID.test(projectId) || !Number.isSafeInteger(offset) || offset < 0 || offset > MAX_LIBRARY_OFFSET) {
+        throw new Error("Invalid Research Music page.");
+      }
+      const items = await get("/api/projects/" + projectId + "/items?kind=audio&limit=" + (MUSIC_PAGE_SIZE + 1) + "&offset=" + offset);
+      if (!Array.isArray(items) || items.length > MUSIC_PAGE_SIZE + 1) throw new Error("Invalid Research Music page.");
+      const music = await Promise.all(items.slice(0, MUSIC_PAGE_SIZE).map(async (entry): Promise<ResearchMusicChoice | null> => {
+        if (!record(entry) || !validId(entry.id)) return null;
+        let selection: MusicSelection | null;
+        try {
+          selection = readMusicSelection(entry, projectId, entry.id);
+        } catch {
+          return null;
+        }
+        if (!selection) return null;
+        try {
+          const asset = await musicAsset(selection);
+          return asset.status === "candidate" ? { status: "candidate", selection: asset.selection } :
+            { status: asset.status, selection };
+        } catch (error) {
+          if (error instanceof ResearchReadError && [401, 403].includes(error.status)) throw error;
+          return { status: "unavailable", selection };
+        }
+      }));
+      const more = offset + MUSIC_PAGE_SIZE;
+      return { music: music.filter((choice) => choice !== null),
+        nextOffset: items.length > MUSIC_PAGE_SIZE && more <= MAX_LIBRARY_OFFSET ? more : null };
+    },
+
+    async musicSelection(projectId: string, itemId: string) {
+      const selection = readMusicSelection(await get(libraryPath(projectId, "items", itemId)), projectId, itemId);
+      if (!selection) throw new ResearchReadError(409, "This is no longer a named Music selection.");
+      const asset = await musicAsset(selection);
+      if (asset.status !== "candidate") throw new ResearchReadError(422, asset.status === "relink_required" ?
+        "Relink the original audio file before building." : "The saved Music selection has no kept original.");
+      return asset;
+    },
+
+    async musicPlayback(projectId: string, sourceId: string, mimeType: string, playbackHash: string) {
+      const response = await send(libraryPath(projectId, "audio", sourceId) + "/playback", mimeType, undefined, 60_000);
+      const reader = response.body?.getReader();
+      if (!reader) throw new ResearchReadError(422, "Missing kept Research audio.");
+      const chunks: Uint8Array[] = [];
+      const hash = createHash("sha256");
+      let byteCount = 0;
+      try {
+        if (response.status !== 200 || response.headers.get("content-type") !== mimeType ||
+            Number(response.headers.get("content-length")) > MAX_RESEARCH_AUDIO_BYTES) {
+          throw new ResearchReadError(422, "Invalid kept Research audio headers.");
+        }
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          byteCount += value.length;
+          if (byteCount > MAX_RESEARCH_AUDIO_BYTES) throw new ResearchReadError(422, "Kept Research audio exceeds its size limit.");
+          hash.update(value);
+          chunks.push(value);
+        }
+      } finally {
+        await reader.cancel().catch(() => undefined);
+      }
+      if (byteCount === 0 || "sha256:" + hash.digest("hex") !== playbackHash) {
+        throw new ResearchReadError(422, "Kept Research audio did not match its verified hash.");
+      }
+      return Buffer.concat(chunks, byteCount);
+    },
+
     async stills(projectId: string, offset: number): Promise<{ stills: ResearchStillChoice[]; nextOffset: number | null }> {
       if (!UUID.test(projectId) || !Number.isSafeInteger(offset) || offset < 0 || offset > 100_000) {
         throw new Error("Invalid Research still page.");
@@ -492,7 +580,7 @@ export function createResearchClient(options: {
   };
 }
 
-function libraryPath(projectId: string, kind: "items" | "sources" | "stills", recordId: string): string {
+function libraryPath(projectId: string, kind: "items" | "sources" | "stills" | "audio", recordId: string): string {
   if (!UUID.test(projectId) || !UUID.test(recordId)) {
     throw new Error("Research project and record IDs must be UUIDs.");
   }

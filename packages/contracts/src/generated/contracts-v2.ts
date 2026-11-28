@@ -1370,10 +1370,25 @@ export interface RowAudioSpanIntentV2 {
   review?: RowAudioReviewV2;
 }
 export interface RowAudioSourceV2 {
+  researchSelection?: ResearchMusicSelectionV2;
   mediaReferenceId: string;
   artifactId: string;
   artifactVersion: number;
   contentHash: string;
+}
+/**
+ * Exact saved Research item and kept original used to prepare a zero-based selection WAV.
+ */
+export interface ResearchMusicSelectionV2 {
+  researchProjectId: string;
+  sourceId: string;
+  sourceVersion: number;
+  itemId: string;
+  itemVersion: number;
+  title: string;
+  startMs: number;
+  endMs: number;
+  playbackHash: string;
 }
 /**
  * Exactly three fixed points at normal playback speed. Omit the point to derive. Source points are frame boundaries on the build's timeline rate.

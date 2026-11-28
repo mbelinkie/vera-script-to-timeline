@@ -29,7 +29,7 @@ const maximumPreviewBytes = 64 * 1024 * 1024;
 const response = (status: number, body: unknown) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
-function worker(config: ResearchMediaConfig, command: object) {
+export function runResearchMediaWorker(config: ResearchMediaConfig, command: object, bytes?: Uint8Array) {
   return new Promise<Buffer>((resolve, reject) => {
     const child = execFile(config.python,
       ["-m", "vera_timeline_agent.research_authoring_media", config.mediaRoot,
@@ -41,7 +41,8 @@ function worker(config: ResearchMediaConfig, command: object) {
         else resolve(stdout);
       });
     child.stdin?.on("error", reject);
-    child.stdin?.end(JSON.stringify(command));
+    child.stdin?.write(JSON.stringify(command) + "\n");
+    child.stdin?.end(bytes);
   });
 }
 
@@ -161,7 +162,7 @@ export async function handleResearchMedia(
     return response(422, { error: "research_binding_unsupported" });
   const descriptorInput = { pin: owner.pin, rowId: owner.rowId, payloadId: owner.payloadId };
   try {
-    const verified = JSON.parse((await worker(config, { action: "resolve", materialize: action === "bind" && !owner.binding,
+    const verified = JSON.parse((await runResearchMediaWorker(config, { action: "resolve", materialize: action === "bind" && !owner.binding,
       includeTranscriptClock: action === "describe", ...descriptorInput })).toString()) as {
       binding: ResearchFrameBindingV2; sourceFrameMap: SourceFrameMapV1; transcriptClock?: ResearchCutTranscriptClock | null;
     };
@@ -175,7 +176,7 @@ export async function handleResearchMedia(
     if (startFrame < 0 || endFrame > verified.binding.loggedEndFrame || endFrame <= startFrame) {
       return response(422, { error: "research_media_range_invalid" });
     }
-    const bytes = preview ? await worker(config, {
+    const bytes = preview ? await runResearchMediaWorker(config, {
       action: action === "frame" ? "frame" : "preview", ...descriptorInput, binding: verified.binding, startFrame, endFrame,
     }) : undefined;
     const transcriptTiming = verified.transcriptClock && action === "describe"

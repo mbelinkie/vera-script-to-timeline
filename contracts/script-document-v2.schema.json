@@ -3214,6 +3214,23 @@
         }
       }
     },
+    "ResearchMusicSelectionV2": {
+      "type": "object",
+      "description": "Exact saved Research item and kept original used to prepare a zero-based selection WAV.",
+      "additionalProperties": false,
+      "required": ["researchProjectId", "sourceId", "sourceVersion", "itemId", "itemVersion", "title", "startMs", "endMs", "playbackHash"],
+      "properties": {
+        "researchProjectId": { "$ref": "#/$defs/EntityId" },
+        "sourceId": { "$ref": "#/$defs/EntityId" },
+        "sourceVersion": { "$ref": "#/$defs/PositiveSafeInteger" },
+        "itemId": { "$ref": "#/$defs/EntityId" },
+        "itemVersion": { "$ref": "#/$defs/PositiveSafeInteger" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "startMs": { "type": "integer", "minimum": 0, "maximum": 1799999 },
+        "endMs": { "type": "integer", "minimum": 1, "maximum": 1800000 },
+        "playbackHash": { "$ref": "#/$defs/ContentHash" }
+      }
+    },
     "RowAudioSourceV2": {
       "type": "object",
       "additionalProperties": false,
@@ -3224,6 +3241,7 @@
         "contentHash"
       ],
       "properties": {
+        "researchSelection": { "$ref": "#/$defs/ResearchMusicSelectionV2" },
         "mediaReferenceId": {
           "$ref": "#/$defs/EntityId"
         },
