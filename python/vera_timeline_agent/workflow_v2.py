@@ -2922,6 +2922,19 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
 
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
+        transition_source_handles: dict[str, tuple[int, int]] = {}
+        for plan in getattr(self, "_v2_transition_plans", ()):
+            if plan["disposition"] != "apply":
+                continue
+            outgoing, incoming = plan["outgoingEventId"], plan["incomingEventId"]
+            transition_source_handles[outgoing] = (
+                transition_source_handles.get(outgoing, (0, 0))[0],
+                plan["endFrame"] - plan["boundaryFrame"],
+            )
+            transition_source_handles[incoming] = (
+                plan["boundaryFrame"] - plan["startFrame"],
+                transition_source_handles.get(incoming, (0, 0))[1],
+            )
         # Keep the actual reopened TimelineItem handles in the *same* structural
         # readback that checks geometry, source, stamps and native properties.
         # An incomplete readback cannot become a row map.
@@ -3092,6 +3105,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         preparation_bindings=self._v2_preparation_bindings,
                                         timeline=timeline,
                                         allow_24fps=is_24fps_source_clock,
+                                        transition_handles=transition_source_handles.get(
+                                            event_id, (0, 0)
+                                        ),
                                         actual_start=item.GetSourceStartFrame(),
                                         actual_end=item.GetSourceEndFrame(),
                                         source_times=source_times,
@@ -3574,6 +3590,7 @@ def _fractional_source_range_matches(
     record_duration: int,
     allow_24fps: bool = False,
     allow_25fps_video: bool = False,
+    transition_handles: tuple[int, int] = (0, 0),
 ) -> bool:
     """Check qualified fractional, 24 fps and observed 25 fps video clocks."""
     try:
@@ -3866,6 +3883,37 @@ def _fractional_source_range_matches(
         end_error = _source_time_error_samples(
             source_times.get("GetSourceEndTime"), expected_end * rate_seconds
         )
+        pre, post = transition_handles
+        if (
+            rate == (24, 1)
+            and event["kind"] == "primary_visual"
+            and (pre or post)
+            and pre >= 0
+            and post >= 0
+            and actual_start == expected_start
+            and actual_end == expected_end
+            and expected_duration == record_duration
+            and expected_start >= pre
+            and type(decoded_frame_count) is int
+            and expected_end + post <= decoded_frame_count
+        ):
+            # Studio 21.1.1 includes the signed dissolve handles in source
+            # seconds while source frame getters keep the exact clip trim.
+            expanded_start_error = _source_time_error_samples(
+                source_times.get("GetSourceStartTime"),
+                (expected_start - pre) * rate_seconds,
+            )
+            expanded_end_error = _source_time_error_samples(
+                source_times.get("GetSourceEndTime"),
+                (expected_end + post) * rate_seconds,
+            )
+            if (
+                expanded_start_error is not None
+                and abs(expanded_start_error) <= 1
+                and expanded_end_error is not None
+                and abs(expanded_end_error) <= 1
+            ):
+                return True
         return (
             start_error is not None
             and abs(start_error) <= 1
