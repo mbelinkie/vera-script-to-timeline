@@ -10,6 +10,7 @@ const ref = (sequence: number, actorId: string, targetKind: string, removed = fa
   changeKind: removed ? "removed" : "changed", evidence: { before: "before", after: "after" },
   removed, label: "In " + targetKind,
 });
+const late = ref(6, "dana", "script");
 const records = [ref(1, "dana", "script"), ref(2, "dana", "script", true),
   ref(3, "jonah", "stash"), ref(4, "jonah", "comments"), ref(5, "self", "script")];
 const fixtureProjection: ContributionsProjection = {
@@ -53,12 +54,18 @@ async function withPanel(width: number, pending: number, autoOpen: boolean, exer
           <main style="width:70%;margin:auto" id="root"></main><script type="module">
           import {mountContributionsPanel} from '/contributions-panel.js';
           const base = ${JSON.stringify(fixtureProjection)};
+          const late = ${JSON.stringify(late)};
           const state = window.fixture = {filters:[],focused:[],submitted:[],failNext:false,hold:false,release:null,
-            pending:${pending}, token:"frozen-5", query:null};
+            pending:${pending}, token:${JSON.stringify(pending ? "frozen-5" : "frozen-0")}, query:null};
           state.project = () => {
             const historical = state.query && state.query.range !== "rev";
-            const people = historical ? base.contributors : base.contributors.filter(p => p.actorId !== "self");
-            const refs = historical ? base.visibleReferences : base.visibleReferences.filter(r => r.actorId !== "self");
+            let people = historical ? base.contributors : base.contributors.filter(p => p.actorId !== "self");
+            let refs = historical ? base.visibleReferences : base.visibleReferences.filter(r => r.actorId !== "self");
+            if(state.token === "frozen-6") {
+              refs = !historical && state.pending === 1 ? [late] : [...refs, late];
+              people = !historical && state.pending === 1 ? [{actorId:"dana",displayName:"Dana Cooper",count:1}] :
+                people.map(p => p.actorId === "dana" ? {...p,count:p.count+1} : p);
+            }
             const remaining = historical || state.pending > 0;
             const visibleReferences = remaining ? refs.filter(r => !state.query?.actorId || r.actorId === state.query.actorId)
               .filter(r => state.query?.showRemoved !== false || !r.removed) : [];
@@ -100,7 +107,7 @@ describe("standalone contribution controls, real browser fixture", () => {
     await withPanel(1280, 0, true, async page => {
       const bar = page.getByRole("region", { name: "Contributions" });
       expect(await bar.count()).toBe(0);
-      await alter(page, { pending: 5 });
+      await alter(page, { pending: 5, token: "frozen-5" });
       await bar.waitFor();
       expect((await fixture(page)).at(-1)?.active).toBe(false);
       expect(await control(page, "actor:self").count()).toBe(0);
@@ -153,6 +160,8 @@ describe("standalone contribution controls, real browser fixture", () => {
         await control(page, "range:custom").check();
         await control(page, "from").fill("2026-10-29T09:00");
         expect((await fixture(page)).at(-1)).toMatchObject({valid: false, active: false});
+        await control(page, "to").fill("2026-10-28T10:00");
+        expect((await fixture(page)).at(-1)).toMatchObject({valid: false, active: false});
         await control(page, "to").fill("2026-10-30T10:00");
         expect((await fixture(page)).at(-1)).toMatchObject({
           range: "custom", valid: true, from: "2026-10-29T09:00:00.000Z", to: "2026-10-30T10:00:59.999Z", showRemoved: false,
@@ -191,6 +200,10 @@ describe("standalone contribution controls, real browser fixture", () => {
       expect(await control(page, "toggle").innerText()).toContain("1");
       expect(await page.evaluate(() => (window as unknown as {fixture: Fixture}).fixture.submitted)).toEqual(["frozen-5", "frozen-5"]);
       expect(await control(page, "actor:dana").getAttribute("aria-pressed")).toBe("false");
+      expect(await control(page, "actor:jonah").count()).toBe(0);
+      await control(page, "actor:dana").click();
+      await control(page, "next").click();
+      expect(await page.evaluate(() => (window as unknown as {fixture: Fixture}).fixture.focused.at(-1)?.semanticId)).toBe("script-6");
       await alter(page, { hold: false });
       await control(page, "review").click();
       await page.getByText("Marked reviewed.", {exact: false}).waitFor();

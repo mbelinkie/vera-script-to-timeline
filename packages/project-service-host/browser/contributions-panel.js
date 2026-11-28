@@ -24,7 +24,8 @@ export function mountContributionsPanel({
 
   const open = () => !sorting && (choice ?? (autoOpen && projection.pendingCount > 0));
   const capture = () => {
-    if (open() && !frozen && projection.boundaryToken && projection.boundaryToken !== reviewed) {
+    if (open() && projection.pendingCount > 0 && !frozen && projection.boundaryToken &&
+        projection.boundaryToken !== reviewed) {
       frozen = projection.boundaryToken;
     }
   };
@@ -39,7 +40,7 @@ export function mountContributionsPanel({
   };
   const filter = () => ({
     range, actorId, showRemoved, ...dates(), boundaryToken: frozen,
-    active: open() && !!actorId && dates().valid && !awaitingProjection,
+    active: open() && !!actorId && dates().valid,
   });
   const authors = () => awaitingProjection || !dates().valid ? [] :
     projection.contributors.filter(person => range !== "rev" || person.actorId !== projection.selfActorId);
@@ -74,6 +75,12 @@ export function mountContributionsPanel({
     }
     index = Math.min(index, Math.max(0, references().length - 1));
   }
+  function applyFilterResult(next) {
+    const previousActor = actorId;
+    acceptProjection(next);
+    if (previousActor && !actorId) publish();
+    else render();
+  }
   // A caller can return a projection (including asynchronously), or publish
   // one via update(). Old asynchronous filter results cannot win a newer query.
   function publish(needsProjection = false) {
@@ -85,17 +92,17 @@ export function mountContributionsPanel({
     // The adapter must not issue an unbounded custom read when valid is false.
     // It still receives inactive state so existing highlights can be cleared.
     try {
-      const result = setFilter({ ...requested, active: open() && !!actorId && requested.valid });
+      const result = setFilter(requested);
       if (result && typeof result.then === "function") {
         Promise.resolve(result).then(next => {
           if (disposed || version !== filterVersion || !next) return;
-          acceptProjection(next); render();
+          applyFilterResult(next);
         }, () => {
           if (disposed || version !== filterVersion) return;
           message = "Couldn’t load contributions. Try changing the filter again."; render();
         });
       } else if (result) {
-        acceptProjection(result); render();
+        applyFilterResult(result);
       }
     } catch {
       message = "Couldn’t load contributions. Try changing the filter again."; render();
@@ -281,13 +288,13 @@ export function mountContributionsPanel({
   return {
     update(next) {
       if (disposed) return;
-      const wasOpen = open(), wasSorting = sorting;
+      const wasOpen = open(), wasSorting = sorting, previousActor = actorId;
       if (next.role !== undefined) role = next.role;
       if (next.sorting !== undefined) sorting = next.sorting;
       if (next.autoOpen !== undefined) autoOpen = next.autoOpen;
       if (next.projection) { ++filterVersion; acceptProjection(next.projection); }
       capture();
-      if (wasOpen !== open() || wasSorting !== sorting) publish();
+      if (wasOpen !== open() || wasSorting !== sorting || previousActor !== actorId) publish();
       else render();
     },
     destroy() {
