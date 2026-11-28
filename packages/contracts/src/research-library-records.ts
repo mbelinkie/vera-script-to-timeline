@@ -3,7 +3,7 @@ import type { ResearchQuoteCitationDetails } from "./research-quote-citations.js
 
 export type ResearchLibrarySource = MlaSource & { id: string; projectId: string };
 
-export type ResearchLibraryItemKind = "quote" | "clip" | "still";
+export type ResearchLibraryItemKind = "quote" | "clip" | "still" | "audio";
 
 export interface ResearchLibraryItem {
   sourceId: string;

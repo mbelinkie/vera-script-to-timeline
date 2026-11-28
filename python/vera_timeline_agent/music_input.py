@@ -40,7 +40,9 @@ def inspect_music(path: Path, expected_hash: str) -> int:
     """Verify bytes and exact 48-kHz, mono, 16-bit PCM frame count."""
     path = _plain_music_path(str(path))
     try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        descriptor = os.open(
+            path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+        )
     except OSError as error:
         raise BuildJobError(
             f"music file cannot be opened safely: {path.name}"
@@ -174,6 +176,14 @@ def resolve_music_bindings(
             }
         else:
             samples = inspect_music(path, source["contentHash"])
+            selection = source.get("researchSelection")
+            if (
+                selection is not None
+                and samples != (selection["endMs"] - selection["startMs"]) * 48
+            ):
+                raise BuildJobError(
+                    "Prepared Research Music duration differs from its saved range"
+                )
             binding = {
                 "spanId": span_id,
                 "source": source,

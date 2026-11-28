@@ -13,7 +13,7 @@ from typing import Any
 
 from .build_jobs import BuildJobError
 from .build_stage_receipt import hash_file
-from .media_preparation import MediaTools
+from .media_preparation import MediaPreparationError, MediaTools
 from .research_cut_binding import (
     bind_research_cut,
     copy_cut,
@@ -21,6 +21,7 @@ from .research_cut_binding import (
     research_clip_folder,
     verified_transcript_clock,
 )
+from .research_music import prepare_selection
 
 
 def resolve(root: Path, export_root: Path | None, request: dict[str, Any]) -> None:
@@ -153,14 +154,22 @@ def resolve(root: Path, export_root: Path | None, request: dict[str, Any]) -> No
 
 def main() -> int:
     try:
-        resolve(
-            Path(sys.argv[1]),
-            Path(sys.argv[2]) if len(sys.argv) == 3 else None,
-            json.load(sys.stdin),
-        )
+        stream = sys.stdin.buffer
+        request = json.loads(stream.readline())
+        root = Path(sys.argv[1])
+        if request["action"] == "prepare_music":
+            print(json.dumps(prepare_selection(root, request, stream)))
+        else:
+            resolve(root, Path(sys.argv[2]) if len(sys.argv) == 3 else None, request)
     except FileNotFoundError:
         return 3
-    except (BuildJobError, ValueError, OSError, subprocess.SubprocessError):
+    except (
+        BuildJobError,
+        MediaPreparationError,
+        ValueError,
+        OSError,
+        subprocess.SubprocessError,
+    ):
         return 4
     return 0
 

@@ -16,6 +16,7 @@ from .build_jobs import BuildJobError, publish_immutable_output
 from .build_stage_receipt import canonical_json, hash_file
 from .build_timeline_once import _companion
 from .media_preparation import MediaPreparationError, MediaTools
+from .music_input import resolve_music_bindings
 from .narration.cache import NarrationCache
 from .narration.cli import _validate_script
 from .narration.configuration import DEFAULT_PROFILE_ID, provider_for
@@ -45,6 +46,7 @@ from .research_cut_binding import (
     find_cached_research_cut,
     research_clip_folder,
 )
+from .research_music import locate_research_music
 from .still_credit import freeze_still_credit_inputs
 from .v2_package import _compiler_hash
 
@@ -388,10 +390,20 @@ def prepare_project(
 
     preparations = companion("preparation-paths.json")
     media_paths = companion("media-paths.json")
-    tools = tools or MediaTools()
     kept_stills = _research_still_occurrences(raw_document)
-    if kept_stills:
+    document = (
         validated_document()
+        if kept_stills or raw_document.get("rowAudioSpans")
+        else None
+    )
+    if document is not None and locate_research_music(
+        document, media_root, media_paths
+    ):
+        music = resolve_music_bindings(raw_document, dependencies, media_paths)
+        dependencies, media_paths = music.dependencies, music.media_paths
+        frozen = dependencies["document"]
+    tools = tools or MediaTools()
+    if kept_stills:
         _prepare_research_stills(
             kept_stills,
             dependencies,
@@ -417,7 +429,8 @@ def prepare_project(
     if prior is not None:
         report(f"Reused prepared build inputs; total {monotonic() - started:.2f}s")
         return prior
-    document = raw_document if kept_stills else validated_document()
+    if document is None:
+        document = validated_document()
     _check_narrated_research(document)
     cut_sources: dict[str, Path] = {}
     clip_times: dict[str, tuple[str, str, float]] = {}

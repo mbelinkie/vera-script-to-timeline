@@ -53,6 +53,7 @@ const EXTRAS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/docume
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const RESEARCH_QUOTES = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quotes(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
+const RESEARCH_MUSIC = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/music$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const RESEARCH_QUOTE_PICTURE = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/quote-pictures\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/iu;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
@@ -434,7 +435,8 @@ interface QuoteDefaultUndo {
 /** Host-only Research authority. No request transport or bearer reaches the browser. */
 type ResearchClient = ReturnType<typeof createResearchClient>;
 export type AuthoringResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
-  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText" | "matchedClipCues" | "matchedCutTranscript"> & {
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail" | "quotes" | "quote" | "setQuoteDisplayText" | "matchedClipCues" | "matchedCutTranscript" |
+    "musicSelections" | "musicSelection" | "musicPlayback"> & {
     quotePicture(projectId: string, quote: ResearchQuoteRecord): Promise<ResearchQuotePictureV2 | null>;
     retainedQuotePicture(picture: ResearchQuotePictureV2): Promise<Uint8Array | null>;
     quoteThumbnail(projectId: string, quote: ResearchQuoteRecord): Promise<{
@@ -565,9 +567,10 @@ export function createAuthoringHandler(
     const visualHoldDefault = request.method === "GET" ? VISUAL_HOLD_DEFAULT.exec(path) : null;
     const stillRoute = RESEARCH_STILLS.exec(path);
     const quoteRoute = RESEARCH_QUOTES.exec(path);
+    const musicRoute = RESEARCH_MUSIC.exec(path);
     const quotePictureRoute = RESEARCH_QUOTE_PICTURE.exec(path);
-    const researchRoute = stillRoute ?? quoteRoute ?? quotePictureRoute ?? RESEARCH.exec(path);
-    const researchNumber = stillRoute || quoteRoute
+    const researchRoute = stillRoute ?? quoteRoute ?? musicRoute ?? quotePictureRoute ?? RESEARCH.exec(path);
+    const researchNumber = stillRoute || quoteRoute || musicRoute
       ? researchReadNumber(url.searchParams, Boolean(stillRoute?.[3] || quoteRoute?.[3]))
       : null;
     const musicWarnings = MUSIC_WARNINGS.test(path);
@@ -597,7 +600,7 @@ export function createAuthoringHandler(
         !isResearchMedia && !isTrim && !isTrimTiming &&
         !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isQuoteInsert &&
         !isQuoteBoxEdit && !isQuoteDisplayDefault && !isSortingTrial && !isExtrasOperation) ||
-        (stillRoute || quoteRoute ? researchNumber === null : url.search)) {
+        (stillRoute || quoteRoute || musicRoute ? researchNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
     }
@@ -929,6 +932,12 @@ export function createAuthoringHandler(
         if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
           return researchResponse(403, { error: "research_project_forbidden" });
         }
+        if (musicRoute && researchNumber !== null) {
+          if (researchMedia?.projectId !== timelineProjectId.toLowerCase() || !research.catalog.musicSelections) {
+            return researchResponse(503, { error: "research_music_unconfigured" });
+          }
+          return researchResponse(200, await research.catalog.musicSelections(researchProjectId, researchNumber));
+        }
         if (quoteRoute && researchNumber !== null) {
           const quoteId = quoteRoute[3]?.toLowerCase();
           if (quoteId) {
@@ -971,7 +980,11 @@ export function createAuthoringHandler(
       } catch (error) {
         // Research's errors and headers can contain user data or credentials.
         if (quoteRoute || quotePictureRoute) return researchQuoteError(error);
-        return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
+        if (stillRoute) return researchStillError(error);
+        if (musicRoute && error instanceof ResearchReadError && [401, 403, 404].includes(error.status)) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        return researchResponse(503, { error: "research_unavailable" });
       }
     }
     if (isQuoteInsert) {

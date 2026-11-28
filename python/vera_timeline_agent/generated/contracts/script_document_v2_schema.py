@@ -282,7 +282,20 @@ class RowTransitionIntentV2(TypedDict):
     state: Literal["active", "needs_review"]
 
 
+class ResearchMusicSelectionV2(TypedDict):
+    researchProjectId: EntityId
+    sourceId: EntityId
+    sourceVersion: PositiveSafeInteger
+    itemId: EntityId
+    itemVersion: PositiveSafeInteger
+    title: str
+    startMs: int
+    endMs: int
+    playbackHash: ContentHash
+
+
 class RowAudioSourceV2(TypedDict):
+    researchSelection: NotRequired[ResearchMusicSelectionV2]
     mediaReferenceId: EntityId
     artifactId: EntityId
     artifactVersion: PositiveSafeInteger
