@@ -1,0 +1,29 @@
+.contributions-panel { display: grid; justify-items: start; gap: 8px; min-width: 0; max-width: 100%; font: 600 12px/1.4 system-ui, sans-serif; }
+.contributions-panel [hidden] { display: none; }
+.contributions-panel button, .contributions-panel input[type="datetime-local"] {
+  min-height: 28px; box-sizing: border-box; border: 1px solid #3a4048; border-radius: 6px;
+  padding: 3px 9px; background: #1c2028; color: #f2efe8; font: inherit; cursor: pointer;
+}
+.contributions-panel button:focus-visible, .contributions-panel input:focus-visible { outline: 2px solid #f4e1b9; outline-offset: 2px; }
+.contributions-panel button:disabled { opacity: .6; cursor: default; }
+.contributions-panel button[aria-expanded="true"] { border-color: #c49b50; }
+.contributions-panel__bar {
+  position: relative; display: grid; gap: 7px; box-sizing: border-box;
+  width: max-content; max-width: 100%; min-width: 0; padding: 9px 48px 9px 12px;
+  border: 1px solid #2a2f38; border-radius: 10px; background: #171a20; color: #f2efe8;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 25%); overflow-wrap: anywhere;
+}
+.contributions-panel__line, .contributions-panel__options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.contributions-panel__bar p, .contributions-panel__status { margin: 0; }
+.contributions-panel__status:empty { margin: 0; height: 0; }
+.contributions-panel__options { padding: 6px 8px; border: 1px solid #3a4048; border-radius: 8px; }
+.contributions-panel__options label, .contributions-panel__navigation label { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.contributions-panel__options input, .contributions-panel__navigation input { accent-color: #5fb07a; }
+.contributions-panel button.contributions-panel__close { position: absolute; top: 9px; right: 10px; width: 28px; padding: 0; }
+.contributions-panel button.contributions-panel__chip { border-radius: 999px; }
+.contributions-panel button.contributions-panel__chip[aria-pressed="true"] { background: #1f3a28; border-color: #5fb07a; }
+.contributions-panel__badge { display: inline-block; margin-left: 6px; min-width: 16px; text-align: center; padding: 0 4px; border-radius: 999px; background: #3a4048; color: #fff; }
+.contributions-panel__badge--green { background: #2f7d46; }
+.contributions-panel button.contributions-panel__review { background: #c49b50; border-color: #d1ad67; color: #17120a; font-weight: 700; }
+.contributions-panel__navigation { border-top: 1px solid #3a4048; padding-top: 7px; }
+.contributions-panel__summary { color: #c3c8d0; }
