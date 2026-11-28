@@ -64,11 +64,11 @@ class SlatePictureTreatmentV2(TypedDict):
 
 class TransitionPlanV2(TypedDict):
     id: compiler_dependencies_v2_schema.EntityId
-    fromRowId: compiler_dependencies_v2_schema.EntityId
+    fromRowId: NotRequired[compiler_dependencies_v2_schema.EntityId]
     toRowId: compiler_dependencies_v2_schema.EntityId
     trackId: str
     boundaryFrame: compiler_dependencies_v2_schema.NonNegativeSafeInteger
-    outgoingEventId: compiler_dependencies_v2_schema.EntityId
+    outgoingEventId: NotRequired[compiler_dependencies_v2_schema.EntityId]
     incomingEventId: compiler_dependencies_v2_schema.EntityId
     effectIdentity: TransitionEffectIdentityV2
     requestedDurationFrames: int

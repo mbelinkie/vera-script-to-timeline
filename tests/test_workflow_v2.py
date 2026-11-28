@@ -3366,6 +3366,41 @@ def test_24fps_video_source_clock_is_a_proof_bound_fallback() -> None:
     )
 
 
+@pytest.mark.parametrize("handles", [(12, 0), (0, 12)])
+def test_24fps_transition_source_times_can_include_exact_signed_handles(
+    handles: tuple[int, int],
+) -> None:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _video_proof_at_24fps(start=24)
+    )
+    pre, post = handles
+    source_times = {
+        "GetSourceStartTime": (observations["actual_start"] - pre) / 24,
+        "GetSourceEndTime": (observations["actual_end"] + post) / 24,
+    }
+    arguments: dict[str, Any] = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": bindings,
+        "timeline": timeline,
+        "allow_24fps": True,
+        **observations,
+        "source_times": source_times,
+    }
+    assert not workflow_v2._fractional_source_range_matches(**arguments)
+    assert workflow_v2._fractional_source_range_matches(
+        **arguments, transition_handles=handles
+    )
+    assert not workflow_v2._fractional_source_range_matches(
+        **{**arguments, "actual_end": observations["actual_end"] - 1},
+        transition_handles=handles,
+    )
+    assert not workflow_v2._fractional_source_range_matches(
+        **arguments, transition_handles=(pre + 1, post)
+    )
+
+
 def test_24fps_video_source_clock_keeps_only_the_proven_eof_inclusive_shape() -> None:
     event, source, manifest_source, timeline, observations, bindings = (
         _video_proof_at_24fps(start=930, decoded_frame_count=1000, actual_end=999)

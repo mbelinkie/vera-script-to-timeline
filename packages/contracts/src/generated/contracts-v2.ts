@@ -795,7 +795,7 @@ export interface ScriptDocumentV2 {
    */
   stashGroups?: StashRowGroupV2[];
   /**
-   * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
+   * Explicit picture-transition intent at an opening or between rows. Intent does not transfer automatically to new neighbors.
    */
   rowTransitions?: RowTransitionIntentV2[];
   /**
@@ -1336,7 +1336,10 @@ export interface StashRowGroupV2 {
 }
 export interface RowTransitionIntentV2 {
   id: string;
-  fromRowId: string;
+  /**
+   * Omit only for an opening fade from black into the first active timeline row.
+   */
+  fromRowId?: string;
   toRowId: string;
   effect: string;
   /**
@@ -2088,15 +2091,15 @@ export interface ScriptMarkerTreatmentV2 {
   text: string;
 }
 /**
- * One explicitly authored adjacent video-row pair, with exact requested span and an explicit apply-or-named-cut decision. No event is added to the portable OTIO.
+ * One explicitly authored opening or adjacent-row picture transition. No event is added to the portable OTIO.
  */
 export interface TransitionPlanV2 {
   id: string;
-  fromRowId: string;
+  fromRowId?: string;
   toRowId: string;
   trackId: string;
   boundaryFrame: number;
-  outgoingEventId: string;
+  outgoingEventId?: string;
   incomingEventId: string;
   effectIdentity: TransitionEffectIdentityV2;
   requestedDurationFrames: number;

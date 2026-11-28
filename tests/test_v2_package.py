@@ -611,6 +611,68 @@ def test_issue88_signed_package_binds_exact_authored_pair_and_delivered_handles(
             validate_signed_transitions(doc, dependencies, signed, ready_report)
 
 
+@pytest.mark.parametrize("wordless", [False, True])
+def test_issue590_signed_pair_crosses_sections_but_not_another_row(
+    wordless: bool,
+) -> None:
+    doc, deps, manifest, report = _issue88_signed_case()
+    blocks = doc["activeDraft"]["blocks"]
+    if wordless:
+        # Visual-only rows are inherently active and have no state field.
+        blocks[0] = {"id": blocks[0]["id"], "type": "visual_only"}
+    blocks.insert(1, {"id": "section", "type": "section"})
+    assert validate_signed_transitions(doc, deps, manifest, report) == tuple(
+        manifest["transitions"]
+    )
+    blocks.insert(2, {"id": "direction", "type": "direction"})
+    with pytest.raises(TransitionRefusal, match="no longer adjacent"):
+        validate_signed_transitions(doc, deps, manifest, report)
+
+
+def test_issue590_signed_consumer_refuses_even_an_omitted_opening_fade() -> None:
+    doc, deps, manifest, report = _issue88_signed_case()
+    opening = {
+        "id": "opening-fade",
+        "toRowId": doc["activeDraft"]["blocks"][0]["id"],
+        "state": "needs_review",
+        "effect": "Cross Dissolve",
+        "settings": {"durationFrames": 24, "alignment": "right"},
+    }
+    doc["rowTransitions"].append(opening)
+    assert validate_signed_transitions(doc, deps, manifest, report) == tuple(
+        manifest["transitions"]
+    )
+    opening["state"] = "active"
+    with pytest.raises(TransitionRefusal, match="differs from authored"):
+        validate_signed_transitions(doc, deps, manifest, report)
+    (outgoing,) = (
+        item
+        for item in manifest["events"]
+        if item["eventId"] == manifest["transitions"][0]["outgoingEventId"]
+    )
+    outgoing["sourceRange"] = {"startFrame": 24, "endFrame": 120}
+    deps["preparedMedia"][0]["mode"] = "verified_reuse"
+    deps["preparedMedia"][0]["verification"]["decodedFrameCount"] = 144
+    doc["rowTransitions"] = [opening]
+    plan = manifest["transitions"][0].copy()
+    del plan["fromRowId"]
+    del plan["outgoingEventId"]
+    plan.update(
+        id=opening["id"],
+        toRowId=opening["toRowId"],
+        incomingEventId=outgoing["eventId"],
+        boundaryFrame=0,
+        startFrame=0,
+        endFrame=24,
+        alignment="right",
+    )
+    manifest["transitions"] = [plan]
+    assert validate_signed_transitions(doc, deps, manifest, report) == (plan,)
+    plan["startFrame"] = 1
+    with pytest.raises(TransitionRefusal, match="qualified frame-zero placement"):
+        validate_signed_transitions(doc, deps, manifest, report)
+
+
 def test_issue88_named_cut_has_real_known_short_extent_and_matching_warning() -> None:
     doc, dependencies, signed, report = _issue88_signed_case()
     plan = signed["transitions"][0]

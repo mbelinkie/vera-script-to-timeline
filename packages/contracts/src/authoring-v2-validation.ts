@@ -31,6 +31,7 @@ import type {
 } from "./authoring-v2.js";
 import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { rowTransitionDividerV2 } from "./authoring-v2-row-transitions.js";
 import { stashGroupLocationProblemV2 } from "./authoring-v2-stash-groups.js";
 
 type DraftBlock = ScriptDocumentV2["activeDraft"]["blocks"][number];
@@ -519,10 +520,13 @@ export function validateScriptDocumentV2(
   const referenceProblem = (id: string, path: string): void => {
     diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A saved row relationship names a missing row or invalid active pair.", jsonPath: path, entityId: id });
   };
-  const adjacent = (from: string, to: string): boolean => surfaces.some((rows) => rows.some((row, index) => row.id === from && rows[index + 1]?.id === to && row.type !== "section" && rows[index + 1]?.type !== "section"));
   for (const [index, pair] of (document.rowTransitions ?? []).entries()) {
     addId(pair.id, `/rowTransitions/${index}/id`);
-    if (!allRows.has(pair.fromRowId) || !allRows.has(pair.toRowId) || pair.state === "active" && !adjacent(pair.fromRowId, pair.toRowId)) referenceProblem(pair.id, `/rowTransitions/${index}`);
+    const possibleSurfaces = pair.fromRowId === undefined ? [document.activeDraft.blocks] : surfaces;
+    if (!allRows.has(pair.toRowId) || pair.fromRowId !== undefined && !allRows.has(pair.fromRowId) ||
+        pair.state === "active" && !possibleSurfaces.some((rows) => rowTransitionDividerV2(rows, pair.fromRowId, pair.toRowId))) {
+      referenceProblem(pair.id, `/rowTransitions/${index}`);
+    }
   }
   for (const [index, span] of (document.rowAudioSpans ?? []).entries()) {
     addId(span.id, `/rowAudioSpans/${index}/id`);

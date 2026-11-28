@@ -2137,19 +2137,25 @@ def observe_current_timeline_v2(
     for plan in applicable_transitions:
         matched_tracks = [t for t in tracks if t["id"] == plan["trackId"]]
         boundary_track = matched_tracks[0] if len(matched_tracks) == 1 else None
-        outgoing = expected_events.get(plan["outgoingEventId"])
+        opening = "outgoingEventId" not in plan
+        outgoing = expected_events.get(plan.get("outgoingEventId"))
         incoming = expected_events.get(plan["incomingEventId"])
         if (
             boundary_track is None
             or boundary_track["kind"] != "video"
-            or outgoing is None
             or incoming is None
-            or outgoing["trackId"] != boundary_track["id"]
             or incoming["trackId"] != boundary_track["id"]
-            or outgoing["recordRange"]["startFrame"]
-            + outgoing["recordRange"]["durationFrames"]
-            != plan["boundaryFrame"]
             or incoming["recordRange"]["startFrame"] != plan["boundaryFrame"]
+            or (
+                not opening
+                and (
+                    outgoing is None
+                    or outgoing["trackId"] != boundary_track["id"]
+                    or outgoing["recordRange"]["startFrame"]
+                    + outgoing["recordRange"]["durationFrames"]
+                    != plan["boundaryFrame"]
+                )
+            )
         ):
             raise WorkflowV2Error("signed transition row boundary differs")
         matched = [
@@ -2293,15 +2299,15 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             raise WorkflowV2Error("live native boundary inventory is unknown")
         edges: dict[str, Any] = {}
         transitions: list[Any] = []
+        event_ids = {"incoming": plan["incomingEventId"]}
+        if "outgoingEventId" in plan:
+            event_ids["outgoing"] = plan["outgoingEventId"]
         for item in items:
             if item.GetType() == "transition":
                 if item.GetStart() <= plan["boundaryFrame"] <= item.GetEnd():
                     transitions.append(item)
                 continue
-            for side, event_id in (
-                ("outgoing", plan["outgoingEventId"]),
-                ("incoming", plan["incomingEventId"]),
-            ):
+            for side, event_id in event_ids.items():
                 if item.GetMarkerCustomData(0) == self.expected_stamps.get(event_id):
                     if side in edges:
                         raise WorkflowV2Error("native boundary marker is duplicated")
@@ -2325,13 +2331,13 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             "native boundary event range or media changed"
                         )
                     edges[side] = item
-        if set(edges) != {"outgoing", "incoming"} or len(transitions) > 1:
+        if edges.keys() != event_ids.keys() or len(transitions) > 1:
             raise WorkflowV2Error(
                 "native boundary clip/transition inventory is ambiguous"
             )
         return {
             **edges,
-            "outgoingId": plan["outgoingEventId"],
+            "outgoingId": plan.get("outgoingEventId"),
             "incomingId": plan["incomingEventId"],
             "transition": transitions[0] if transitions else None,
         }
@@ -2922,6 +2928,19 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
 
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
+        transition_source_handles: dict[str, tuple[int, int]] = {}
+        for plan in getattr(self, "_v2_transition_plans", ()):
+            if plan["disposition"] != "apply" or "outgoingEventId" not in plan:
+                continue
+            outgoing, incoming = plan["outgoingEventId"], plan["incomingEventId"]
+            transition_source_handles[outgoing] = (
+                transition_source_handles.get(outgoing, (0, 0))[0],
+                plan["endFrame"] - plan["boundaryFrame"],
+            )
+            transition_source_handles[incoming] = (
+                plan["boundaryFrame"] - plan["startFrame"],
+                transition_source_handles.get(incoming, (0, 0))[1],
+            )
         # Keep the actual reopened TimelineItem handles in the *same* structural
         # readback that checks geometry, source, stamps and native properties.
         # An incomplete readback cannot become a row map.
@@ -3092,6 +3111,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         preparation_bindings=self._v2_preparation_bindings,
                                         timeline=timeline,
                                         allow_24fps=is_24fps_source_clock,
+                                        transition_handles=transition_source_handles.get(
+                                            event_id, (0, 0)
+                                        ),
                                         actual_start=item.GetSourceStartFrame(),
                                         actual_end=item.GetSourceEndFrame(),
                                         source_times=source_times,
@@ -3574,6 +3596,7 @@ def _fractional_source_range_matches(
     record_duration: int,
     allow_24fps: bool = False,
     allow_25fps_video: bool = False,
+    transition_handles: tuple[int, int] = (0, 0),
 ) -> bool:
     """Check qualified fractional, 24 fps and observed 25 fps video clocks."""
     try:
@@ -3866,6 +3889,37 @@ def _fractional_source_range_matches(
         end_error = _source_time_error_samples(
             source_times.get("GetSourceEndTime"), expected_end * rate_seconds
         )
+        pre, post = transition_handles
+        if (
+            rate == (24, 1)
+            and event["kind"] == "primary_visual"
+            and (pre or post)
+            and pre >= 0
+            and post >= 0
+            and actual_start == expected_start
+            and actual_end == expected_end
+            and expected_duration == record_duration
+            and expected_start >= pre
+            and type(decoded_frame_count) is int
+            and expected_end + post <= decoded_frame_count
+        ):
+            # Studio 21.1.1 includes the signed dissolve handles in source
+            # seconds while source frame getters keep the exact clip trim.
+            expanded_start_error = _source_time_error_samples(
+                source_times.get("GetSourceStartTime"),
+                (expected_start - pre) * rate_seconds,
+            )
+            expanded_end_error = _source_time_error_samples(
+                source_times.get("GetSourceEndTime"),
+                (expected_end + post) * rate_seconds,
+            )
+            if (
+                expanded_start_error is not None
+                and abs(expanded_start_error) <= 1
+                and expanded_end_error is not None
+                and abs(expanded_end_error) <= 1
+            ):
+                return True
         return (
             start_error is not None
             and abs(start_error) <= 1
@@ -4158,6 +4212,11 @@ def run_workflow_delivery_v2(
                     "native OTIO treatment lacks qualification on this Studio build"
                 )
         if has_native_transitions and connected_identity != ("21.1.1", "10"):
+            if any("outgoingEventId" not in plan for plan in transition_plans):
+                raise WorkflowV2Error(
+                    "Opening fades at frame zero require "
+                    "Resolve Studio 21.1.1 build 10."
+                )
             raise WorkflowV2Error(
                 "native Cross Dissolve requires measured Studio 21.1.1 build 10"
             )

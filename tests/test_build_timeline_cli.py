@@ -274,6 +274,38 @@ def test_actual_pinned_compiler_fixture_preserves_golden_manifest_and_report(
     )
 
 
+def test_issue590_refuses_invalid_opening_alignment_before_resolve(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs", "flat")
+    doc = json.loads(options.script.read_bytes())
+    doc["rowTransitions"] = [
+        {
+            "id": "00000000-0000-4000-8000-000000000590",
+            "toRowId": doc["activeDraft"]["blocks"][0]["id"],
+            "state": "active",
+            "effect": "Cross Dissolve",
+            "settings": {"durationFrames": 24, "alignment": "center"},
+        }
+    ]
+    options.script.write_text(json.dumps(doc))
+
+    def forbidden(*_args: Any, **_kwargs: Any) -> None:
+        pytest.fail("an unqualified opening fade must stop before native delivery")
+
+    monkeypatch.setattr(build_timeline_once, "deliver_compiled", forbidden)
+    assert (
+        build_timeline_cli.main(
+            ["--script", str(options.script), "--output", str(options.output)]
+        )
+        == 2
+    )
+    assert (
+        "An opening fade must extend right from frame zero." in capsys.readouterr().err
+    )
+    assert not (options.output / "timeline-manifest.json").exists()
+
+
 def test_absent_prepared_companion_refuses_before_output(tmp_path: Path) -> None:
     options = _inputs(tmp_path / "inputs")
     options.inputs.joinpath("compiler-dependencies.json").unlink()  # type: ignore[union-attr]

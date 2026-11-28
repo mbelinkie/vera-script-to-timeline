@@ -97,7 +97,7 @@
       "items": {
         "$ref": "#/$defs/RowTransitionIntentV2"
       },
-      "description": "Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery."
+      "description": "Explicit picture-transition intent at an opening or between rows. Intent does not transfer automatically to new neighbors."
     },
     "rowAudioSpans": {
       "type": "array",
@@ -3181,7 +3181,6 @@
       "additionalProperties": false,
       "required": [
         "id",
-        "fromRowId",
         "toRowId",
         "effect",
         "settings",
@@ -3192,6 +3191,7 @@
           "$ref": "#/$defs/EntityId"
         },
         "fromRowId": {
+          "description": "Omit only for an opening fade from black into the first active timeline row.",
           "$ref": "#/$defs/EntityId"
         },
         "toRowId": {

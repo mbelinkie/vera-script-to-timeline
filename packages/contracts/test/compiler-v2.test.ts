@@ -1178,6 +1178,101 @@ describe("#88 frozen row-to-row transition compilation", () => {
   });
 });
 
+describe("#590 transition dividers", () => {
+  it("emits the ordinary exact picture transition and a marker at the section cut", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    const ordinary = compileTimelineV2(doc, deps);
+    expect(ordinary.ok, JSON.stringify(ordinary)).toBe(true);
+    if (!ordinary.ok) return;
+
+    const heading = { type: "section" as const, id: id(201), title: "Act two", orderKey: "section-2", version: 1 };
+    doc.activeDraft.blocks.splice(1, 0, heading);
+    const needs = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    const section = compileTimelineV2(doc, deps);
+    expect(resolveMediaRequirementsV2(doc, needs).ok).toBe(true);
+    expect(section.ok, JSON.stringify(section)).toBe(true);
+    if (!section.ok) return;
+
+    expect(section.report.status).toBe("ready");
+    expect(section.manifest.transitions).toEqual(ordinary.manifest.transitions);
+    expect(section.manifest.events.filter((event) => event.kind !== "script_marker")).toEqual(ordinary.manifest.events);
+    expect(section.manifest.events.filter((event) => event.kind === "script_marker")).toMatchObject([
+      { recordRange: { startFrame: 96, endFrame: 97 }, marker: { supportingItemId: heading.id, text: heading.title } },
+    ]);
+    readTransitionGolden("two-row-24-frame", section);
+  });
+
+  it("signs a qualified frame-zero fade and refuses unsupported opening placements", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    const fade = { id: id(201), toRowId: doc.activeDraft.blocks[0]!.id, effect: "Cross Dissolve",
+      settings: { durationFrames: 24, alignment: "right" }, state: "active" as const };
+    const ordinary = compileTimelineV2(doc, deps);
+    expect(ordinary.ok).toBe(true);
+    if (!ordinary.ok) return;
+
+    doc.rowTransitions!.push(fade);
+    const needs = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    expect(resolveMediaRequirementsV2(doc, needs).ok).toBe(true);
+    const noHandle = compileTimelineV2(doc, deps);
+    expect(noHandle.ok).toBe(false);
+    if (!noHandle.ok) expect(noHandle.diagnostics[0]?.message).toContain("delivered source handle");
+
+    for (const [settings, message] of [
+      [{ durationFrames: 23 }, /supported even frame count/],
+      [{ durationFrames: 24, alignment: "center" }, /must extend right from frame zero/],
+      [{ durationFrames: 98 }, /cover the full opening fade/],
+      [{ durationFrames: 12 }, /support 24 frames at 24 fps/],
+    ] as const) {
+      doc.rowTransitions![1] = { ...fade, settings };
+      const result = compileTimelineV2(doc, deps);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.diagnostics[0]?.message).toMatch(message);
+    }
+
+    for (const intent of [{ ...fade, state: "needs_review" as const }, { ...fade, effect: "cut" }]) {
+      doc.rowTransitions![1] = intent;
+      const result = compileTimelineV2(doc, deps);
+      expect(result.ok && result.manifest.transitions).toEqual(ordinary.manifest.transitions);
+    }
+
+    doc.rowTransitions![1] = fade;
+    const slot = (doc.activeDraft.blocks[0] as NarrationBlockV2).primaryVisualSequence!.slots[0]!;
+    if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("fixture requires video");
+    slot.payload.sourceUsage = { sourceInFrame: 24 };
+    const descriptor = deps.occurrenceResolutions[0]!;
+    const binding = deps.preparedMedia[0]!;
+    const rate = deps.timeline.frameRate;
+    descriptor.occurrenceSourceInFrame = 24;
+    descriptor.logicalSourceBounds.frameRate = rate;
+    descriptor.sourceFrameMap.decodedPackageFrameRate = rate;
+    binding.mode = "verified_reuse";
+    delete binding.derivation;
+    binding.requestedRange.sourceInFrame = 24;
+    binding.timeMapping.sourceRate = rate;
+    binding.timeMapping.sourceFrameMap = descriptor.sourceFrameMap;
+    Object.assign(binding.verification, {
+      decodedFrameCount: descriptor.sourceFrameMap.decodedPackageFrameCount,
+      videoTimeBase: descriptor.sourceFrameMap.packageVideoTimeBase,
+      deliveredHash: descriptor.sourceSnapshot.contentHash,
+      probeHash: descriptor.sourceSnapshot.probeHash,
+    });
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    const opening = compiled.manifest.transitions?.find((plan) => plan.id === fade.id);
+    expect(opening).toMatchObject({ boundaryFrame: 0, startFrame: 0, endFrame: 24, disposition: "apply", alignment: "right" });
+    expect(opening).not.toHaveProperty("fromRowId");
+    expect(opening).not.toHaveProperty("outgoingEventId");
+
+    deps.narrationTimingMaps[0]!.audio!.durationSamples = 60_000;
+    const overlapping = resolveMediaRequirementsV2(doc, needs);
+    expect(overlapping.ok).toBe(false);
+    if (!overlapping.ok) expect(overlapping.diagnostics[0]?.message).toContain("too close to the next transition");
+  });
+});
+
 describe("pure v2 compiler", () => {
   it("reports one preparation per shared binding and keeps both occurrences", () => {
     const { doc, deps } = sharedPreparationFixture();

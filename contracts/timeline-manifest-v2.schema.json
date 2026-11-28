@@ -149,16 +149,14 @@
       }
     },
     "TransitionPlanV2": {
-      "description": "One explicitly authored adjacent video-row pair, with exact requested span and an explicit apply-or-named-cut decision. No event is added to the portable OTIO.",
+      "description": "One explicitly authored opening or adjacent-row picture transition. No event is added to the portable OTIO.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "id",
-        "fromRowId",
         "toRowId",
         "trackId",
         "boundaryFrame",
-        "outgoingEventId",
         "incomingEventId",
         "effectIdentity",
         "requestedDurationFrames",
@@ -167,6 +165,10 @@
         "endFrame",
         "disposition"
       ],
+      "dependentRequired": {
+        "fromRowId": ["outgoingEventId"],
+        "outgoingEventId": ["fromRowId"]
+      },
       "properties": {
         "id": {
           "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"

@@ -349,12 +349,16 @@ function revisionedRowCommand(value: unknown): RowEditCommandV2 | null {
   if (!record(value) || !REVISIONED_ROW_KINDS.has(String(value.kind))) return null;
   switch (value.kind) {
     case "add_row_transition":
-    case "remove_row_transition":
-      if (!exact(value, ["kind", "transitionId", "fromRowId", "toRowId", "expectedFromVersion", "expectedToVersion"]) ||
-          !uuid(value.transitionId) || !uuid(value.fromRowId) || !uuid(value.toRowId) ||
-          !Number.isSafeInteger(value.expectedFromVersion) || (value.expectedFromVersion as number) <= 0 ||
-          !Number.isSafeInteger(value.expectedToVersion) || (value.expectedToVersion as number) <= 0) return null;
+    case "remove_row_transition": {
+      const keys = ["kind", "transitionId", "toRowId", "expectedToVersion"];
+      const hasFrom = Object.hasOwn(value, "fromRowId");
+      if (hasFrom) keys.push("fromRowId", "expectedFromVersion");
+      if (!exact(value, keys) || !uuid(value.transitionId) || !uuid(value.toRowId) ||
+          !Number.isSafeInteger(value.expectedToVersion) || (value.expectedToVersion as number) <= 0 ||
+          hasFrom && (!uuid(value.fromRowId) ||
+            !Number.isSafeInteger(value.expectedFromVersion) || (value.expectedFromVersion as number) <= 0)) return null;
       break;
+    }
     case "add_visual_to_wordless_row":
       if (!exact(value, ["kind", "rowId", "payloadId", "slotId", "visualType"]) ||
           !uuid(value.rowId) || !uuid(value.payloadId) || !uuid(value.slotId) ||

@@ -454,7 +454,7 @@ function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move:
     const from = follow(edges.trailing, pair.fromRowId);
     const to = follow(edges.leading, pair.toRowId);
     if (isProblem(from) || isProblem(to)) return refuse("A transition sits between these two rows. Remove it before joining them.", pair.id);
-    pair.fromRowId = from as string;
+    if (typeof from === "string") pair.fromRowId = from;
     pair.toRowId = to as string;
   }
   for (const span of working.rowAudioSpans ?? []) {

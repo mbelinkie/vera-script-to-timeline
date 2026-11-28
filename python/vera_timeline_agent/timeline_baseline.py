@@ -64,7 +64,7 @@ def compose(
     replacements = {plan["id"]: plan for plan in new_manifest.get("transitions", [])}
     transitions = []
     for plan in manifest.get("transitions", []):
-        if rows & {plan["fromRowId"], plan["toRowId"]}:
+        if rows & {plan.get("fromRowId"), plan["toRowId"]}:
             if plan["id"] not in replacements:
                 raise ValueError("an updated row lost its transition plan")
             plan = replacements[plan["id"]]

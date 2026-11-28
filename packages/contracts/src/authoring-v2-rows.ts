@@ -8,7 +8,7 @@ import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./autho
 import { copyStashNoteAsSpokenV2, invalidateChangedStashSourceLinksV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
 import { findPrimaryResearchOwnerV2, trimNarratedResearchPayloadV2, trimResearchClipOccurrenceV2, type ResearchClipTrimChangeV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
-import { ordinaryTransitionPairV2, qualifiedTransitionRowShapeV2 } from "./authoring-v2-row-transitions.js";
+import { rowTransitionDividerV2, qualifiedTransitionRowShapeV2 } from "./authoring-v2-row-transitions.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
@@ -191,8 +191,8 @@ export type RowEditCommandV2 =
   | { kind: "set_visual_only_audio_match"; rowId: string; payloadId: string; cueId: string | null }
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
   | { kind: "delete_row_audio_span"; cueId: string }
-  | { kind: "add_row_transition"; transitionId: string; fromRowId: string; toRowId: string; expectedFromVersion: number; expectedToVersion: number }
-  | { kind: "remove_row_transition"; transitionId: string; fromRowId: string; toRowId: string; expectedFromVersion: number; expectedToVersion: number }
+  | { kind: "add_row_transition"; transitionId: string; toRowId: string; expectedToVersion: number; fromRowId?: string; expectedFromVersion?: number }
+  | { kind: "remove_row_transition"; transitionId: string; toRowId: string; expectedToVersion: number; fromRowId?: string; expectedFromVersion?: number }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
   | { kind: "delete_rows"; rowIds: string[]; stashBranch?: { attachedClipIds: string[] } }
   | SplitRowCommandV2
@@ -367,11 +367,13 @@ function documentUuids(value: unknown, result = new Set<string>()): Set<string> 
 }
 
 function validTransitionCommand(value: unknown): boolean {
-  if (!plainObject(value) || !isJsonValue(value) ||
-      !exactKeys(value, ["kind", "transitionId", "fromRowId", "toRowId", "expectedFromVersion", "expectedToVersion"])) return false;
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-  return [value.transitionId, value.fromRowId, value.toRowId].every((item) => typeof item === "string" && uuid.test(item)) &&
-    [value.expectedFromVersion, value.expectedToVersion].every((item) => typeof item === "number" && Number.isSafeInteger(item) && item > 0);
+  if (!plainObject(value) || !isJsonValue(value)) return false;
+  const keys = ["kind", "transitionId", "toRowId", "expectedToVersion"];
+  const hasFrom = Object.hasOwn(value, "fromRowId");
+  if (hasFrom) keys.push("fromRowId", "expectedFromVersion");
+  const version = (item: unknown): boolean => typeof item === "number" && Number.isSafeInteger(item) && item > 0;
+  return exactKeys(value, keys) && uuid(value.transitionId) && uuid(value.toRowId) &&
+    version(value.expectedToVersion) && (!hasFrom || uuid(value.fromRowId) && version(value.expectedFromVersion));
 }
 
 function validVisualOnlyCommand(value: unknown): boolean {
@@ -1179,8 +1181,14 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
   const nextLocations = locations(after);
   for (const pair of after.rowTransitions ?? []) {
     if (pair.state === "needs_review") continue;
-    const together = nextLocations.some((part) => part.rows.some((row, index) => row.id === pair.fromRowId && part.rows[index + 1]?.id === pair.toRowId));
-    if (!together) pair.state = "needs_review";
+    const divider = rowTransitionDividerV2(after.activeDraft.blocks, pair.fromRowId, pair.toRowId);
+    const stashedPair = pair.fromRowId !== undefined && after.stash?.some((bundle) =>
+      bundle.rows.some((row, index) => row.id === pair.fromRowId && bundle.rows[index + 1]?.id === pair.toRowId));
+    // An explicitly placed transition may cross a section. Inserting a new
+    // heading through an existing transition still puts it up for review.
+    const newHeading = command.kind === "create_section" && pair.fromRowId !== undefined &&
+      command.destination.afterRowId === pair.fromRowId && command.destination.beforeRowId === pair.toRowId;
+    if ((!divider && !stashedPair) || newHeading) pair.state = "needs_review";
   }
   const spans = before.rowAudioSpans ?? [];
   const flattenedCoverage = (document: ScriptDocumentV2, start: string, end: string): string[] | null => {
@@ -1292,8 +1300,11 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[], stashBranch?: {
   if (audioSpanTouchesRows(working, selected)) return diagnostic("AUDIO_REVIEW_REQUIRED", "A saved row audio span touches these rows. Review or remove that audio intent before deleting them.");
 
   for (const pair of working.rowTransitions ?? []) {
-    const fromSelected = selected.has(pair.fromRowId);
     const toSelected = selected.has(pair.toRowId);
+    if (pair.fromRowId === undefined && toSelected) {
+      return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "Remove the opening fade before deleting its target row.");
+    }
+    const fromSelected = pair.fromRowId !== undefined && selected.has(pair.fromRowId);
     if (fromSelected !== toSelected) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A row transition links a selected row to a surviving row. Review or remove that transition before deleting these rows.");
   }
 
@@ -1342,7 +1353,7 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[], stashBranch?: {
 
   working.activeDraft.supportingItems = activeItems;
   for (const bundle of working.stash ?? []) bundle.supportingItems = bundleItems.get(bundle.id)!;
-  if (working.rowTransitions) working.rowTransitions = working.rowTransitions.filter((pair) => !(selected.has(pair.fromRowId) && selected.has(pair.toRowId)));
+  if (working.rowTransitions) working.rowTransitions = working.rowTransitions.filter((pair) => !(pair.fromRowId !== undefined && selected.has(pair.fromRowId) && selected.has(pair.toRowId)));
   if (working.rowReferences) working.rowReferences = working.rowReferences.filter((reference) => !selected.has(reference.rowId));
   if (working.rowTransitions?.length === 0) delete working.rowTransitions;
   if (working.rowReferences?.length === 0) delete working.rowReferences;
@@ -1486,7 +1497,7 @@ export function applyRowEditV2(
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
     if ((command.kind === "add_row_transition" || command.kind === "remove_row_transition") && !validTransitionCommand(command)) {
-      return refused(document, "ROW_COMMAND_INVALID", "Provide the exact transition ID, ordered row IDs and current row versions.");
+      return refused(document, "ROW_COMMAND_INVALID", "Provide the exact transition ID and current IDs and versions for its divider.");
     }
     if (command.kind === "stash_rows" && (!isJsonValue(command) ||
       !exactKeys(command, Object.hasOwn(command, "destination") ? ["kind", "rowIds", "bundleId", "destination"] : ["kind", "rowIds", "bundleId"]) ||
@@ -1587,31 +1598,35 @@ export function applyRowEditV2(
       intent.state === "needs_review" && intent.id === command.transitionId &&
       intent.fromRowId === command.fromRowId && intent.toRowId === command.toRowId);
     const from = blocks.find((block): block is Row => block.type !== "section" && block.id === command.fromRowId);
-    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId);
-    const pair = ordinaryTransitionPairV2(working, command.fromRowId, command.toRowId) ??
-      (reviewed && from && to ? { from, to } : null);
-    if (!pair) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the same two consecutive rows within one script section, or an exact saved transition that needs review.");
-    if (pair.from.version !== command.expectedFromVersion || pair.to.version !== command.expectedToVersion) {
+    const to = blocks.find((block): block is Row => block.type !== "section" && block.id === command.toRowId) ??
+      (reviewed && command.fromRowId === undefined ? stashRowById(working, command.toRowId) : undefined);
+    const divider = rowTransitionDividerV2(blocks, command.fromRowId, command.toRowId) ??
+      (reviewed && to && (command.fromRowId === undefined || from) ? { from, to } : null);
+    if (!divider) return refused(document, "ROW_TRANSITION_PAIR_INVALID", "Choose the opening divider, two consecutive rows, or an exact saved transition that needs review.");
+    if (divider.from?.version !== command.expectedFromVersion || divider.to.version !== command.expectedToVersion) {
       return refused(document, "ROW_TRANSITION_STALE", "A neighboring row changed. Choose the current divider again.");
     }
-    const samePair = (intent: (typeof transitions)[number]) => intent.fromRowId === pair.from.id && intent.toRowId === pair.to.id;
+    const sameDivider = (intent: (typeof transitions)[number]) => intent.fromRowId === command.fromRowId && intent.toRowId === command.toRowId;
     if (command.kind === "add_row_transition") {
-      if (!qualifiedTransitionRowShapeV2(pair.from) || !qualifiedTransitionRowShapeV2(pair.to)) {
-        return refused(document, "ROW_TRANSITION_INELIGIBLE", "Both rows need one full-row muted video clip for this transition.");
+      if (!qualifiedTransitionRowShapeV2(divider.to) || divider.from && !qualifiedTransitionRowShapeV2(divider.from)) {
+        return refused(document, "ROW_TRANSITION_INELIGIBLE", "Each row at this divider needs one full-row muted video clip for this transition.");
       }
       if (documentUuids(document).has(command.transitionId.toLowerCase())) {
         return refused(document, "ROW_TRANSITION_ID_OCCUPIED", "Use a new transition ID.");
       }
-      if (transitions.some((intent) => samePair(intent) || intent.state === "active" &&
-          [intent.fromRowId, intent.toRowId].some((id) => id === pair.from.id || id === pair.to.id))) {
-        return refused(document, "ROW_TRANSITION_PAIR_OCCUPIED", "Review the existing transition before adding another one to these rows.");
+      const fromId = divider.from?.id;
+      const toId = divider.to.id;
+      if (transitions.some((intent) => sameDivider(intent) ||
+          fromId !== undefined && intent.fromRowId !== undefined && intent.state === "active" &&
+          [intent.fromRowId, intent.toRowId].some((id) => id === fromId || id === toId))) {
+        return refused(document, "ROW_TRANSITION_PAIR_OCCUPIED", "Review the existing transition before adding another one at this divider.");
       }
       (working.rowTransitions ??= []).push({
-        id: command.transitionId, fromRowId: pair.from.id, toRowId: pair.to.id,
-        effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active",
+        id: command.transitionId, ...(fromId === undefined ? {} : { fromRowId: fromId }), toRowId: toId,
+        effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: fromId === undefined ? "right" : "center" }, state: "active",
       });
     } else {
-      const index = transitions.findIndex((intent) => intent.id === command.transitionId && samePair(intent) && (intent.state === "active" || intent.state === "needs_review"));
+      const index = transitions.findIndex((intent) => intent.id === command.transitionId && sameDivider(intent) && (intent.state === "active" || intent.state === "needs_review"));
       if (index < 0) return refused(document, "ROW_TRANSITION_NOT_FOUND", "The named transition is not saved for these rows.");
       transitions.splice(index, 1);
       if (transitions.length === 0) delete working.rowTransitions;

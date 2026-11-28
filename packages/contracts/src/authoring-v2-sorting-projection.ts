@@ -995,7 +995,7 @@ function applyRelationships(output: ScriptDocumentV2, state: SortingProjectionV2
   // authored music/transition edits, Sorting commands can remove them as a
   // consequence of temporarily deleting a row.
   const references = mergeById<NonNullable<ScriptDocumentV2["rowReferences"]>[number]>(baseline.rowReferences, current.rowReferences, true);
-  output.rowTransitions = transitions.filter((item) => rows.has(item.fromRowId) && rows.has(item.toRowId));
+  output.rowTransitions = transitions.filter((item) => (item.fromRowId === undefined || rows.has(item.fromRowId)) && rows.has(item.toRowId));
   output.rowAudioSpans = spans.filter((item) => !deletedCues.has(item.id) && rows.has(item.startRowId) && rows.has(item.endRowId));
   output.rowReferences = references.filter((item) => rows.has(item.rowId));
   if (output.rowTransitions.length === 0) delete output.rowTransitions;

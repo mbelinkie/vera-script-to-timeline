@@ -104,9 +104,7 @@ def validate_signed_transitions(
     rows = [
         row
         for row in all_rows
-        if isinstance(row, Mapping)
-        and row.get("state") == "active"
-        and row.get("type") in {"visual_only", "narration"}
+        if isinstance(row, Mapping) and row.get("type") != "section"
     ]
     written = document.get("rowTransitions", [])
     _need(isinstance(written, list), "authored transitions are unavailable")
@@ -142,6 +140,7 @@ def validate_signed_transitions(
         item.get("payloadId"): item
         for item in dependencies.get("occurrenceResolutions", [])
     }
+    has_opening = any("fromRowId" not in pair for pair in authored)
     seen_ids: set[str] = set()
     seen_edges: set[tuple[str, int]] = set()
     for plan in raw:
@@ -167,13 +166,83 @@ def validate_signed_transitions(
         _need(isinstance(settings, Mapping), "authored transition settings are missing")
         assert isinstance(settings, Mapping)
         duration = _authored_duration(settings, manifest["timeline"]["frameRate"])
-        alignment = settings.get("alignment", "center")
+        opening = "fromRowId" not in pair
+        alignment = settings.get("alignment", "right" if opening else "center")
         left, right = _required_sides(duration, alignment)
+        if opening:
+            first = next(
+                (
+                    row
+                    for row in rows
+                    if row.get("type") == "visual_only"
+                    or (row.get("type") == "narration" and row.get("state") == "active")
+                ),
+                {},
+            )
+            opening_clip = by_event.get(plan.get("incomingEventId"), {})
+            record = opening_clip.get("recordRange", {})
+            source = opening_clip.get("sourceRange") or {}
+            source_start = source.get("startFrame")
+            source_end = source.get("endFrame")
+            opening_source: Mapping[str, Any] = next(
+                (
+                    entry
+                    for entry in manifest.get("sources", [])
+                    if entry.get("id")
+                    == opening_clip.get("provenance", {}).get("sourceId")
+                ),
+                {},
+            )
+            opening_binding = bindings.get(
+                opening_source.get("preparationRequirementKey"), {}
+            )
+            decoded_frames = opening_binding.get("verification", {}).get(
+                "decodedFrameCount"
+            )
+            _need(
+                _fraction(manifest["timeline"]["frameRate"]) == 24
+                and duration == 24
+                and alignment == "right"
+                and first.get("id") == pair["toRowId"]
+                and plan.get("trackId") == root_track
+                and plan.get("boundaryFrame") == plan.get("startFrame") == 0
+                and plan.get("endFrame")
+                == plan.get("requestedDurationFrames")
+                == duration
+                and plan.get("alignment") == alignment
+                and plan.get("disposition") == "apply"
+                and "fromRowId" not in plan
+                and "outgoingEventId" not in plan
+                and "reason" not in plan
+                and (root_track, 0) not in seen_edges
+                and opening_clip.get("kind") == "primary_visual"
+                and opening_clip.get("trackRole") == "primary_root"
+                and opening_clip.get("trackId") == root_track
+                and opening_clip.get("provenance", {}).get("blockId") == pair["toRowId"]
+                and record.get("startFrame") == 0
+                and _frame(record.get("endFrame"))
+                and record["endFrame"] >= duration
+                and _frame(source_start)
+                and _frame(source_end)
+                and _frame(decoded_frames)
+                and duration <= source_start < source_end <= decoded_frames
+                and source_end - source_start == record["endFrame"]
+                and opening_binding.get("mode") == "verified_reuse",
+                "signed opening fade differs from the qualified frame-zero placement",
+            )
+            seen_edges.add((root_track, 0))
+            continue
         from_row, to_row = pair["fromRowId"], pair["toRowId"]
         candidates = [
             index
             for index, row in enumerate(rows[:-1])
-            if row.get("id") == from_row and rows[index + 1].get("id") == to_row
+            if row.get("id") == from_row
+            and rows[index + 1].get("id") == to_row
+            and all(
+                side.get("type") == "visual_only"
+                or (side.get("type") == "narration" and side.get("state") == "active")
+                for side in (row, rows[index + 1])
+            )
         ]
         _need(len(candidates) == 1, "transition authored rows are no longer adjacent")
         outgoing = by_event.get(plan.get("outgoingEventId"))
@@ -232,6 +301,10 @@ def validate_signed_transitions(
         )
         if disposition == "apply":
             _need("reason" not in plan, "applicable transition has a cut reason")
+            _need(
+                not has_opening or (boundary > 24 and plan["startFrame"] >= 24),
+                "the opening fade is too close to the next transition",
+            )
             for event, needed, side in (
                 (outgoing, right, "postHandle"),
                 (incoming, left, "preHandle"),
@@ -396,6 +469,37 @@ def apply_guarded_transition(plan: Mapping[str, Any], locate_boundary: Any) -> s
     _need(plan["disposition"] == "apply", "only exact qualified plans may be applied")
     before = locate_boundary(plan)
     _need(before["transition"] is None, "transition already occupies the boundary")
+    if "outgoingEventId" not in plan:
+        inc = before["incoming"]
+        duration = plan["requestedDurationFrames"]
+        _need(
+            before["incomingId"] == plan["incomingEventId"]
+            and inc.GetStart(False) == 0
+            and inc.GetLeftOffset() >= duration
+            and inc.GetDuration(False) >= duration,
+            "live opening clip identity, frame or handle differs",
+        )
+        result = inc.AddTransition(
+            {
+                "type": QUALIFIED_EFFECT["name"],
+                "category": QUALIFIED_EFFECT["category"],
+                "position": "start",
+                "alignment": "right",
+                "duration": duration,
+            }
+        )
+        _need(
+            result is not None and result is not False,
+            "Opening AddTransition was uncertain; no retry",
+        )
+        after = locate_boundary(plan)
+        actual = after["transition"]
+        _need(
+            after["incomingId"] == before["incomingId"]
+            and observe_native_transition(actual, plan),
+            "native opening fade did not retain exact geometry or identity",
+        )
+        return str(actual.GetUniqueId())
     out, inc = before["outgoing"], before["incoming"]
     _need(
         before["outgoingId"] == plan["outgoingEventId"]
