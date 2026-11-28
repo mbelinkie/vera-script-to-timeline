@@ -962,7 +962,7 @@ describe("#100 verified A5 music compilation", () => {
     const span = doc.rowAudioSpans![0]!;
     for (const [timelineOut, message] of [
       [{ kind: "frame", frame: 288 }, "Adjust a source trim"],
-      [{ kind: "row_edge", blockId: id(189), edge: "end" }, "Refresh word timing"],
+      [{ kind: "row_edge", blockId: id(189), edge: "end" }, "end row edge is no longer current"],
     ] as const) {
       span.timing = { sourceOutFrame: 24, timelineIn: { kind: "frame", frame: 0 }, timelineOut };
       const saved = structuredClone(span.timing);

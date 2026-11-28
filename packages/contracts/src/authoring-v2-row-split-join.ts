@@ -464,6 +464,13 @@ function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move:
     if (isProblem(start) || isProblem(end) || isProblem(previousEnd)) {
       return refuse("A music cue starts or ends between these two rows. Move the cue's start or end before joining them.", span.id);
     }
+    for (const point of [span.timing?.timelineIn, span.timing?.timelineOut]) {
+      if (point?.kind === "word") retargetAnchors(point.anchor, move);
+      if (point?.kind !== "row_edge") continue;
+      const rowId = follow(point.edge === "start" ? edges.leading : edges.trailing, point.blockId);
+      if (isProblem(rowId)) return refuse("A music cue is pinned to the edge between these rows. Move the pin before joining them.", span.id);
+      if (typeof rowId === "string") point.blockId = rowId;
+    }
     span.startRowId = start as string;
     span.endRowId = end as string;
     if (span.review) span.review.previousEndRowId = previousEnd as string;

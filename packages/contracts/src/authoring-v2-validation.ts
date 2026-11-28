@@ -530,13 +530,16 @@ export function validateScriptDocumentV2(
     if (!allRows.has(span.startRowId) || !allRows.has(span.endRowId)) referenceProblem(span.id, `/rowAudioSpans/${index}`);
     for (const endpoint of ["timelineIn", "timelineOut"] as const) {
       const point = span.timing?.[endpoint];
-      if (point?.kind !== "word" || isMusicCuePointCurrentV2(point, blocksById.get(point.anchor.blockId))) continue;
+      if (!point || point.kind === "frame") continue;
+      const blockId = point.kind === "word" ? point.anchor.blockId : point.blockId;
+      if (isMusicCuePointCurrentV2(point, blocksById.get(blockId))) continue;
+      const label = point.kind === "word" ? `word “${point.anchor.quotedWord}”` : "row edge";
       diagnostics.push({
         code: "MUSIC_CUE_ANCHOR_REVIEW",
         severity: "warning",
-        message: `The music cue's ${endpoint === "timelineIn" ? "start" : "end"} word “${point.anchor.quotedWord}” is no longer current. Select an exact spoken word or a row edge.`,
+        message: `The music cue's ${endpoint === "timelineIn" ? "start" : "end"} ${label} is no longer current. Select an exact spoken word or a row edge.`,
         jsonPath: `/rowAudioSpans/${index}/timing/${endpoint}`,
-        blockId: point.anchor.blockId,
+        blockId,
         entityId: span.id,
       });
     }

@@ -1249,6 +1249,8 @@ function audioSpanTouchesRows(document: ScriptDocumentV2, selected: Set<string>)
   const places = locations(document);
   return (document.rowAudioSpans ?? []).some((span) => {
     if (selected.has(span.startRowId) || selected.has(span.endRowId)) return true;
+    if ([span.timing?.timelineIn, span.timing?.timelineOut].some((point) =>
+      point?.kind === "word" ? selected.has(point.anchor.blockId) : point?.kind === "row_edge" && selected.has(point.blockId))) return true;
     const samePlace = places.find((part) => part.rows.some((row) => row.id === span.startRowId) && part.rows.some((row) => row.id === span.endRowId));
     if (samePlace) {
       const start = samePlace.rows.findIndex((row) => row.id === span.startRowId);
