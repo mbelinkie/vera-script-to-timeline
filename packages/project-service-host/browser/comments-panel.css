@@ -1,0 +1,19 @@
+.comments-panel { min-width:0; padding:14px; background:#fbfbfa; color:#252932; font:13px/1.5 system-ui,sans-serif; overflow-wrap:anywhere; }
+.comments-panel h2 { margin:0 0 12px; font-size:16px; }
+.comments-panel h3 { margin:12px 0 6px; font-size:13px; }
+.comments-panel button, .comments-panel textarea { font:inherit; color:inherit; background:white; border:1px solid #a4a9b0; border-radius:5px; padding:6px 9px; }
+.comments-panel button { cursor:pointer; }
+.comments-panel button:disabled { cursor:default; opacity:.65; }
+.comments-panel :focus-visible { outline:2px solid #8a661f; outline-offset:2px; }
+.comments-panel__group { margin-bottom:12px; }
+.comments-panel__group h3 button { width:100%; text-align:left; font-weight:600; }
+.comments-panel__thread { display:grid; width:100%; gap:4px; text-align:left; margin-bottom:6px; }
+.comments-panel__thread > span { display:block; font-weight:400; white-space:pre-wrap; }
+.comments-panel__status { color:#545d69; font-size:12px; }
+.comments-panel blockquote { border-left:3px solid #c49b50; margin:8px 0; padding:4px 8px; white-space:pre-wrap; }
+.comments-panel__messages { padding:0; list-style:none; }
+.comments-panel__messages li { border-bottom:1px solid #d8dce1; padding:8px 0; }
+.comments-panel__messages p { white-space:pre-wrap; margin:4px 0; }
+.comments-panel__composer { display:grid; gap:6px; margin:10px 0; }
+.comments-panel__composer label { display:grid; gap:4px; }
+.comments-panel__composer textarea { width:100%; box-sizing:border-box; resize:vertical; }
