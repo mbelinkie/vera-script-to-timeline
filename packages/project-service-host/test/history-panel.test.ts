@@ -118,6 +118,7 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
       await checkpoint.getByRole("button", { name: "Restore" }).click();
       await expect.poll(() => restores.length).toBe(1);
       expect(restores[0]).toEqual({ projectId, checkpointId: id(40) });
+      expect((await f.service.getDocument(projectId, f.editor)).revision).toBe(2);
       await page.getByRole("textbox").fill("Second cut");
       await page.getByRole("button", { name: "Save checkpoint" }).click();
       await expect.poll(() => page.locator("[data-checkpoint-id]").first().innerText()).toContain("Second cut");
@@ -127,6 +128,12 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
       await newest.getByRole("button", { name: "Approve", exact: true }).click();
       await expect.poll(() => newest.innerText()).toContain("Approved · " + f.owner.principalId);
       expect(await newest.getByRole("button", { name: "Approve", exact: true }).count()).toBe(0);
+      // Seed an already-restored revision through the real fixture service;
+      // this panel only reads its provenance and never performs a restore.
+      await f.service.restoreCheckpoint(projectId, f.editor, id(40), { expectedRevision: 2, clientMutationId: id(42) });
+      await set("producer", 3);
+      await page.getByRole("button", { name: "Refresh history" }).click();
+      await expect.poll(() => page.locator('[data-revision="3"]').innerText()).toContain("Restored checkpoint " + id(40) + " · revision 1");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect(errors).toEqual([]);
     } finally { await browser.close(); }
