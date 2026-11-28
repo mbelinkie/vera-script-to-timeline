@@ -96,14 +96,13 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
       const path = new URL(route.request().url()).pathname;
       if (path === "/comments-panel.js") await route.fulfill({ contentType: "text/javascript", body: source });
       else if (path === "/comments-panel.css") await route.fulfill({ contentType: "text/css", body: css });
-      else await route.fulfill({ contentType: "text/html", body: '<link rel="stylesheet" href="/comments-panel.css"><main style="width:340px" id="root"></main>' });
+      else await route.fulfill({ contentType: "text/html", body: '<link rel="stylesheet" href="/comments-panel.css"><main style="width:340px" id="root"></main><script type="module">import * as comments from "/comments-panel.js"; window.comments = comments;</script>' });
     });
     await page.goto("https://comments.test/");
-    await page.evaluate(async ({ data, author, viewer }) => {
+    await page.waitForFunction(() => !!(window as Harness).comments);
+    await page.evaluate(({ data, author, viewer }) => {
       const h = window as Harness;
-      const url = "/comments-panel.js";
-      const comments = await import(url) as Module;
-      h.comments = comments;
+      const comments = h.comments;
       h.actions = [];
       h.focused = [];
       h.panel = comments.mountCommentsPanel({
