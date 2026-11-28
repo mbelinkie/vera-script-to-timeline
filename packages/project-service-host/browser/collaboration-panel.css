@@ -38,7 +38,7 @@
   position: absolute;
   z-index: 95;
   top: 100%;
-  right: 0;
+  left: 0;
   width: max-content;
   max-width: min(260px, 90vw);
   box-sizing: border-box;

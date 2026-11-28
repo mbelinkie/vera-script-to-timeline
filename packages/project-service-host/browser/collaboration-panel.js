@@ -30,6 +30,7 @@ export function mountCollaborationPanel({ root, binding, labelForActor, labelFor
   const retry = node("button", "collaboration-panel__retry", "Try again");
   retry.type = "button";
   const presence = node("span", "collaboration-panel__presence");
+  presence.setAttribute("role", "group");
   const presenceText = node("span", "collaboration-panel__presence-text");
   presenceText.setAttribute("aria-hidden", "true");
   const reveal = node("span", "collaboration-panel__reveal");
@@ -55,6 +56,11 @@ export function mountCollaborationPanel({ root, binding, labelForActor, labelFor
     if (clipped) presence.tabIndex = 0;
     else presence.removeAttribute("tabindex");
     reveal.hidden = !(clipped && !dismissed && (hovered || focused));
+    if (!reveal.hidden) {
+      const left = presence.getBoundingClientRect().left;
+      const available = win.innerWidth - reveal.offsetWidth - 8;
+      reveal.style.left = `${Math.max(8, Math.min(left, available)) - left}px`;
+    }
   }
   function enter() { hovered = true; dismissed = false; measure(); }
   function leave() { hovered = false; measure(); }
@@ -74,12 +80,13 @@ export function mountCollaborationPanel({ root, binding, labelForActor, labelFor
   doc.addEventListener("keydown", key);
   const resize = new win.ResizeObserver(measure);
   resize.observe(presenceText);
+  win.addEventListener("resize", measure);
 
   function activityLabel(member, activity) {
     const name = label(member.actorId);
     const row = activity?.selectedRowId && labelForRow?.(activity.selectedRowId);
     const card = activity?.selectedCardId && labelForCard?.(activity.selectedCardId);
-    if (row && member.canEdit && activity.recentEdit) return name + " edited " + row + " · just now";
+    if (row && member.canEdit && activity.recentEdit === true) return name + " edited " + row + " · just now";
     if (row && member.canEdit && Number.isInteger(activity.cursor) && activity.cursor >= 0) {
       return name + " is editing " + row;
     }
@@ -146,6 +153,7 @@ export function mountCollaborationPanel({ root, binding, labelForActor, labelFor
       disposed = true;
       unsubscribe();
       resize.disconnect();
+      win.removeEventListener("resize", measure);
       doc.removeEventListener("keydown", key);
       presence.removeEventListener("mouseenter", enter);
       presence.removeEventListener("mouseleave", leave);

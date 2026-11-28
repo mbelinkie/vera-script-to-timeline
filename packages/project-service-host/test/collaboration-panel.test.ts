@@ -104,6 +104,14 @@ it("renders all sync states, verified presence, gated retry, responsive reveal a
     await presence.blur();
     await presence.focus();
     expect(await page.evaluate(() => (window as unknown as Harness).announcements)).toBe(count);
+    await presence.blur();
+    await page.locator("#before").hover();
+    await presence.hover();
+    expect(await tooltip.isVisible()).toBe(true);
+    await tooltip.hover();
+    expect(await tooltip.isVisible()).toBe(true);
+    await page.keyboard.press("Escape");
+    expect(await tooltip.isVisible()).toBe(false);
     await update({ presence: [{ actorId: "jonah", selectedRowId: "r1", recentEdit: true }] });
     expect(await presence.getAttribute("aria-label")).toBe("Jonah edited row 1 · just now");
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -114,6 +122,13 @@ it("renders all sync states, verified presence, gated retry, responsive reveal a
       presence: [{ actorId: "<b>unknown</b>", selectedCardId: "c1", selectedRowId: "r1", cursor: 1 }] });
     expect(await presence.getAttribute("aria-label")).toBe("<b>unknown</b> selected visual 1");
     expect(await page.locator("#root b").count()).toBe(0);
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await update({ roster: [{ actorId: "A very long collaborator name with no display name metadata", canEdit: false, awarenessClientIds: [3] }] });
+    await page.waitForFunction(() => document.querySelector(".collaboration-panel__presence")?.getAttribute("tabindex") === "0");
+    await presence.focus();
+    const longTip = (await tooltip.boundingBox())!;
+    expect(longTip.x).toBeGreaterThanOrEqual(0);
+    expect(longTip.x + longTip.width).toBeLessThanOrEqual(1024);
     await update({ roster: [] });
     expect(await presence.isVisible()).toBe(false);
     await page.evaluate(() => { const h = window as unknown as Harness; h.panel.destroy(); h.panel.destroy(); h.update({ state: "synced" }); });
