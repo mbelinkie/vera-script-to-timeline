@@ -5474,6 +5474,126 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])(
+    "#765 repositions saved music brackets on exact words and row edges at $width × $height", async (viewport) => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      try {
+        await page.setViewportSize(viewport);
+        const projectId = await createProject(page, origin, `Saved music ${viewport.width}`);
+        const seeded = multiNarrationDocumentFixture(projectId, ["one echo echo four", "five six seven eight"]);
+        const first = seeded.document.activeDraft.blocks.find(row => row.id === seeded.rowIds[0]);
+        const last = seeded.document.activeDraft.blocks.find(row => row.id === seeded.rowIds[1]);
+        const hold = seeded.document.activeDraft.blocks.find(row => row.type === "visual_only");
+        if (first?.type !== "narration" || last?.type !== "narration" || hold?.type !== "visual_only") throw new Error("missing fixture rows");
+        delete hold.additionalVisuals;
+        hold.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: 4000 };
+        seeded.document.activeDraft.blocks = [first, hold, last];
+        const pin = (row: typeof first, index: number, affinity: "before" | "after") => ({
+          kind: "word" as const, anchor: { blockId: row.id, tokenId: row.tokens[index]!.id,
+            quotedWord: row.tokens[index]!.value, affinity, anchorVersion: row.version },
+        });
+        const cueId = randomUUID();
+        const original = { id: cueId, startRowId: first.id, endRowId: last.id,
+          source: { mediaReferenceId: randomUUID(), artifactId: randomUUID(), artifactVersion: 1, contentHash: createHash("sha256").update("generated music").digest("hex") },
+          settings: { gainDb: -12, fadeOutMs: 500 },
+          timing: { sourceInFrame: 12, timelineIn: pin(first, 1, "before"), timelineOut: pin(last, 0, "after") } };
+        seeded.document.rowAudioSpans = [original];
+        await saveDocumentFixture(page, projectId, seeded.document);
+        await page.goto(`${origin}/?project=${projectId}`);
+        const start = page.locator(`[data-music-cue="${cueId}"][data-music-endpoint="timelineIn"]`);
+        const end = page.locator(`[data-music-cue="${cueId}"][data-music-endpoint="timelineOut"]`);
+        const editor = page.locator(`[data-row-id="${first.id}"] [data-narration-editor]`);
+        const load = async () => (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+        const cue = async () => (await load()).document.rowAudioSpans![0];
+        await expect.poll(() => start.getAttribute("data-music-token")).toBe(first.tokens[1]!.id);
+        await expect.poll(() => end.getAttribute("data-music-token")).toBe(last.tokens[0]!.id);
+        expect(await editorText(editor)).toBe(first.text);
+        await end.focus();
+        expect(await end.getAttribute("aria-label")).toContain("ends at after “five”");
+        await expect.poll(() => end.locator(".music-bracket-label").isVisible()).toBe(true);
+
+        const baseline = await load();
+        await start.focus();
+        await start.press("ArrowRight");
+        expect(await start.getAttribute("data-music-token")).toBe(first.tokens[2]!.id);
+        await start.press("Escape");
+        expect(await start.getAttribute("data-music-token")).toBe(first.tokens[1]!.id);
+        expect(await load()).toEqual(baseline);
+        expect(await page.locator("#undo-history li").count()).toBe(0);
+
+        // A real pointer move between two identical words chooses the exact token.
+        await start.scrollIntoViewIfNeeded();
+        const target = await editor.evaluate((node, offset) => {
+          const walker = node.ownerDocument.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+          let remaining = offset, text = walker.nextNode();
+          while (text && remaining > (text.textContent?.length ?? 0)) {
+            remaining -= text.textContent?.length ?? 0; text = walker.nextNode();
+          }
+          if (!text) throw new Error("missing pointer target");
+          const range = node.ownerDocument.createRange();
+          range.setStart(text, remaining); range.collapse(true);
+          const rect = range.getBoundingClientRect();
+          return { x: rect.left, y: rect.top + rect.height / 2 };
+        }, first.tokens[2]!.startOffset);
+        const bounds = await start.boundingBox();
+        if (!bounds) throw new Error("missing music bracket");
+        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(target.x, target.y, { steps: 10 });
+        await page.mouse.up();
+        await expect.poll(cue).toEqual({ ...original, timing: { ...original.timing, timelineIn: pin(first, 2, "before") } });
+        expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Adjust music bracket"]);
+        await page.getByRole("button", { name: "Undo Adjust music bracket" }).click();
+        await expect.poll(cue).toEqual(original);
+        await expect.poll(() => start.getAttribute("data-music-token")).toBe(first.tokens[1]!.id);
+
+        // The wordless row is between the two narration rows in authored order.
+        await start.focus();
+        for (let i = 0; i < 3; i++) await start.press("ArrowRight");
+        expect(await start.getAttribute("data-music-row")).toBe(hold.id);
+        expect(await start.getAttribute("data-music-affinity")).toBe("start");
+        await start.press("Enter");
+        const inPoint = { kind: "row_edge", blockId: hold.id, edge: "start" };
+        await expect.poll(cue).toMatchObject({ timing: { timelineIn: inPoint } });
+        await expect.poll(() => start.getAttribute("data-music-row")).toBe(hold.id);
+        await end.focus();
+        await end.press("ArrowLeft");
+        expect(await end.getAttribute("data-music-row")).toBe(hold.id);
+        expect(await end.getAttribute("data-music-affinity")).toBe("end");
+        await end.press("Enter");
+        const outPoint = { kind: "row_edge", blockId: hold.id, edge: "end" };
+        const expected = { ...original, timing: { ...original.timing, timelineIn: inPoint, timelineOut: outPoint } };
+        await expect.poll(cue).toEqual(expected);
+        const saved = await load();
+        expect(saved.document.activeDraft.blocks).toEqual(seeded.document.activeDraft.blocks);
+        expect(await page.locator("#undo-history li").count()).toBe(2);
+        await expect.poll(() => end.getAttribute("data-music-row")).toBe(hold.id);
+        await end.focus();
+        await end.press("ArrowLeft"); // same start boundary is a zero-length cue
+        await end.press("Enter");
+        await expect.poll(() => page.locator("#save-status").textContent()).toContain("start must precede its end");
+        expect(await load()).toEqual(saved);
+        expect(await page.locator("#undo-history li").count()).toBe(2);
+        await page.reload();
+        await expect.poll(() => start.getAttribute("data-music-row")).toBe(hold.id);
+        await expect.poll(() => end.getAttribute("data-music-row")).toBe(hold.id);
+        expect(await start.getAttribute("data-music-affinity")).toBe("start");
+        expect(await end.getAttribute("data-music-affinity")).toBe("end");
+        expect(await cue()).toEqual(expected);
+
+        // A deleted word anchor remains a review state, never an adjacent marker.
+        const stale = structuredClone(saved.document);
+        stale.rowAudioSpans![0]!.timing = { ...original.timing,
+          timelineIn: { ...pin(first, 1, "before"), anchor: { ...pin(first, 1, "before").anchor, tokenId: randomUUID() } } };
+        await saveDocumentFixture(page, projectId, stale);
+        await page.reload();
+        await expect.poll(() => page.locator(".music-bracket-review").textContent()).toContain("start anchor needs review");
+        expect(await start.count()).toBe(0);
+        expect(await cue()).toEqual(stale.rowAudioSpans![0]);
+      } finally { await page.close(); }
+    }, 90_000);
+
   it("adjusts Folded Letter brackets by keyboard and pointer; whole OC crosses in one Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

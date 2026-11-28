@@ -615,6 +615,186 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
   };
 }
 
+/** Saved music pins are an overlay over the whole Draft, not narration text. */
+export function mountMusicBrackets(root, model, command) {
+  const spans = model.rowAudioSpans ?? [];
+  if (!spans.length) return () => undefined;
+  const doc = root.ownerDocument;
+  const overlay = element(doc, "div", "music-bracket-overlay");
+  overlay.contentEditable = "false";
+  const review = element(doc, "div", "music-bracket-review");
+  review.setAttribute("role", "status");
+  const handles = [];
+  const targets = [];
+  const rows = new Map([...root.querySelectorAll(".script-row[data-row-id]")].map(row => [row.dataset.rowId, row]));
+  const samePoint = (a, b) => a?.kind === b?.kind && (a?.kind === "word"
+    ? a.anchor.blockId === b.anchor.blockId && a.anchor.tokenId === b.anchor.tokenId &&
+      a.anchor.affinity === b.anchor.affinity && a.anchor.quotedWord === b.anchor.quotedWord
+    : a?.kind === "row_edge" && a.blockId === b.blockId && a.edge === b.edge);
+  for (const row of model.activeDraft.blocks) {
+    const cell = rows.get(row.id)?.querySelector(".narration-cell");
+    if (!cell) continue;
+    const words = row.type === "narration" && row.state === "active" && !row.plainDirection
+      ? row.tokens.filter(token => token.spoken !== false) : [];
+    const editor = cell.querySelector("[data-narration-editor], .narration-text");
+    if (row.type !== "visual_only" && !words.length) continue;
+    const label = words.length ? `“${words[0].value} … ${words.at(-1).value}”`
+      : `“${rows.get(row.id).querySelector(".visual-card__label")?.textContent || "Visual-only row"}”`;
+    function wordBox(offset) {
+      if (!editor || editor.textContent !== row.text) return null;
+      const point = pointAtTextOffset(editor, offset);
+      const range = doc.createRange();
+      range.setStart(point.node, point.offset);
+      range.collapse(true);
+      const box = range.getBoundingClientRect();
+      return box.height ? { x: box.left, y: box.top, height: box.height } : null;
+    }
+    for (const edge of ["start", "end"]) {
+      targets.push({ point: { kind: "row_edge", blockId: row.id, edge }, cell,
+        label: `the ${edge} of ${label}`, box: () => {
+          if (words.length) return wordBox(edge === "start" ? words[0].startOffset : words.at(-1).endOffset);
+          const rect = cell.getBoundingClientRect();
+          return { x: edge === "start" ? rect.left + 24 : rect.right - 24, y: rect.top + 8, height: 24 };
+        }, wordless: !words.length });
+      // Row edge targets precede or follow the word targets in document order.
+      if (edge === "start") for (const token of words) {
+        for (const affinity of ["before", "after"]) {
+          if (row.text.slice(token.startOffset, token.endOffset) !== token.value) continue;
+          targets.push({ point: { kind: "word", anchor: { blockId: row.id, tokenId: token.id,
+            quotedWord: token.value, affinity, anchorVersion: row.version } }, cell,
+          label: `${affinity} “${token.value}” in ${label}`, box: () => wordBox(affinity === "before" ? token.startOffset : token.endOffset) });
+        }
+      }
+    }
+  }
+  const candidates = handle => targets.filter(target => target.wordless ||
+    target.point.kind === "word" && target.point.anchor.affinity === (handle.endpoint === "timelineIn" ? "before" : "after") ||
+    samePoint(target.point, handle.saved.point));
+  function position(handle) {
+    const { button, pending, saved } = handle;
+    const target = pending ?? saved;
+    const box = target.box();
+    const frame = overlay.getBoundingClientRect();
+    const scale = overlay.offsetWidth ? frame.width / overlay.offsetWidth : 1;
+    if (!box || !scale) { button.hidden = true; return; }
+    button.hidden = false;
+    button.style.left = `${(box.x - frame.left) / scale}px`;
+    // Separate the music markers vertically from the visual range brackets.
+    button.style.top = `${(box.y - frame.top + box.height - 1) / scale}px`;
+    button.dataset.pending = String(Boolean(pending));
+    button.dataset.musicRow = target.point.kind === "word" ? target.point.anchor.blockId : target.point.blockId;
+    button.dataset.musicToken = target.point.kind === "word" ? target.point.anchor.tokenId : "";
+    button.dataset.musicAffinity = target.point.kind === "word" ? target.point.anchor.affinity : target.point.edge;
+    button.setAttribute("aria-label", `${handle.name} ${handle.endpoint === "timelineIn" ? "starts" : "ends"} at ${target.label}`);
+    button.querySelector(".music-bracket-label").textContent = button.getAttribute("aria-label");
+  }
+  const positions = () => handles.forEach(position);
+  function reset(handle) {
+    handle.pending = null;
+    handle.drag = null;
+    position(handle);
+  }
+  function commit(handle) {
+    const next = handle.pending;
+    reset(handle);
+    if (!next || samePoint(next.point, handle.saved.point)) return;
+    void command({ kind: "move_music_cue_endpoint", cueId: handle.cueId, endpoint: handle.endpoint,
+      point: next.point, expectedRevision: model.rowEditRevision ?? 0 }, "Adjust music bracket");
+  }
+  function nearest(handle, event) {
+    let best = null, distance = Infinity;
+    for (const target of candidates(handle)) {
+      const cell = target.cell.getBoundingClientRect();
+      if (event.clientY < cell.top || event.clientY > cell.bottom ||
+          event.clientX < cell.left || event.clientX > cell.right) continue;
+      const box = target.box();
+      if (!box) continue;
+      const score = (event.clientX - box.x) ** 2 + 4 * (event.clientY - box.y - box.height / 2) ** 2;
+      if (score < distance) { best = target; distance = score; }
+    }
+    return best;
+  }
+  spans.forEach((span, index) => {
+    // The saved source contract contains IDs/hash only, not a display filename.
+    const name = spans.length === 1 ? "Music cue" : `Music cue ${index + 1}`;
+    const timing = span.timing ?? { timelineIn: { kind: "row_edge", blockId: span.startRowId, edge: "start" },
+      timelineOut: { kind: "row_edge", blockId: span.endRowId, edge: "end" } };
+    for (const endpoint of ["timelineIn", "timelineOut"]) {
+      const point = timing[endpoint];
+      if (!point || point.kind === "frame") continue; // no authored word/row anchor to display
+      const saved = targets.find(target => samePoint(target.point, point));
+      if (!saved) {
+        review.append(element(doc, "p", "", `${name}: ${endpoint === "timelineIn" ? "start" : "end"} anchor needs review; the saved position is no longer current.`));
+        continue;
+      }
+      const button = element(doc, "button", `music-bracket music-bracket--${endpoint}`, endpoint === "timelineIn" ? "⌈♪" : "♪⌋");
+      button.type = "button";
+      button.dataset.musicCue = span.id;
+      button.dataset.musicEndpoint = endpoint;
+      button.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight Home End Enter Escape");
+      button.append(element(doc, "span", "music-bracket-label"));
+      const handle = { button, saved, name, endpoint, cueId: span.id, pending: null, drag: null };
+      handles.push(handle);
+      overlay.append(button);
+      button.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        event.preventDefault(); event.stopPropagation();
+        reset(handle);
+        button.focus();
+        handle.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+        button.setPointerCapture(event.pointerId);
+      });
+      button.addEventListener("pointermove", event => {
+        if (handle.drag?.id !== event.pointerId) return;
+        if (Math.hypot(event.clientX - handle.drag.x, event.clientY - handle.drag.y) < 3 && !handle.drag.moved) return;
+        handle.drag.moved = true;
+        handle.pending = nearest(handle, event);
+        position(handle);
+      });
+      button.addEventListener("pointerup", event => {
+        if (handle.drag?.id !== event.pointerId) return;
+        if (handle.drag.moved) handle.pending = nearest(handle, event);
+        handle.drag = null;
+        if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+        commit(handle);
+      });
+      button.addEventListener("pointercancel", () => reset(handle));
+      button.addEventListener("lostpointercapture", () => { if (handle.drag) reset(handle); });
+      button.addEventListener("keydown", event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End", "Enter", "Escape"].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        if (event.key === "Escape") { reset(handle); return; }
+        if (event.key === "Enter") { if (!handle.drag) commit(handle); return; }
+        if (handle.drag) return;
+        const list = candidates(handle);
+        const index = list.indexOf(handle.pending ?? saved);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? list.length - 1 :
+          Math.min(list.length - 1, Math.max(0, index + (event.key === "ArrowLeft" ? -1 : 1)));
+        handle.pending = list[next];
+        position(handle);
+      });
+      button.addEventListener("blur", () => { if (!handle.drag) reset(handle); });
+    }
+  });
+  if (review.childElementCount) root.append(review);
+  root.append(overlay);
+  const observer = new ResizeObserver(positions);
+  observer.observe(root);
+  for (const cell of new Set(targets.map(target => target.cell))) observer.observe(cell);
+  const mutations = new MutationObserver(positions);
+  for (const editor of root.querySelectorAll("[data-narration-editor]")) mutations.observe(editor, { childList: true, characterData: true, subtree: true });
+  const cancel = () => handles.forEach(reset);
+  doc.defaultView?.addEventListener("resize", positions);
+  doc.defaultView?.addEventListener("blur", cancel);
+  positions();
+  return () => {
+    observer.disconnect(); mutations.disconnect();
+    doc.defaultView?.removeEventListener("resize", positions);
+    doc.defaultView?.removeEventListener("blur", cancel);
+    overlay.remove(); review.remove();
+  };
+}
+
 /** Reselect is a local proposal only; it never changes the editable text or document. */
 function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, commit, preview) {
   const doc = editor.ownerDocument;
