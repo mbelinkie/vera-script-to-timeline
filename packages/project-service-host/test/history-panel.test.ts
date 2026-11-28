@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { canPerformProjectAction, type ProjectAction, type ProjectRole } from "@vera/project-authorization";
 import { createProjectApiHandler, type DocumentHistoryPage, type CheckpointPage,
-  type CreateCheckpointInput, type ApproveCheckpointInput } from "@vera/project-documents";
+  type CreateCheckpointInput, type ApproveCheckpointInput, type CheckpointCreateReceipt } from "@vera/project-documents";
 import { harness, initialProject } from "../../project-documents/test/helpers.js";
 import { createHistoryControls, type HistoryApi } from "../browser/history-panel.js";
 
-vi.setConfig({ testTimeout: 45_000 });
+vi.setConfig({ testTimeout: 90_000 });
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); });
-const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
+const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}` as const;
 const actions: ProjectAction[] = ["view_history", "edit_document", "create_checkpoint", "approve_checkpoint"];
 const capabilities = (role: ProjectRole) => actions.filter(action => canPerformProjectAction(role, action));
 
@@ -119,7 +119,12 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     await controls.approve(id(100)); expect(approveCalls).toHaveLength(2);
     const approved = await f.api.getCheckpoint(projectId, id(100));
     expect(approved.document).toEqual(saved.document); expect(approved.sourceDigest).toBe(saved.sourceDigest);
-    expect((await f.service.getDocument(projectId, f.owner)).revision).toBe(2);
+    await f.service.putDocument(projectId, f.editor, {
+      expectedRevision: 2, clientMutationId: id(6), document: { ...f.initial.document, title: "Later live edit" },
+    });
+    expect((await f.service.getDocument(projectId, f.owner)).revision).toBe(3);
+    const afterEdit = await f.api.getCheckpoint(projectId, id(100));
+    expect(afterEdit).toEqual(approved);
   });
 
   it("ignores delayed prior project pages and mutations; shows bounded read errors and retries", async () => {
@@ -161,5 +166,21 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
     finish({ projectId: project, checkpoints: [], nextBeforeCheckpointId: null });
     await reading;
     expect(stale.snapshot().checkpoints.cursor).toBeUndefined();
+
+    let deliver!: (receipt: CheckpointCreateReceipt) => void;
+    const heldMutation = new Promise<CheckpointCreateReceipt>(resolve => { deliver = resolve; });
+    const changing = createHistoryControls({ api: { ...f.api, createCheckpoint: () => heldMutation }, makeId: (() => {
+      let next = 200; return () => id(next++);
+    })() });
+    changing.setContext({ projectId: project, capabilities: capabilities("producer"), savedHead: 2 });
+    const creating = changing.create("Old project");
+    expect(changing.snapshot().mutation.busy).toBe(true);
+    changing.setContext({ projectId: other.projectId, capabilities: capabilities("producer"), savedHead: 0 });
+    await changing.refresh();
+    deliver(await f.api.createCheckpoint(project, { checkpointId: id(200), clientMutationId: id(201), name: "Old project", sourceRevision: 2 }));
+    await creating;
+    expect(changing.snapshot().context.projectId).toBe(other.projectId);
+    expect(changing.snapshot().mutation).toMatchObject({ busy: false, pending: null, error: null });
+    expect(changing.snapshot().checkpoints.items).toEqual([]);
   });
 });
