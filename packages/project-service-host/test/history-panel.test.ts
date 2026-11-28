@@ -65,11 +65,11 @@ describe("history controls using stored, attributed HTTP fixtures", () => {
       const page = await browser.newPage({ viewport: { width: 380, height: 800 } });
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
-      await page.exposeFunction("listRevisions", f.api.listDocumentRevisions);
-      await page.exposeFunction("listCheckpoints", f.api.listCheckpoints);
-      await page.exposeFunction("getCheckpoint", f.api.getCheckpoint);
-      await page.exposeFunction("createCheckpoint", f.api.createCheckpoint);
-      await page.exposeFunction("approveCheckpoint", f.api.approveCheckpoint);
+      await page.exposeFunction("listRevisions", f.api.listDocumentRevisions.bind(f.api));
+      await page.exposeFunction("listCheckpoints", f.api.listCheckpoints.bind(f.api));
+      await page.exposeFunction("getCheckpoint", f.api.getCheckpoint.bind(f.api));
+      await page.exposeFunction("createCheckpoint", f.api.createCheckpoint.bind(f.api));
+      await page.exposeFunction("approveCheckpoint", f.api.approveCheckpoint.bind(f.api));
       const selections: unknown[] = [], restores: unknown[] = [];
       await page.exposeFunction("recordComparison", (selection: unknown) => { selections.push(selection); });
       await page.exposeFunction("recordRestore", (selection: unknown) => { restores.push(selection); });
