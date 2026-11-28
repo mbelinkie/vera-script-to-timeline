@@ -99,9 +99,9 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
       else await route.fulfill({ contentType: "text/html", body: '<link rel="stylesheet" href="/comments-panel.css"><main style="width:340px" id="root"></main><script type="module">import * as comments from "/comments-panel.js"; window.comments = comments;</script>' });
     });
     await page.goto("https://comments.test/");
-    await page.waitForFunction(() => !!(window as Harness).comments);
+    await page.waitForFunction(() => !!(window as unknown as Harness).comments);
     await page.evaluate(({ data, author, viewer }) => {
-      const h = window as Harness;
+      const h = window as unknown as Harness;
       const comments = h.comments;
       h.actions = [];
       h.focused = [];
@@ -120,7 +120,7 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
     const card = page.locator('[data-comment-thread="thread-1"]');
     await card.focus();
     await page.keyboard.press("Enter");
-    expect(await page.evaluate(() => (window as Harness).focused)).toEqual(["thread-1"]);
+    expect(await page.evaluate(() => (window as unknown as Harness).focused)).toEqual(["thread-1"]);
     expect(await page.getByLabel("Reply").evaluate(el => el === document.activeElement)).toBe(true);
     expect(await page.getByText("Alex", { exact: true }).count()).toBe(1);
     expect(await page.getByText("Jonah", { exact: true }).count()).toBe(1);
@@ -130,7 +130,7 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
     expect(await page.locator("[data-comments-action-slot]").count()).toBe(1);
     await page.getByLabel("Reply").fill("saved draft");
     await page.getByRole("button", { name: "Post reply" }).click();
-    expect(await page.evaluate(() => (window as Harness).actions)).toEqual([{ kind: "reply", threadId: "thread-1", body: "saved draft" }]);
+    expect(await page.evaluate(() => (window as unknown as Harness).actions)).toEqual([{ kind: "reply", threadId: "thread-1", body: "saved draft" }]);
     await page.keyboard.press("Escape");
     expect(await card.evaluate(el => el === document.activeElement)).toBe(true);
     await page.locator('[data-comment-thread="thread-0"]').click();
@@ -140,19 +140,19 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
     expect(await page.getByLabel("Reply").inputValue()).toBe("saved draft");
     await page.getByLabel("Reply").fill("newer draft");
     await page.evaluate(() => {
-      const h = window as Harness;
+      const h = window as unknown as Harness;
       h.panel.acknowledgeDraft(h.actions[0]!);
     });
     expect(await page.getByLabel("Reply").inputValue()).toBe("newer draft");
-    await page.evaluate(() => (window as Harness).panel.update({ error: true }));
+    await page.evaluate(() => (window as unknown as Harness).panel.update({ error: true }));
     expect(await page.getByRole("status").innerText()).toContain("unavailable");
     expect(await page.getByLabel("Reply").count()).toBe(0);
-    await page.evaluate(() => (window as Harness).panel.update({ error: false }));
+    await page.evaluate(() => (window as unknown as Harness).panel.update({ error: false }));
     expect(await page.getByLabel("Reply").inputValue()).toBe("newer draft");
     await page.getByRole("button", { name: "Back to all comments" }).click();
 
     expect(await page.evaluate(({ view, blockId, cardId }) => {
-      const m = (window as Harness).comments;
+      const m = (window as unknown as Harness).comments;
       return [
         m.cardCommentCount({ ...view, threads: [...view.threads, view.threads[1]!] }, blockId, cardId, true),
         m.cardCommentCount(view, blockId, cardId, false),
@@ -160,13 +160,13 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
       ];
     }, data)).toEqual([2, 1, "one two three four five six seven eight"]);
 
-    expect(await page.evaluate(anchors => (window as Harness).panel.beginCreate(anchors[0]!), data.anchors)).toBe(true);
+    expect(await page.evaluate(anchors => (window as unknown as Harness).panel.beginCreate(anchors[0]!), data.anchors)).toBe(true);
     await page.getByLabel("New comment").fill("viewer creates");
     await page.getByRole("button", { name: "Post", exact: true }).click();
-    expect(await page.evaluate(() => (window as Harness).actions.at(-1))).toEqual({ kind: "create", anchor: data.anchors[0], body: "viewer creates" });
+    expect(await page.evaluate(() => (window as unknown as Harness).actions.at(-1))).toEqual({ kind: "create", anchor: data.anchors[0], body: "viewer creates" });
     await page.keyboard.press("Escape");
-    expect(await page.evaluate(anchors => (window as Harness).panel.beginCreate(anchors[3]!), data.anchors)).toBe(false);
-    await page.evaluate(stale => (window as Harness).panel.update({ view: stale, canEdit: true }), data.stale);
+    expect(await page.evaluate(anchors => (window as unknown as Harness).panel.beginCreate(anchors[3]!), data.anchors)).toBe(false);
+    await page.evaluate(stale => (window as unknown as Harness).panel.update({ view: stale, canEdit: true }), data.stale);
     const orphaned = page.getByRole("button", { name: "Orphaned comments (1)" });
     expect(await orphaned.getAttribute("aria-expanded")).toBe("false");
     await orphaned.click();
@@ -174,21 +174,21 @@ it("projects real anchored threads, roles, draft retention, counts and keyboard 
     expect(await page.getByText("Orphaned · target unavailable", { exact: true }).count()).toBe(1);
     expect(await page.getByRole("button", { name: "Go to target" }).count()).toBe(0);
     await page.getByRole("button", { name: "Reattach…" }).click();
-    expect(await page.evaluate(() => (window as Harness).actions.at(-1))).toEqual({ kind: "reattach", threadId: "thread-3" });
+    expect(await page.evaluate(() => (window as unknown as Harness).actions.at(-1))).toEqual({ kind: "reattach", threadId: "thread-3" });
     await page.getByRole("button", { name: "Resolve", exact: true }).click();
-    expect(await page.evaluate(() => (window as Harness).actions.at(-1))).toEqual({ kind: "resolve", threadId: "thread-3" });
-    expect(await page.evaluate(() => (window as Harness).focused.includes("thread-3"))).toBe(false);
+    expect(await page.evaluate(() => (window as unknown as Harness).actions.at(-1))).toEqual({ kind: "resolve", threadId: "thread-3" });
+    expect(await page.evaluate(() => (window as unknown as Harness).focused.includes("thread-3"))).toBe(false);
     await page.getByRole("button", { name: "Back to all comments" }).click();
     await page.getByRole("button", { name: "Resolved (1)" }).click();
     await page.locator('[data-comment-thread="thread-4"]').click();
     await page.getByRole("button", { name: "Reopen" }).click();
-    expect(await page.evaluate(() => (window as Harness).actions.at(-1))).toEqual({ kind: "reopen", threadId: "thread-4" });
+    expect(await page.evaluate(() => (window as unknown as Harness).actions.at(-1))).toEqual({ kind: "reopen", threadId: "thread-4" });
 
-    await page.evaluate(view => (window as Harness).panel.update({ view, labelForAnchor: () => null, canComment: false, canEdit: false }), data.view);
+    await page.evaluate(view => (window as unknown as Harness).panel.update({ view, labelForAnchor: () => null, canComment: false, canEdit: false }), data.view);
     expect(await page.getByText("Orphaned · target unavailable", { exact: false }).count()).toBe(1);
     expect(await page.getByRole("button", { name: "Go to target" }).count()).toBe(0);
     expect(await page.getByLabel("Reply").count()).toBe(0);
-    await page.evaluate(view => (window as Harness).panel.update({ view: { ...view, threads: [] } }), data.view);
+    await page.evaluate(view => (window as unknown as Harness).panel.update({ view: { ...view, threads: [] } }), data.view);
     expect(await page.getByText("No open discussions.").count()).toBe(1);
   } finally { await browser.close(); }
 }, 30_000);
